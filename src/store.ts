@@ -6,8 +6,11 @@ import { applyCommand, runQuickRoll, type ApplyResult, type Command } from './ru
 import { DEFAULT_MODEL } from './config';
 import { setLang, T, type Lang } from './i18n';
 
+export type Theme = 'basic' | 'green' | 'gray' | 'blue';
+
 export interface Settings {
   lang: Lang;
+  theme: Theme;
   /** Tocar una característica/habilidad de la hoja tira el dado (desactivado por defecto) */
   tapToRoll: boolean;
   apiKey: string;
@@ -51,7 +54,7 @@ const detected: Lang = typeof navigator !== 'undefined' && !navigator.language.t
 setLang(detected);
 const first = sampleCharacter();
 
-const defaultSettings: Settings = { lang: detected, tapToRoll: false, apiKey: '', model: DEFAULT_MODEL, useAiFallback: true, speechLang: 'auto' };
+const defaultSettings: Settings = { lang: detected, theme: 'basic', tapToRoll: false, apiKey: '', model: DEFAULT_MODEL, useAiFallback: true, speechLang: 'auto' };
 
 export const speechLangFor = (s: Settings) => (s.speechLang === 'auto' ? (s.lang === 'es' ? 'es-ES' : 'en-US') : s.speechLang);
 

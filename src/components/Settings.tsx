@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore } from '../store';
+import { useStore, type Theme } from '../store';
 import { createCharacter, normalizeCharacter, uid } from '../rules/factory';
 import { ABILITIES, CLASSES, SKILLS, SPECIES, classById } from '../rules/srd';
 import { fmt, mod } from '../rules/calc';
@@ -33,6 +33,17 @@ export function SettingsTab() {
           <button role="radio" aria-checked={settings.lang === 'en'} className={settings.lang === 'en' ? 'on' : ''} onClick={() => setSettings({ lang: 'en' })}>🇬🇧 English</button>
         </div>
         <p className="hint">{T('Cambia toda la app: interfaz, reglas, avisos y el asistente. Lo que hayas escrito en tus fichas y notas no se traduce.', 'Changes the whole app: interface, rules, messages and the assistant. What you wrote in your sheets and notes isn’t translated.')}</p>
+      </Section>
+
+      <Section title={T('Colores', 'Colors')}>
+        <div className="themes" role="radiogroup" aria-label={T('Colores', 'Colors')}>
+          {THEMES.map((th) => (
+            <button key={th.id} role="radio" aria-checked={settings.theme === th.id} className={`theme-opt ${settings.theme === th.id ? 'on' : ''}`} onClick={() => setSettings({ theme: th.id })}>
+              <span className="theme-swatch">{th.colors.map((col) => <span key={col} style={{ background: col }} />)}</span>
+              {settings.theme === th.id ? '✓ ' : ''}{L(th.name)}
+            </button>
+          ))}
+        </div>
       </Section>
 
       <Section title={T('Hoja de personaje', 'Character sheet')}>
@@ -127,6 +138,13 @@ export function SettingsTab() {
     </div>
   );
 }
+
+const THEMES: { id: Theme; name: { es: string; en: string }; colors: string[] }[] = [
+  { id: 'basic', name: { es: 'Básico', en: 'Basic' }, colors: ['#15110f', '#d4a14a', '#efe2c4'] },
+  { id: 'green', name: { es: 'Verdoso', en: 'Green' }, colors: ['#0e1611', '#79bf6f', '#e2ecdb'] },
+  { id: 'gray', name: { es: 'Grises', en: 'Grayscale' }, colors: ['#121212', '#d0d0d0', '#e6e6e6'] },
+  { id: 'blue', name: { es: 'Azules', en: 'Blue' }, colors: ['#0c1320', '#5d9df0', '#dfe8f4'] },
+];
 
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 

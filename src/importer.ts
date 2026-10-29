@@ -29,16 +29,19 @@ export async function imageFileToBase64(file: Blob, maxSide = MAX_SIDE, quality 
 
 const imageBlock = (data: string): ImportBlock => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } });
 
-/** Renderiza cada página del PDF (con los valores del formulario) y extrae los campos rellenos con su posición */
-async function pdfToBlocks(file: File): Promise<ImportBlock[]> {
+async function loadPdf(file: File) {
   const pdfjs = await import('pdfjs-dist');
   const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-  const blocks: ImportBlock[] = [];
-  const fields: string[] = [];
-  const pages = Math.min(doc.numPages, 8);
-  for (let i = 1; i <= pages; i++) {
+  return { pdfjs, doc };
+}
+
+/** Pinta las páginas del PDF (con los valores del formulario) en canvas */
+async function renderPdfPages(file: File): Promise<HTMLCanvasElement[]> {
+  const { pdfjs, doc } = await loadPdf(file);
+  const canvases: HTMLCanvasElement[] = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 8); i++) {
     const page = await doc.getPage(i);
     const base = page.getViewport({ scale: 1 });
     const viewport = page.getViewport({ scale: Math.min(3, MAX_SIDE / Math.max(base.width, base.height)) });
@@ -49,20 +52,20 @@ async function pdfToBlocks(file: File): Promise<ImportBlock[]> {
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvas, canvasContext: ctx, viewport, annotationMode: pdfjs.AnnotationMode.ENABLE_STORAGE }).promise;
-    blocks.push(imageBlock(canvasToJpegBase64(canvas)));
-    const annotations = await page.getAnnotations();
-    for (const a of annotations as { fieldType?: string; fieldValue?: unknown; rect: number[] }[]) {
-      if (!a.fieldType || a.fieldValue == null || a.fieldValue === '' || a.fieldValue === 'Off') continue;
-      const value = a.fieldType === 'Btn' ? '[X] (checked)' : String(a.fieldValue).trim();
-      if (!value) continue;
-      // Coordenadas en puntos desde la esquina superior izquierda de la página
-      const x = Math.round(a.rect[0]);
-      const y = Math.round(base.height - a.rect[3]);
-      fields.push(`page ${i} (x=${x}, y=${y}): ${value}`);
-    }
+    canvases.push(canvas);
   }
+  return canvases;
+}
+
+/** Para Claude: imágenes de las páginas y los valores del formulario con su posición */
+async function pdfToBlocks(file: File): Promise<ImportBlock[]> {
+  const blocks: ImportBlock[] = (await renderPdfPages(file)).map((cv) => imageBlock(canvasToJpegBase64(cv)));
+  const { doc } = await loadPdf(file);
+  const { readFormFields } = await import('./offline/pdfForm');
+  const fields = (await readFormFields(doc)).filter((f) => f.value || f.checked);
   if (fields.length) {
-    blocks.push({ type: 'text', text: `PDF form field values (page size ${Math.round((await doc.getPage(1)).getViewport({ scale: 1 }).width)}×${Math.round((await doc.getPage(1)).getViewport({ scale: 1 }).height)} pt, origin top-left):\n${fields.join('\n')}` });
+    const lines = fields.map((f) => `page ${f.page} (x=${Math.round(f.cx * 1000) / 10}%, y=${Math.round(f.cy * 1000) / 10}%): ${f.kind === 'check' ? '[X] (checked)' : f.value}`);
+    blocks.push({ type: 'text', text: `PDF form field values (positions as % of the page, origin top-left):\n${lines.join('\n')}` });
   }
   return blocks;
 }
@@ -163,7 +166,7 @@ export function sheetToCharacter(s: ImportedSheet, base?: Character): Character 
   } else {
     const slots = s.spellSlots.slice(0, 9).map((n) => Math.max(0, Math.round(n) || 0));
     while (slots.length && slots[slots.length - 1] === 0) slots.pop();
-    c.slots = slots.map((n) => ({ max: n, used: 0 }));
+    c.slots = slots.map((n, i) => ({ max: n, used: Math.min(n, s.spellSlotsUsed?.[i] ?? 0) }));
   }
   c.spells = s.spells.filter((x) => x.name.trim()).map((x) => ({ id: uid(), name: x.name.trim(), level: Math.max(0, Math.min(9, x.level || 0)), prepared: true, castingTime: x.castingTime, range: x.range, concentration: x.concentration, ritual: x.ritual, material: x.material, notes: x.notes }));
   c.features = s.classFeatures.filter((x) => x.name.trim() || x.text.trim()).map((x) => ({ id: uid(), name: x.name, text: x.text }));
@@ -189,3 +192,69 @@ export const sheetSummary = (c: Character) => ({
   mods: ABILITIES.map((a) => `${a.toUpperCase()} ${c.abilities[a]} (${mod(c.abilities[a]) >= 0 ? '+' : ''}${mod(c.abilities[a])})`),
   skills: Object.values(c.skillProf).filter(Boolean).length,
 });
+
+// ---------- Importación sin IA ----------
+
+export type OfflineMethod = 'pdf-form' | 'ocr' | 'text';
+
+/**
+ * Lee la ficha sin ninguna API: formularios PDF por posición, Word/texto con un intérprete
+ * de etiquetas y fotos o PDF escaneados con OCR (Tesseract.js) dentro del propio móvil.
+ */
+export async function importOffline(files: File[], pasted: string, onProgress?: (msg: string, fraction?: number) => void): Promise<{ sheet: ImportedSheet; method: OfflineMethod }> {
+  const { emptySheet } = await import('./offline/sheetUtils');
+  const { parseSheetText } = await import('./offline/textParse');
+  let sheet = emptySheet();
+  let method: OfflineMethod = 'text';
+  const images: (HTMLCanvasElement | Blob)[] = [];
+  const texts: string[] = [];
+
+  for (const file of files) {
+    const name = file.name.toLowerCase();
+    if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+      onProgress?.(T('Leyendo el PDF…', 'Reading the PDF…'));
+      const { doc } = await loadPdf(file);
+      const form = await import('./offline/pdfForm');
+      const fields = await form.readFormFields(doc);
+      const filled = fields.filter((f) => f.value || f.checked);
+      if (filled.length && form.looksLikeOfficial2024(fields)) {
+        sheet = form.mapOfficial2024(fields);
+        method = 'pdf-form';
+        continue;
+      }
+      const byName = filled.length ? form.mapByFieldNames(fields) : null;
+      if (byName) {
+        sheet = byName;
+        method = 'pdf-form';
+        continue;
+      }
+      // PDF escaneado o sin campos: lo pasamos por OCR
+      images.push(...(await renderPdfPages(file)));
+    } else if (name.endsWith('.docx') || file.type.includes('wordprocessingml')) {
+      const mammoth = await import('mammoth');
+      texts.push((await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value);
+    } else if (file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|gif|bmp)$/.test(name)) {
+      images.push(file);
+    } else if (file.type.startsWith('text/') || name.endsWith('.txt')) {
+      texts.push(await file.text());
+    } else if (name.endsWith('.doc')) {
+      throw new Error(T('Los archivos .doc antiguos no se pueden leer; guárdalo como .docx o PDF.', 'Old .doc files can’t be read; save it as .docx or PDF.'));
+    }
+  }
+
+  if (images.length) {
+    onProgress?.(T('Reconociendo el texto (OCR)… puede tardar un poco', 'Recognizing text (OCR)… this can take a while'), 0);
+    const ocr = await import('./offline/ocr');
+    const pages = await ocr.recognizeImages(images, (f) => onProgress?.(T('Reconociendo el texto (OCR)…', 'Recognizing text (OCR)…'), f));
+    const fromOcr = ocr.parseOcrPages(pages);
+    sheet = method === 'pdf-form' ? sheet : fromOcr;
+    if (method !== 'pdf-form') method = 'ocr';
+    sheet.warnings.push(T('Leído con OCR: revisa los números y marca a mano las competencias (las casillas no se pueden leer en fotos).', 'Read with OCR: check the numbers and tick proficiencies by hand (checkboxes can’t be read from photos).'));
+  }
+  if (pasted.trim()) texts.push(pasted);
+  if (texts.length) sheet = parseSheetText(texts.join('\n'), sheet);
+  if (!sheet.name && !sheet.classId && Object.values(sheet.abilities).every((v) => v === 10)) {
+    throw new Error(T('No he encontrado datos de personaje. Prueba con una foto más nítida y recta, o rellena la hoja a mano.', 'I couldn’t find character data. Try a sharper, straighter photo, or fill in the sheet by hand.'));
+  }
+  return { sheet, method };
+}

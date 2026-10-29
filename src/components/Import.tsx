@@ -7,6 +7,7 @@ import { ABILITIES, SKILLS } from '../rules/srd';
 import { L, T } from '../i18n';
 
 type Step = 'pick' | 'reading' | 'preview';
+type Method = 'offline' | 'claude';
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
   const current = useChar();
@@ -15,9 +16,11 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const replace = useStore((s) => s.replace);
   const [files, setFiles] = useState<File[]>([]);
   const [text, setText] = useState('');
+  const [method, setMethod] = useState<Method>('offline');
   const [step, setStep] = useState<Step>('pick');
+  const [progress, setProgress] = useState<{ msg: string; fraction?: number }>({ msg: '' });
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ char: Character; warnings: string[] } | null>(null);
+  const [result, setResult] = useState<{ char: Character; warnings: string[]; how: string } | null>(null);
 
   const add = async (accept: string) => {
     const picked = await pickFiles(accept, true);
@@ -27,43 +30,42 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const read = async () => {
     setError(null);
     setStep('reading');
+    setProgress({ msg: T('Preparando…', 'Preparing…') });
     try {
-      const [{ filesToBlocks, sheetToCharacter }, ai] = await Promise.all([import('../importer'), import('../ai')]);
-      const blocks = await filesToBlocks(files);
-      if (text.trim()) blocks.push({ type: 'text', text: `Character sheet text:\n"""\n${text.trim()}\n"""` });
-      if (!blocks.length) throw new Error(T('Elige al menos una foto, documento o texto.', 'Pick at least one photo, document or text.'));
-      try {
-        const sheet = await ai.importWithClaude(settings.apiKey, settings.model, blocks);
-        setResult({ char: sheetToCharacter(sheet), warnings: sheet.warnings ?? [] });
-        setStep('preview');
-      } catch (e) {
-        throw new Error(ai.describeError(e));
+      const importer = await import('../importer');
+      if (method === 'offline') {
+        const { sheet, method: how } = await importer.importOffline(files, text, (msg, fraction) => setProgress({ msg, fraction }));
+        const label = { 'pdf-form': T('formulario PDF', 'PDF form'), ocr: T('OCR en el móvil', 'on-device OCR'), text: T('texto', 'text') }[how];
+        setResult({ char: importer.sheetToCharacter(sheet), warnings: sheet.warnings, how: label });
+      } else {
+        const ai = await import('../ai');
+        setProgress({ msg: T('Claude está leyendo la ficha… puede tardar un minuto.', 'Claude is reading the sheet… this can take a minute.') });
+        const blocks = await importer.filesToBlocks(files);
+        if (text.trim()) blocks.push({ type: 'text', text: `Character sheet text:\n"""\n${text.trim()}\n"""` });
+        if (!blocks.length) throw new Error(T('Elige al menos una foto, documento o texto.', 'Pick at least one photo, document or text.'));
+        try {
+          const sheet = await ai.importWithClaude(settings.apiKey, settings.model, blocks);
+          setResult({ char: importer.sheetToCharacter(sheet), warnings: sheet.warnings ?? [], how: 'Claude' });
+        } catch (e) {
+          throw new Error(ai.describeError(e));
+        }
       }
+      setStep('preview');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStep('pick');
     }
   };
 
-  if (!settings.apiKey) {
-    return (
-      <Modal title={T('Importar ficha', 'Import sheet')} onClose={onClose}>
-        <p>{T('Para leer fotos, PDF o Word de una hoja real, la app usa Claude. Añade tu clave de API de Anthropic en Ajustes → Inteligencia artificial y vuelve aquí.', 'To read photos, PDFs or Word files of a real sheet, the app uses Claude. Add your Anthropic API key in Settings → Artificial intelligence and come back.')}</p>
-        <p className="hint">{T('También puedes copiar una ficha desde otro móvil con Ajustes → Exportar / Importar ficha (sin IA).', 'You can also copy a sheet from another phone with Settings → Export / Import sheet (no AI needed).')}</p>
-        <button className="btn primary full" onClick={onClose}>{T('Entendido', 'Got it')}</button>
-      </Modal>
-    );
-  }
-
   return (
     <Modal title={T('Importar ficha', 'Import sheet')} onClose={onClose}>
       {step === 'pick' && (
         <>
-          <p className="small">{T('Haz fotos de tu hoja (una por página), o elige un PDF o Word. Claude leerá los datos y podrás revisarlos antes de guardar.', 'Take photos of your sheet (one per page), or pick a PDF or Word file. Claude will read the data and you can review it before saving.')}</p>
+          <p className="small">{T('Elige fotos de tu hoja (una por página), un PDF o un Word. Podrás revisar los datos antes de guardar.', 'Pick photos of your sheet (one per page), a PDF or a Word file. You can review the data before saving.')}</p>
           <div className="import-grid">
             <button className="btn" onClick={() => void add('image/*')}>📷 {T('Foto', 'Photo')}</button>
             <button className="btn" onClick={() => void add('application/pdf,.pdf')}>📄 PDF</button>
-            <button className="btn" onClick={() => void add('.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document')}>📝 Word</button>
+            <button className="btn" onClick={() => void add('.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.txt,text/plain')}>📝 Word</button>
           </div>
           {files.length > 0 && (
             <ul className="file-list">
@@ -77,17 +79,31 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
             </ul>
           )}
           <label className="field">{T('…o pega el texto de la ficha', '…or paste the sheet text')}
-            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={T('Nombre, clase, características…', 'Name, class, ability scores…')} />
+            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={T('Nombre: …\nClase: … Nivel 3\nFUE 15 DES 14 CON 13…', 'Name: …\nClass: … Level 3\nSTR 15 DEX 14 CON 13…')} />
           </label>
+
+          <div className="segmented" role="radiogroup" aria-label={T('Método', 'Method')}>
+            <button role="radio" aria-checked={method === 'offline'} className={method === 'offline' ? 'on' : ''} onClick={() => setMethod('offline')}>📴 {T('Sin conexión (gratis)', 'Offline (free)')}</button>
+            <button role="radio" aria-checked={method === 'claude'} className={method === 'claude' ? 'on' : ''} disabled={!settings.apiKey} onClick={() => setMethod('claude')}>✨ Claude</button>
+          </div>
+          <p className="hint">
+            {method === 'offline'
+              ? T('Todo se procesa en el móvil. Los PDF rellenables de la hoja oficial se leen casi perfectos; las fotos usan OCR y habrá que revisar y marcar las competencias a mano.', 'Everything is processed on the device. Fillable PDFs of the official sheet are read almost perfectly; photos use OCR and you’ll need to check them and tick proficiencies by hand.')
+              : T('Claude lee mejor las fotos (incluidas las casillas marcadas). Usa tu clave de API.', 'Claude reads photos better (including ticked boxes). Uses your API key.')}
+            {!settings.apiKey && ' ' + T('Para usar Claude añade tu clave en Ajustes.', 'To use Claude, add your key in Settings.')}
+          </p>
           {error && <p className="error">⚠️ {error}</p>}
-          <button className="btn primary full" disabled={!files.length && !text.trim()} onClick={() => void read()}>✨ {T('Leer ficha', 'Read sheet')}</button>
+          <button className="btn primary full" disabled={!files.length && !text.trim()} onClick={() => void read()}>🔎 {T('Leer ficha', 'Read sheet')}</button>
         </>
       )}
 
       {step === 'reading' && (
         <div className="import-reading">
           <div className="spinner" />
-          <p>{T('Leyendo la ficha… puede tardar un minuto.', 'Reading the sheet… this can take a minute.')}</p>
+          <p>{progress.msg}</p>
+          {progress.fraction != null && (
+            <div className="progress"><div style={{ width: `${Math.round(progress.fraction * 100)}%` }} /></div>
+          )}
         </div>
       )}
 
@@ -96,6 +112,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
           <div className="import-preview">
             <h3>{result.char.name}</h3>
             <p className="muted">{[result.char.species, result.char.className, `${T('nivel', 'level')} ${result.char.level}`, result.char.background].filter(Boolean).join(' · ')}</p>
+            <p className="hint">{T('Leído con', 'Read with')}: {result.how}</p>
             <div className="import-abilities">
               {ABILITIES.map((a) => (
                 <div key={a.id}><b>{L(a.short)}</b><span>{result.char.abilities[a.id]}</span><small>{fmt(mod(result.char.abilities[a.id]))}</small></div>

@@ -53,6 +53,7 @@ export function RulesTab() {
         {groups.map((g) => <button key={g} className={`chip toggle ${current === g ? 'on' : ''}`} onClick={() => setGroup(g)}>{g}</button>)}
       </div>
       {shown.length === 0 && <p className="muted">{T('Nada encontrado.', 'Nothing found.')}</p>}
+      <div className="rules-list">
       {shown.map((e) => (
         <details key={`${e.group}-${e.title}`} className={`rule ${e.active ? 'active' : ''}`} open={!!nq && shown.length <= 3}>
           <summary>
@@ -62,6 +63,7 @@ export function RulesTab() {
           {e.lines.map((l, i) => <p key={i}>{/^[✅⬇⛔➖]/.test(l) ? l : `• ${l}`}</p>)}
         </details>
       ))}
+      </div>
       <p className="hint license">{T('Contenido de reglas basado en el SRD 5.2 de Wizards of the Coast (licencia CC-BY-4.0), traducido y resumido.', 'Rules content based on the Wizards of the Coast SRD 5.2 (CC-BY-4.0 license), summarized.')}</p>
     </div>
   );

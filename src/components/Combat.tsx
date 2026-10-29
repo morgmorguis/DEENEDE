@@ -68,6 +68,7 @@ export function CombatTab() {
         <Toggle k="reaction" label={T('Reacción', 'Reaction')} hint={T('Ataque de oportunidad…', 'Opportunity attack…')} />
       </div>
 
+      <div className="combat-grid">
       <Section title={`${T('Movimiento', 'Movement')}: ${moveLeft} / ${spd.value} ${ft}`}>
         <div className="move-track"><div style={{ width: `${spd.value ? Math.min(100, (moveLeft / spd.value) * 100) : 0}%` }} /></div>
         <div className="row wrap mt">
@@ -164,6 +165,8 @@ export function CombatTab() {
           </div>
         ))}
       </Section>
+
+      </div>
 
       <Section title={T('¿Qué puedo hacer?', 'What can I do?')}>
         <div className="actions-grid">

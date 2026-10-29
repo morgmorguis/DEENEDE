@@ -247,6 +247,8 @@ export interface ImportedSheet {
   hitDie: number | null; hitDiceSpent: number; heroicInspiration: boolean;
   attacks: { name: string; attackBonus: number | null; damage: string; damageType: string | null; range: string; notes: string }[];
   spellcastingAbility: string | null; spellSlots: number[];
+  /** Espacios gastados por nivel (solo en la importación sin IA) */
+  spellSlotsUsed?: number[];
   spells: { name: string; level: number; castingTime: string; range: string; concentration: boolean; ritual: boolean; material: boolean; notes: string }[];
   classFeatures: { name: string; text: string }[];
   speciesTraits: string; feats: string;

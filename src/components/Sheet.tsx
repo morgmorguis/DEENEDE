@@ -155,6 +155,7 @@ export function SheetTab() {
       <datalist id="dl-classes">{CLASSES.map((k) => <option key={k.id} value={L(k.name)} />)}</datalist>
       <datalist id="dl-sizes">{SIZES.map((s) => <option key={s.es} value={L(s)} />)}</datalist>
 
+      <div className="sheet-pages">
       {/* ===================== PÁGINA 1 ===================== */}
       <div className="paper">
         <div className="p-header">
@@ -475,6 +476,7 @@ export function SheetTab() {
           </div>
         </div>
         <p className="p-legal">{T('Reglas basadas en el SRD 5.2 (CC-BY-4.0). Diseño inspirado en la hoja oficial 2024.', 'Rules based on SRD 5.2 (CC-BY-4.0). Layout inspired by the official 2024 sheet.')}</p>
+      </div>
       </div>
 
       {hpOpen && <HpModal onClose={() => setHpOpen(false)} />}

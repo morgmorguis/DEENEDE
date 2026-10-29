@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useChar, useStore } from './store';
 import { HpBar } from './components/Hp';
 import { SheetTab } from './components/Sheet';
@@ -17,9 +17,15 @@ type Tab = 'sheet' | 'combat' | 'assistant' | 'rules' | 'settings';
 export default function App() {
   const c = useChar();
   const lang = useStore((s) => s.settings.lang);
+  const theme = useStore((s) => s.settings.theme);
   // El idioma vive en un módulo: lo fijamos antes de pintar los hijos
   setLang(lang);
   const [tab, setTab] = useState<Tab>('sheet');
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim();
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg || '#1b1512');
+  }, [theme]);
   const [notesOpen, setNotesOpen] = useState(false);
   const inCombat = c.combat.active;
   const run = useStore((s) => s.runCommands);

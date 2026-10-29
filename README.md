@@ -7,7 +7,9 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
 - **Hoja de personaje con el diseño de la hoja oficial 2024** (dos páginas, editable directamente): cabecera con nivel/PX, CA con escudo, PG, dados de golpe y salvaciones contra la muerte; características con sus salvaciones y habilidades debajo; armas y trucos de daño; rasgos de clase, atributos de especie y dotes; entrenamiento con equipo; aptitud mágica, espacios de conjuro y tabla de conjuros (C/R/M); aspecto con **imagen del personaje**, historia, alineamiento, idiomas, equipo, sintonización y monedas.
 - **Habilidades explicadas**: al tocar una característica, salvación o habilidad ves qué cubre, cómo se calcula tu bonificador y las *limitaciones actuales* (p. ej. desventaja por Envenenado, fallo automático por Cegado, penalización por agotamiento). Tirar el dado al tocar es opcional (Ajustes → «Tirar dados al tocar una estadística», desactivado por defecto).
 - **Español / inglés**: toda la app (interfaz, reglas, avisos del motor, asistente y textos de IA) cambia de idioma desde Ajustes.
-- **Importar una hoja real**: desde una foto, un PDF (también formularios rellenables como la hoja oficial) o un Word (.docx). Claude lee los datos, muestras una vista previa y lo creas como personaje nuevo o reemplazas el actual.
+- **Importar una hoja real, gratis y sin conexión**: desde un PDF rellenable de la hoja oficial 2024 (cada campo se identifica por su posición; prácticamente perfecto), un Word (.docx) o texto (intérprete de etiquetas como «FUE 15», «CA 14», «Clase: Pícaro»), o una foto / PDF escaneado con **OCR dentro del móvil** (Tesseract.js). Siempre ves una vista previa antes de crear el personaje o reemplazar el actual. Opcionalmente, con tu clave de Claude, las fotos se leen con más precisión.
+- **Temas de color**: Básico, Verdoso, Grises y Azules (Ajustes → Colores).
+- **Pensada también para tablets** (hasta 16"): navegación lateral, diario como panel lateral, combate y reglas a dos o tres columnas, y en pantallas muy anchas las dos páginas de la hoja lado a lado.
 - **Asistente en lenguaje natural** (funciona sin internet). Escribe o dicta frases como:
   - «Un goblin me ha atacado y me ha hecho 7 de daño cortante»
   - «El orco saca 15 para impactar y me hace 9» (compara con tu CA)
@@ -31,7 +33,7 @@ En **Ajustes** puedes poner una clave de API de Anthropic (console.anthropic.com
 
 - El asistente entiende frases que el intérprete local no reconoce.
 - Las grabaciones del diario se reescriben como capítulos de una historia, con una lista final de nombres, pistas y misiones.
-- Puedes importar fichas desde fotos, PDF o Word.
+- Las fotos de fichas se leen con más precisión que con el OCR sin conexión (incluidas las casillas marcadas).
 
 La clave se guarda solo en el móvil y se envía únicamente a la API de Anthropic. Modelo por defecto: `claude-opus-5-5` (se puede cambiar en Ajustes). Sin clave, todo lo demás funciona sin conexión.
 
@@ -69,10 +71,15 @@ El reconocimiento de voz usa el servicio del sistema de Android (Google). Para g
 - `src/rules/engine.ts`: aplicación de daño, curación, descansos, rondas, salvaciones contra la muerte…
 - `src/rules/parser.ts`: intérprete de frases en español e inglés.
 - `src/i18n.ts`: idioma de la app (`T('texto', 'text')`).
-- `src/importer.ts`: lectura de fotos, PDF (pdf.js) y Word (mammoth) para importar fichas.
+- `src/importer.ts`: importación de fichas (pdf.js para PDF, mammoth para Word).
+- `src/offline/`: importación sin IA: `pdfForm.ts` (formularios PDF por posición), `textParse.ts` (texto libre), `ocr.ts` (OCR con Tesseract.js). El script `scripts/copy-ocr-assets.mjs` copia el motor y los idiomas a `public/ocr` al compilar, para que funcione sin internet.
 - `src/ai.ts`: integración opcional con Claude.
 - `src/speech.ts`: reconocimiento de voz (plugin nativo / Web Speech API).
 - `src/components/`: pantallas.
+
+## Licencias
+
+Código de terceros incluido: Tesseract.js y sus modelos de idioma (Apache 2.0), pdf.js (Apache 2.0), mammoth (BSD-2). La plantilla PDF oficial de la hoja de personaje es de Wizards of the Coast y no se incluye: la app solo lee la copia que tenga cada usuario.
 
 ## Licencia de contenido
 
