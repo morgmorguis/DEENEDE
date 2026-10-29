@@ -24,6 +24,7 @@ export interface EffectMods {
   maxHp?: number;
   /** Bonificadores de dado o planos, p. ej. { attack: '+1d4', save: '+1d4' } */
   bonus?: Partial<Record<RollScope, string>>;
+  /** Claves de texto: 'saveDex', 'strChecksSaves'… (ver srd.ts ADV_LABELS) */
   advantage?: string[];
   disadvantage?: string[];
   resist?: DamageType[];
@@ -64,11 +65,15 @@ export interface Spell {
   castingTime: string;
   range: string;
   concentration: boolean;
+  ritual?: boolean;
+  material?: boolean;
   notes?: string;
 }
 
 export interface Resource {
   id: string;
+  /** Identificador estable para recursos de clase conocidos (rage, second_wind…) */
+  key?: string;
   name: string;
   max: number;
   used: number;
@@ -86,12 +91,20 @@ export interface SlotState {
   used: number;
 }
 
+export interface NoteFolder {
+  id: string;
+  /** Carpetas predefinidas: names, places, quests, items, chronicles (nombre traducido) */
+  key?: string;
+  name: string;
+}
+
 export interface Note {
   id: string;
   createdAt: number;
   title: string;
   body: string;
   kind: 'note' | 'story' | 'transcript';
+  folderId?: string | null;
 }
 
 export interface CombatState {
@@ -104,19 +117,36 @@ export interface CombatState {
   movementUsed: number;
 }
 
+export interface Coins {
+  cp: number;
+  sp: number;
+  ep: number;
+  gp: number;
+  pp: number;
+}
+
 export interface Character {
   id: string;
   name: string;
   species: string;
+  /** Id de clase de srd.ts (barbaro, bardo…) o '' si es personalizada */
+  classId: string;
+  /** Nombre libre de la clase (para clases personalizadas o importadas) */
   className: string;
   subclass: string;
   background: string;
   level: number;
+  xp: number;
+  size: string;
+  alignment: string;
+  portrait: string | null;
   abilities: Record<Ability, number>;
   saveProf: Ability[];
   skillProf: Record<string, ProfLevel>;
   baseAc: number;
   acNote: string;
+  /** Lleva escudo: +2 a la CA */
+  shield: boolean;
   speed: number;
   hp: { max: number; current: number; temp: number };
   hitDie: number;
@@ -139,8 +169,19 @@ export interface Character {
   attacks: Attack[];
   spells: Spell[];
   features: Feature[];
+  speciesTraits: string;
+  feats: string;
+  armorTraining: { light: boolean; medium: boolean; heavy: boolean; shields: boolean };
+  weaponProf: string;
+  toolProf: string;
+  languages: string;
+  appearance: string;
+  backstory: string;
   inventory: string;
+  attunement: string[];
+  coins: Coins;
   notes: Note[];
+  noteFolders: NoteFolder[];
   combat: CombatState;
 }
 

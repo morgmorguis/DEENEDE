@@ -1,6 +1,7 @@
-import type { Ability, Character } from '../types';
+import type { Ability, Character, Resource } from '../types';
 import { abilityMods, mod } from './calc';
-import { CLASSES, SKILLS, pactSlotsFor, slotsFor } from './srd';
+import { CLASSES, DEFAULT_FOLDERS, RESOURCE_NAMES, SKILLS, classById, pactSlotsFor, slotsFor } from './srd';
+import { L, T } from '../i18n';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -14,71 +15,140 @@ export interface NewCharacterInput {
   skills: string[];
 }
 
+export const defaultFolders = () => DEFAULT_FOLDERS.map((f) => ({ id: uid(), key: f.key, name: L(f.name) }));
+
+/** Ficha vacía con todos los campos; base para crear, importar y migrar */
+export function blankCharacter(): Character {
+  return {
+    id: uid(),
+    name: '',
+    species: '',
+    classId: '',
+    className: '',
+    subclass: '',
+    background: '',
+    level: 1,
+    xp: 0,
+    size: '',
+    alignment: '',
+    portrait: null,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    saveProf: [],
+    skillProf: Object.fromEntries(SKILLS.map((s) => [s.id, 0])) as Character['skillProf'],
+    baseAc: 10,
+    acNote: '',
+    shield: false,
+    speed: 30,
+    hp: { max: 1, current: 1, temp: 0 },
+    hitDie: 8,
+    hitDiceSpent: 0,
+    deathSaves: { success: 0, fail: 0 },
+    stable: false,
+    dead: false,
+    exhaustion: 0,
+    heroicInspiration: false,
+    conditions: [],
+    effects: [],
+    resistances: [],
+    vulnerabilities: [],
+    immunities: [],
+    spellAbility: null,
+    slots: [],
+    pactSlots: null,
+    concentratingOn: null,
+    resources: [],
+    attacks: [],
+    spells: [],
+    features: [],
+    speciesTraits: '',
+    feats: '',
+    armorTraining: { light: false, medium: false, heavy: false, shields: false },
+    weaponProf: '',
+    toolProf: '',
+    languages: '',
+    appearance: '',
+    backstory: '',
+    inventory: '',
+    attunement: ['', '', ''],
+    coins: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+    notes: [],
+    noteFolders: defaultFolders(),
+    combat: { active: false, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0 },
+  };
+}
+
+// Nombres de recursos de versiones anteriores (solo en español) → clave estable
+const LEGACY_RESOURCE_KEYS: Record<string, string> = Object.fromEntries(
+  Object.entries(RESOURCE_NAMES).flatMap(([k, v]) => [[v.es.toLowerCase(), k], [v.en.toLowerCase(), k]]),
+);
+
+/** Completa los campos que falten (fichas antiguas o importadas) sin perder los existentes */
+export function normalizeCharacter(raw: Partial<Character> & Record<string, unknown>): Character {
+  const base = blankCharacter();
+  const c = { ...base, ...raw } as Character;
+  c.hp = { ...base.hp, ...(raw.hp ?? {}) };
+  c.abilities = { ...base.abilities, ...(raw.abilities ?? {}) };
+  c.skillProf = { ...base.skillProf, ...(raw.skillProf ?? {}) };
+  c.coins = { ...base.coins, ...(raw.coins ?? {}) };
+  c.armorTraining = { ...base.armorTraining, ...(raw.armorTraining ?? {}) };
+  c.combat = { ...base.combat, ...(raw.combat ?? {}) };
+  c.deathSaves = { ...base.deathSaves, ...(raw.deathSaves ?? {}) };
+  c.attunement = [0, 1, 2].map((i) => raw.attunement?.[i] ?? '');
+  if (!c.classId && c.className) c.classId = classById(c.className)?.id ?? '';
+  c.resources = (c.resources ?? []).map((r: Resource) => ({ ...r, key: r.key ?? LEGACY_RESOURCE_KEYS[r.name.toLowerCase()] }));
+  c.noteFolders = raw.noteFolders?.length ? raw.noteFolders : base.noteFolders;
+  c.notes = (c.notes ?? []).map((n) => ({ ...n, folderId: n.folderId ?? (n.kind === 'story' ? c.noteFolders.find((x) => x.key === 'chronicles')?.id ?? null : null) }));
+  return c;
+}
+
 /** Crea una ficha nueva aplicando las reglas de clase 2024: dado de golpe, salvaciones, espacios y recursos. */
 export function createCharacter(input: NewCharacterInput): Character {
   const cls = CLASSES.find((c) => c.id === input.classId) ?? CLASSES[0];
   const level = Math.min(20, Math.max(1, input.level));
   const conMod = mod(input.abilities.con);
   // PG: máximo del dado en nivel 1 + media redondeada hacia arriba en los siguientes
-  const hpMax = cls.hitDie + conMod + (level - 1) * (cls.hitDie / 2 + 1 + conMod);
-  const skillProf: Character['skillProf'] = {};
-  for (const s of SKILLS) skillProf[s.id] = input.skills.includes(s.id) ? 1 : 0;
+  const hpMax = Math.max(1, cls.hitDie + conMod + (level - 1) * (cls.hitDie / 2 + 1 + conMod));
   const pact = cls.caster === 'pact' ? pactSlotsFor(level) : null;
+  const sp = input.species.toLowerCase();
 
-  const base: Character = {
-    id: uid(),
-    name: input.name || 'Aventurero',
+  const c = blankCharacter();
+  Object.assign(c, {
+    name: input.name || T('Aventurero', 'Adventurer'),
     species: input.species,
-    className: cls.name,
-    subclass: '',
+    classId: cls.id,
+    className: L(cls.name),
     background: input.background,
     level,
+    size: L({ es: 'Mediano', en: 'Medium' }),
     abilities: { ...input.abilities },
     saveProf: [...cls.saves],
-    skillProf,
     baseAc: 10 + mod(input.abilities.dex),
-    acNote: 'Sin armadura',
-    speed: input.species === 'Enano' || input.species === 'Mediano' || input.species === 'Gnomo' ? 30 : input.species === 'Goliat' ? 35 : 30,
-    hp: { max: Math.max(1, hpMax), current: Math.max(1, hpMax), temp: 0 },
+    acNote: T('Sin armadura', 'Unarmored'),
+    speed: /goliat|goliath/.test(sp) ? 35 : 30,
+    hp: { max: hpMax, current: hpMax, temp: 0 },
     hitDie: cls.hitDie,
-    hitDiceSpent: 0,
-    deathSaves: { success: 0, fail: 0 },
-    stable: false,
-    dead: false,
-    exhaustion: 0,
-    heroicInspiration: input.species === 'Humano',
-    conditions: [],
-    effects: [],
-    resistances: [],
-    vulnerabilities: [],
-    immunities: [],
+    heroicInspiration: /humano|human/.test(sp),
     spellAbility: cls.spellAbility,
     slots: slotsFor(cls.caster, level).map((n) => ({ max: n, used: 0 })),
     pactSlots: pact ? { ...pact, used: 0 } : null,
-    concentratingOn: null,
-    resources: [],
-    attacks: [],
-    spells: [],
-    features: cls.features(level).map((f) => ({ id: uid(), ...f })),
-    inventory: '',
-    notes: [],
-    combat: { active: false, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0 },
-  };
+    features: cls.features(level).map((x) => ({ id: uid(), name: L(x.name), text: L(x.text) })),
+  });
+  for (const s of SKILLS) c.skillProf[s.id] = input.skills.includes(s.id) ? 1 : 0;
   if (cls.id === 'barbaro') {
-    base.baseAc = 10 + mod(input.abilities.dex) + conMod;
-    base.acNote = 'Defensa sin armadura';
+    c.baseAc = 10 + mod(input.abilities.dex) + conMod;
+    c.acNote = T('Defensa sin armadura', 'Unarmored Defense');
   }
   if (cls.id === 'monje') {
-    base.baseAc = 10 + mod(input.abilities.dex) + mod(input.abilities.wis);
-    base.acNote = 'Defensa sin armadura';
+    c.baseAc = 10 + mod(input.abilities.dex) + mod(input.abilities.wis);
+    c.acNote = T('Defensa sin armadura', 'Unarmored Defense');
   }
-  base.resources = cls.resources(level, abilityMods(base)).map((r) => ({ id: uid(), used: 0, ...r }));
-  return base;
+  c.resources = cls.resources(level, abilityMods(c)).map((r) => ({ id: uid(), used: 0, key: r.key, name: L(RESOURCE_NAMES[r.key]), max: r.max, recovers: r.recovers }));
+  return c;
 }
 
 /** Recalcula los datos de clase al subir de nivel conservando lo personalizado. */
 export function levelUp(c: Character, newLevel: number): Character {
-  const cls = CLASSES.find((x) => x.name === c.className);
+  const cls = classById(c.classId || c.className);
   const next = structuredClone(c);
   const level = Math.min(20, Math.max(1, newLevel));
   if (!cls) {
@@ -93,14 +163,18 @@ export function levelUp(c: Character, newLevel: number): Character {
   const slots = slotsFor(cls.caster, level);
   next.slots = slots.map((n, i) => ({ max: n, used: Math.min(n, c.slots[i]?.used ?? 0) }));
   if (cls.caster === 'pact') next.pactSlots = { ...pactSlotsFor(level), used: 0 };
-  const res = cls.resources(level, abilityMods(next));
+  const defs = cls.resources(level, abilityMods(next));
   next.resources = [
-    ...res.map((r) => ({ id: c.resources.find((x) => x.name === r.name)?.id ?? uid(), used: Math.min(r.max, c.resources.find((x) => x.name === r.name)?.used ?? 0), ...r })),
-    ...c.resources.filter((x) => !res.some((r) => r.name === x.name)),
+    ...defs.map((r) => {
+      const prev = c.resources.find((x) => x.key === r.key);
+      return { id: prev?.id ?? uid(), key: r.key, name: L(RESOURCE_NAMES[r.key]), max: r.max, used: Math.min(r.max, prev?.used ?? 0), recovers: r.recovers };
+    }),
+    ...c.resources.filter((x) => !defs.some((r) => r.key === x.key)),
   ];
-  const classFeatures = cls.features(level);
-  const custom = c.features.filter((f) => !cls.features(20).some((cf) => cf.name === f.name));
-  next.features = [...classFeatures.map((f) => ({ id: uid(), ...f })), ...custom];
+  // Rasgos de clase regenerados; los añadidos a mano se conservan
+  const allClassNames = new Set(cls.features(20).flatMap((x) => [x.name.es, x.name.en]));
+  const custom = c.features.filter((x) => !allClassNames.has(x.name));
+  next.features = [...cls.features(level).map((x) => ({ id: uid(), name: L(x.name), text: L(x.text) })), ...custom];
   return next;
 }
 
@@ -108,23 +182,32 @@ export function levelUp(c: Character, newLevel: number): Character {
 export function sampleCharacter(): Character {
   const c = createCharacter({
     name: 'Brakka Pielpétrea',
-    species: 'Goliat',
+    species: T('Goliat', 'Goliath'),
     classId: 'barbaro',
     level: 3,
-    background: 'Soldado',
+    background: T('Soldado', 'Soldier'),
     abilities: { str: 17, dex: 14, con: 16, int: 8, wis: 12, cha: 10 },
     skills: ['atletismo', 'intimidacion', 'percepcion', 'supervivencia'],
   });
+  c.subclass = T('Senda del Berserker', 'Path of the Berserker');
+  c.alignment = T('Caótico bueno', 'Chaotic Good');
+  c.armorTraining = { light: true, medium: true, heavy: false, shields: true };
+  c.weaponProf = T('Armas sencillas y marciales', 'Simple and Martial weapons');
+  c.toolProf = T('Juego de dados', 'Dice set');
+  c.languages = T('Común, Gigante', 'Common, Giant');
   c.attacks = [
-    { id: uid(), name: 'Gran hacha', ability: 'str', proficient: true, damage: '1d12', damageType: 'cortante', range: '5 pies', extraBonus: 0, mastery: 'Hender (Cleave)', notes: 'A dos manos, pesada.' },
-    { id: uid(), name: 'Jabalina', ability: 'str', proficient: true, damage: '1d6', damageType: 'perforante', range: '30/120 pies', extraBonus: 0, mastery: 'Ralentizar (Slow)', notes: 'Arrojadiza. Llevas 4.' },
-    { id: uid(), name: 'Ataque sin armas', ability: 'str', proficient: true, damage: '1', damageType: 'contundente', range: '5 pies', extraBonus: 0, notes: 'También puedes Agarrar o Empujar.' },
+    { id: uid(), name: T('Gran hacha', 'Greataxe'), ability: 'str', proficient: true, damage: '1d12', damageType: 'cortante', range: T('5 pies', '5 ft'), extraBonus: 0, mastery: 'cleave', notes: T('A dos manos, pesada.', 'Two-handed, heavy.') },
+    { id: uid(), name: T('Jabalina', 'Javelin'), ability: 'str', proficient: true, damage: '1d6', damageType: 'perforante', range: T('30/120 pies', '30/120 ft'), extraBonus: 0, mastery: 'slow', notes: T('Arrojadiza. Llevas 4.', 'Thrown. You carry 4.') },
   ];
-  c.features.push(
-    { id: uid(), name: 'Gigante de piedra (Goliat)', text: 'Reacción al recibir daño: tira 1d12 + mod. CON y reduce el daño en ese total. Usos = bonificador de competencia por descanso largo.' },
-    { id: uid(), name: 'Forma grande (Goliat)', text: 'A partir de nivel 5, acción adicional para volverte Grande durante 10 minutos.' },
+  c.speciesTraits = T(
+    'Gigante de piedra: reacción al recibir daño, tira 1d12 + mod. CON y reduce el daño. Usos = bonificador de competencia por descanso largo.\nForma grande (nivel 5).',
+    'Stone’s Endurance: reaction when you take damage, roll 1d12 + CON mod and reduce the damage. Uses = Proficiency Bonus per Long Rest.\nLarge Form (level 5).',
   );
-  c.resources.push({ id: uid(), name: 'Gigante de piedra', max: 2, used: 0, recovers: 'long' });
-  c.inventory = 'Gran hacha, 4 jabalinas, mochila de explorador, 2 pociones de curación, 15 po.';
+  c.feats = T('Duro (Tough): +2 PG por nivel.', 'Tough: +2 HP per level.');
+  c.resources.push({ id: uid(), key: 'stone_giant', name: L(RESOURCE_NAMES.stone_giant), max: 2, used: 0, recovers: 'long' });
+  c.inventory = T('Gran hacha, 4 jabalinas, mochila de explorador, 2 pociones de curación.', 'Greataxe, 4 javelins, explorer’s pack, 2 potions of healing.');
+  c.coins.gp = 15;
+  c.appearance = T('Piel gris moteada, 2,20 m, cicatrices rituales en los brazos.', 'Mottled grey skin, 7’3”, ritual scars on the arms.');
+  c.backstory = T('Exsoldado de una compañía mercenaria de las montañas.', 'Former soldier of a mountain mercenary company.');
   return c;
 }

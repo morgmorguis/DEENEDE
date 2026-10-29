@@ -1,22 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useChar, useStore } from '../store';
-import { parseInput } from '../rules/parser';
+import { speechLangFor, useChar, useStore } from '../store';
+import { examplePhrases, parseInput } from '../rules/parser';
 import { startRecording, type Recorder } from '../speech';
 import type { LogEntry } from '../types';
+import { T } from '../i18n';
 
 const NO_LOG: LogEntry[] = [];
 
-const EXAMPLES = [
-  'Un goblin me ha atacado y me ha hecho 7 de daño cortante',
-  'El orco saca 15 para impactar y me hace 9',
-  'Me lanzan bendición',
-  'Estoy envenenado',
-  'Me bebo una poción de curación',
-  '¿Qué hace derribado?',
-  'Tiro percepción',
-  'Fin de turno',
-  'Descanso corto gastando 2 dados',
-];
 
 export function AssistantTab() {
   const c = useChar();
@@ -63,8 +53,8 @@ export function AssistantTab() {
     pushLog({ role: 'user', text: input });
     pushLog({
       role: 'app',
-      text: 'No he entendido qué cambiar. Prueba con frases como las de los ejemplos (incluye números: "me hace 7 de daño").',
-      details: ['Consejo: si añades tu clave de Claude en Ajustes, podré interpretar frases más libres.'],
+      text: T('No he entendido qué cambiar. Prueba con frases como las de los ejemplos (incluye números: "me hace 7 de daño").', 'I didn’t understand what to change. Try phrases like the examples (include numbers: "hits me for 7").'),
+      details: [T('Consejo: si añades tu clave de Claude en Ajustes, podré interpretar frases más libres.', 'Tip: add your Claude key in Settings and I’ll understand freer phrasing.')],
     });
   };
 
@@ -76,7 +66,7 @@ export function AssistantTab() {
       return;
     }
     try {
-      const r = await startRecording(settings.speechLang, {
+      const r = await startRecording(speechLangFor(settings), {
         onText: (full, partial) => setText(`${full} ${partial}`.trim()),
         onError: (msg) => pushLog({ role: 'app', text: `⚠️ ${msg}` }),
       });
@@ -91,9 +81,9 @@ export function AssistantTab() {
       <div className="chat-log">
         {log.length === 0 && (
           <div className="chat-empty">
-            <p>Cuéntame qué le pasa a <b>{c.name}</b> y actualizo la hoja aplicando las reglas 2024: resistencias, PG temporales, concentración, condiciones, muerte…</p>
+            <p>{T('Cuéntame qué le pasa a', 'Tell me what happens to')} <b>{c.name}</b> {T('y actualizo la hoja aplicando las reglas 2024: resistencias, PG temporales, concentración, condiciones, muerte…', 'and I’ll update the sheet using the 2024 rules: resistances, temporary HP, concentration, conditions, death…')}</p>
             <div className="chips">
-              {EXAMPLES.map((e) => <button key={e} className="chip" onClick={() => void submit(e)}>{e}</button>)}
+              {examplePhrases().map((e) => <button key={e} className="chip" onClick={() => void submit(e)}>{e}</button>)}
             </div>
           </div>
         )}
@@ -106,20 +96,20 @@ export function AssistantTab() {
             {(e.undo || (e.quickRolls && e.quickRolls.length > 0)) && (
               <div className="row wrap msg-actions">
                 {e.quickRolls?.map((q) => <button key={q.expr} className="btn small primary" onClick={() => quickRoll(q.expr, q.label)}>🎲 {q.label}</button>)}
-                {e.undo && <button className="btn small" onClick={() => undo(e.id)}>↩️ Deshacer</button>}
+                {e.undo && <button className="btn small" onClick={() => undo(e.id)}>↩️ {T('Deshacer', 'Undo')}</button>}
               </div>
             )}
           </div>
         ))}
-        {busy && <div className="msg app"><div className="msg-text">🤖 Pensando…</div></div>}
+        {busy && <div className="msg app"><div className="msg-text">🤖 {T('Pensando…', 'Thinking…')}</div></div>}
         <div ref={endRef} />
       </div>
       <form className="chat-input" onSubmit={(e) => { e.preventDefault(); void submit(text); }}>
-        <button type="button" className={`icon-btn mic ${rec ? 'recording' : ''}`} onClick={() => void toggleDictation()} aria-label={rec ? 'Parar dictado' : 'Dictar'}>🎙️</button>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={rec ? 'Escuchando…' : 'Un goblin me ha hecho 7 de daño…'} />
-        <button className="btn primary" type="submit" disabled={busy || !text.trim()}>Enviar</button>
+        <button type="button" className={`icon-btn mic ${rec ? 'recording' : ''}`} onClick={() => void toggleDictation()} aria-label={rec ? T('Parar dictado', 'Stop dictation') : T('Dictar', 'Dictate')}>🎙️</button>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={rec ? T('Escuchando…', 'Listening…') : T('Un goblin me ha hecho 7 de daño…', 'A goblin hits me for 7…')} />
+        <button className="btn primary" type="submit" disabled={busy || !text.trim()}>{T('Enviar', 'Send')}</button>
       </form>
-      {log.length > 0 && <button className="link small clear-log" onClick={clearLog}>Borrar historial</button>}
+      {log.length > 0 && <button className="link small clear-log" onClick={clearLog}>{T('Borrar historial', 'Clear history')}</button>}
     </div>
   );
 }

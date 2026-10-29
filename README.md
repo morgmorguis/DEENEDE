@@ -1,11 +1,13 @@
 # Grimorio D&D
 
-Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2), en español.
+Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2), en español e inglés.
 
 ## Qué hace
 
-- **Hoja de personaje viva**: características, salvaciones, 18 habilidades con competencia/pericia, CA, velocidad, PG y PG temporales, dados de golpe, agotamiento, inspiración heroica, recursos de clase, espacios de conjuro (incluida Magia del pacto), rasgos e inventario. Tocar una característica o salvación tira el dado.
-- **Habilidades explicadas**: al tocar una habilidad ves qué cubre, ejemplos, cómo se calcula tu bonificador y las *limitaciones actuales* (p. ej. desventaja por Envenenado, fallo automático por Cegado, penalización por agotamiento).
+- **Hoja de personaje con el diseño de la hoja oficial 2024** (dos páginas, editable directamente): cabecera con nivel/PX, CA con escudo, PG, dados de golpe y salvaciones contra la muerte; características con sus salvaciones y habilidades debajo; armas y trucos de daño; rasgos de clase, atributos de especie y dotes; entrenamiento con equipo; aptitud mágica, espacios de conjuro y tabla de conjuros (C/R/M); aspecto con **imagen del personaje**, historia, alineamiento, idiomas, equipo, sintonización y monedas.
+- **Habilidades explicadas**: al tocar una característica, salvación o habilidad ves qué cubre, cómo se calcula tu bonificador y las *limitaciones actuales* (p. ej. desventaja por Envenenado, fallo automático por Cegado, penalización por agotamiento). Tirar el dado al tocar es opcional (Ajustes → «Tirar dados al tocar una estadística», desactivado por defecto).
+- **Español / inglés**: toda la app (interfaz, reglas, avisos del motor, asistente y textos de IA) cambia de idioma desde Ajustes.
+- **Importar una hoja real**: desde una foto, un PDF (también formularios rellenables como la hoja oficial) o un Word (.docx). Claude lee los datos, muestras una vista previa y lo creas como personaje nuevo o reemplazas el actual.
 - **Asistente en lenguaje natural** (funciona sin internet). Escribe o dicta frases como:
   - «Un goblin me ha atacado y me ha hecho 7 de daño cortante»
   - «El orco saca 15 para impactar y me hace 9» (compara con tu CA)
@@ -19,7 +21,7 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
   El daño se aplica en el orden de las reglas 2024: inmunidad → resistencia → vulnerabilidad → PG temporales → PG. Avisa de la salvación de concentración (CD 10 o mitad del daño, máx. 30) y la tira por ti, gestiona caer a 0 PG, muerte instantánea, salvaciones contra la muerte y fallos por recibir daño a 0 PG. Cada cambio se puede **deshacer**.
 - **Beneficios y perjuicios**: Bendición, Perdición, Escudo de la fe, Escudo, Celeridad, Lentitud, Furia, Esquivar, Armadura de mago, Piel robliza… con duración en rondas que baja sola al pasar turno, más efectos personalizados.
 - **Modo combate**: ronda e iniciativa, casillas de acción / acción adicional / reacción, movimiento restante, ataques con alcance, bonificador y maestría de arma, tiradas de ataque y daño (crítico incluido, bonus de Furia solo en ataques de FUE), conjuros con alcance y espacios, recursos, efectos activos y una chuleta de todas las acciones 2024.
-- **Bloc de notas abatible** (botón 📜, disponible en todas las pantallas): notas rápidas y un botón para **grabar la sesión**. La transcripción se convierte en una crónica escrita como un relato (con Claude) o se guarda como texto.
+- **Bloc de notas abatible** (botón 📜, disponible en todas las pantallas) con **carpetas** (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees): notas rápidas y un botón para **grabar la sesión**. La transcripción se convierte en una crónica escrita como un relato (con Claude) y se guarda en «Crónicas».
 - **Reglas consultables**: condiciones, habilidades (con tu bonificador), acciones, reglas clave (ventaja, crítico, concentración, descansos, cobertura, agarre…), maestrías de armas y efectos, con buscador.
 - Varios personajes, creación guiada por clase (PG, salvaciones, espacios y recursos automáticos), subir de nivel, exportar/importar.
 
@@ -29,6 +31,7 @@ En **Ajustes** puedes poner una clave de API de Anthropic (console.anthropic.com
 
 - El asistente entiende frases que el intérprete local no reconoce.
 - Las grabaciones del diario se reescriben como capítulos de una historia, con una lista final de nombres, pistas y misiones.
+- Puedes importar fichas desde fotos, PDF o Word.
 
 La clave se guarda solo en el móvil y se envía únicamente a la API de Anthropic. Modelo por defecto: `claude-opus-5-5` (se puede cambiar en Ajustes). Sin clave, todo lo demás funciona sin conexión.
 
@@ -64,7 +67,9 @@ El reconocimiento de voz usa el servicio del sistema de Android (Google). Para g
 - `src/rules/srd.ts`: datos de reglas 2024 (habilidades, condiciones, acciones, clases, espacios de conjuro, efectos).
 - `src/rules/calc.ts`: cálculos derivados (CA, velocidad, bonificadores, ventaja/desventaja según condiciones, tiradas).
 - `src/rules/engine.ts`: aplicación de daño, curación, descansos, rondas, salvaciones contra la muerte…
-- `src/rules/parser.ts`: intérprete de frases en español.
+- `src/rules/parser.ts`: intérprete de frases en español e inglés.
+- `src/i18n.ts`: idioma de la app (`T('texto', 'text')`).
+- `src/importer.ts`: lectura de fotos, PDF (pdf.js) y Word (mammoth) para importar fichas.
 - `src/ai.ts`: integración opcional con Claude.
 - `src/speech.ts`: reconocimiento de voz (plugin nativo / Web Speech API).
 - `src/components/`: pantallas.

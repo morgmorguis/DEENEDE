@@ -17,6 +17,8 @@
     "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^7.6.10",
     "@capacitor/core": "^7.6.10",
+    "mammoth": "^1.13.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^4.6.7",

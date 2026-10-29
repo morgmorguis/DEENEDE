@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setLang } from '../../i18n';
+import { normalizeCharacter } from '../factory';
 import { sampleCharacter, createCharacter } from '../factory';
 import { parseInput } from '../parser';
 import { applyCommand, type Command } from '../engine';
@@ -18,6 +20,7 @@ const run = (c: Character, text: string) => {
 };
 
 describe('parser', () => {
+  beforeEach(() => setLang('es'));
   it('daño simple de un goblin', () => {
     const c = sampleCharacter();
     const r = run(c, 'Un goblin me ha atacado y me ha hecho 7 de daño');
@@ -146,3 +149,55 @@ describe('parser', () => {
     expect([1, 4, 5, 8, 9, 13, 17, 20].map(profBonus)).toEqual([2, 2, 3, 3, 4, 5, 6, 6]);
   });
 });
+
+describe('english', () => {
+  beforeEach(() => setLang('en'));
+  it('damage with source and type', () => {
+    const c = sampleCharacter();
+    const r = run(c, 'A goblin hits me for 7 slashing damage');
+    expect(r.commands[0]).toMatchObject({ type: 'damage', amount: 7, damageType: 'cortante', source: 'Goblin' });
+    expect(r.c.hp.current).toBe(c.hp.current - 7);
+    expect(r.lines.join(' ')).toMatch(/HP/);
+  });
+  it('attack roll vs AC', () => {
+    const c = sampleCharacter();
+    const ac = armorClass(c).value;
+    const r = run(c, `The orc rolls ${ac + 2} to hit and deals 9 damage`);
+    expect(r.commands[0]).toMatchObject({ type: 'damage', amount: 9, attackRoll: ac + 2 });
+    expect(r.c.hp.current).toBe(c.hp.current - 9);
+  });
+  it('conditions, effects, healing, rolls, rests', () => {
+    let c = sampleCharacter();
+    c = run(c, "I'm poisoned").c;
+    expect(c.conditions).toContain('envenenado');
+    c = run(c, 'no longer poisoned').c;
+    expect(c.conditions).not.toContain('envenenado');
+    c = run(c, 'I rage').c;
+    expect(c.effects[0].presetId).toBe('furia');
+    c.hp.current = 10;
+    c = run(c, 'heal 5').c;
+    expect(c.hp.current).toBe(15);
+    expect(parseInput('drink a potion of healing', c).commands[0]).toMatchObject({ type: 'heal', dice: '2d4+2' });
+    expect(parseInput('roll perception', c).commands[0]).toMatchObject({ type: 'rollSkill', skill: 'percepcion' });
+    expect(parseInput('dex save', c).commands[0]).toMatchObject({ type: 'rollSave', ability: 'dex' });
+    expect(parseInput('gain 5 temporary hit points', c).commands[0]).toMatchObject({ type: 'tempHp', amount: 5 });
+    expect(parseInput('long rest', c).commands[0]).toMatchObject({ type: 'rest', kind: 'long' });
+    expect(parseInput('end turn', c).commands[0]).toMatchObject({ type: 'nextRound' });
+    expect(parseInput('what does prone do', c).commands[0]).toMatchObject({ type: 'info' });
+  });
+});
+
+describe('migration', () => {
+  it('fills new fields on old characters', () => {
+    const old = { ...sampleCharacter() } as Record<string, unknown>;
+    delete old.coins; delete old.noteFolders; delete old.classId;
+    old.className = 'Bárbaro';
+    old.resources = [{ id: 'r', name: 'Furia', max: 3, used: 1, recovers: 'long' }];
+    const c = normalizeCharacter(old as never);
+    expect(c.classId).toBe('barbaro');
+    expect(c.coins.gp).toBe(0);
+    expect(c.noteFolders.length).toBeGreaterThan(0);
+    expect(c.resources[0].key).toBe('rage');
+  });
+});
+

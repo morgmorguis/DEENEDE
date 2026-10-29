@@ -1,6 +1,7 @@
 // Reconocimiento de voz continuo: plugin nativo en Android, Web Speech API en navegador.
 import { Capacitor } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
+import { T } from './i18n';
 
 export interface Recorder {
   stop: () => Promise<string>;
@@ -22,9 +23,9 @@ export async function startRecording(lang: string, cb: Callbacks): Promise<Recor
 
 async function startNative(lang: string, cb: Callbacks): Promise<Recorder> {
   const { available } = await SpeechRecognition.available();
-  if (!available) throw new Error('El reconocimiento de voz no está disponible en este dispositivo.');
+  if (!available) throw new Error(T('El reconocimiento de voz no está disponible en este dispositivo.', 'Speech recognition isn’t available on this device.'));
   const perm = await SpeechRecognition.requestPermissions();
-  if (perm.speechRecognition !== 'granted') throw new Error('Necesito permiso de micrófono para grabar.');
+  if (perm.speechRecognition !== 'granted') throw new Error(T('Necesito permiso de micrófono para grabar.', 'I need microphone permission to record.'));
 
   let running = true;
   let committed = '';
@@ -89,7 +90,7 @@ type WebRecognition = {
 function startWeb(lang: string, cb: Callbacks): Promise<Recorder> {
   const w = window as unknown as { SpeechRecognition?: new () => WebRecognition; webkitSpeechRecognition?: new () => WebRecognition };
   const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-  if (!Ctor) return Promise.reject(new Error('Este navegador no soporta reconocimiento de voz (prueba con Chrome o con la app de Android).'));
+  if (!Ctor) return Promise.reject(new Error(T('Este navegador no soporta reconocimiento de voz (prueba con Chrome o con la app de Android).', 'This browser doesn’t support speech recognition (try Chrome or the Android app).')));
   const rec = new Ctor();
   rec.lang = lang;
   rec.continuous = true;
@@ -108,7 +109,7 @@ function startWeb(lang: string, cb: Callbacks): Promise<Recorder> {
   rec.onerror = (ev) => {
     if (ev.error === 'not-allowed') {
       running = false;
-      cb.onError('Permiso de micrófono denegado.');
+      cb.onError(T('Permiso de micrófono denegado.', 'Microphone permission denied.'));
     }
   };
   rec.onend = () => {

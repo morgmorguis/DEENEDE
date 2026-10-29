@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { useStore } from '../store';
 import type { Character, RollScope } from '../types';
 import { rollD20, rollExpr, type RollKind } from '../rules/calc';
+import { T } from '../i18n';
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
@@ -9,7 +10,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="modal-head">
           <h3>{title}</h3>
-          <button className="icon-btn" onClick={onClose} aria-label="Cerrar">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label={T('Cerrar', 'Close')}>✕</button>
         </div>
         <div className="modal-body">{children}</div>
       </div>
@@ -30,14 +31,14 @@ export function Section({ title, right, children, className }: { title: string; 
 }
 
 /** Fila de casillas para recursos y espacios de conjuro: pulsa para gastar / recuperar */
-export function Pips({ max, used, onChange }: { max: number; used: number; onChange: (used: number) => void }) {
+export function Pips({ max, used, onChange, shape }: { max: number; used: number; onChange: (used: number) => void; shape?: 'diamond' }) {
   return (
     <div className="pips">
       {Array.from({ length: max }, (_, i) => (
         <button
           key={i}
-          className={`pip ${i < max - used ? 'full' : 'empty'}`}
-          aria-label={i < max - used ? 'Disponible' : 'Gastado'}
+          className={`pip ${shape ?? ''} ${i < max - used ? 'full' : 'empty'}`}
+          aria-label={i < max - used ? T('Disponible', 'Available') : T('Gastado', 'Spent')}
           onClick={() => onChange(i < max - used ? used + 1 : Math.max(0, used - 1))}
         />
       ))}
@@ -97,17 +98,19 @@ export function useDamageRoll() {
         lines.push(`${e.name}: ${x.text}`);
       }
     }
-    lines.push(`Total: ${Math.max(0, total)}${crit ? ' (crítico)' : ''}`);
-    pushLog({ role: 'app', text: `Daño ${label}: ${Math.max(0, total)}`, details: lines });
-    showToast(`Daño ${label}: ${Math.max(0, total)}`, lines);
+    lines.push(`Total: ${Math.max(0, total)}${crit ? T(' (crítico)', ' (critical)') : ''}`);
+    const title = `${T('Daño', 'Damage')} ${label}: ${Math.max(0, total)}`;
+    pushLog({ role: 'app', text: title, details: lines });
+    showToast(title, lines);
   };
 }
 
-export function NumberInput({ value, onChange, min, max, className }: { value: number; onChange: (n: number) => void; min?: number; max?: number; className?: string }) {
+export function NumberInput({ value, onChange, min, max, className, ariaLabel }: { value: number; onChange: (n: number) => void; min?: number; max?: number; className?: string; ariaLabel?: string }) {
   return (
     <input
       type="number"
       inputMode="numeric"
+      aria-label={ariaLabel}
       className={className ?? 'num'}
       value={Number.isFinite(value) ? value : 0}
       min={min}
@@ -118,4 +121,16 @@ export function NumberInput({ value, onChange, min, max, className }: { value: n
       }}
     />
   );
+}
+
+/** Abre el selector de archivos del sistema (en Android ofrece cámara, galería o archivos) */
+export function pickFiles(accept: string, multiple: boolean): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.multiple = multiple;
+    input.onchange = () => resolve(Array.from(input.files ?? []));
+    input.click();
+  });
 }

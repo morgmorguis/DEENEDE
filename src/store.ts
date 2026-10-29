@@ -1,14 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Character, LogEntry, Note } from './types';
-import { sampleCharacter, uid } from './rules/factory';
+import type { Character, LogEntry, Note, NoteFolder } from './types';
+import { normalizeCharacter, sampleCharacter, uid } from './rules/factory';
 import { applyCommand, runQuickRoll, type ApplyResult, type Command } from './rules/engine';
 import { DEFAULT_MODEL } from './config';
+import { setLang, T, type Lang } from './i18n';
 
 export interface Settings {
+  lang: Lang;
+  /** Tocar una característica/habilidad de la hoja tira el dado (desactivado por defecto) */
+  tapToRoll: boolean;
   apiKey: string;
   model: string;
   useAiFallback: boolean;
+  /** 'auto' = según el idioma de la app */
   speechLang: string;
 }
 
@@ -36,10 +41,19 @@ interface State {
   addNote: (n: Omit<Note, 'id' | 'createdAt'>) => void;
   updateNote: (id: string, patch: Partial<Note>) => void;
   deleteNote: (id: string) => void;
+  addFolder: (name: string) => string;
+  renameFolder: (id: string, name: string) => void;
+  deleteFolder: (id: string) => void;
   setSettings: (p: Partial<Settings>) => void;
 }
 
+const detected: Lang = typeof navigator !== 'undefined' && !navigator.language.toLowerCase().startsWith('es') ? 'en' : 'es';
+setLang(detected);
 const first = sampleCharacter();
+
+const defaultSettings: Settings = { lang: detected, tapToRoll: false, apiKey: '', model: DEFAULT_MODEL, useAiFallback: true, speechLang: 'auto' };
+
+export const speechLangFor = (s: Settings) => (s.speechLang === 'auto' ? (s.lang === 'es' ? 'es-ES' : 'en-US') : s.speechLang);
 
 export const useStore = create<State>()(
   persist(
@@ -47,7 +61,7 @@ export const useStore = create<State>()(
       characters: [first],
       activeId: first.id,
       log: {},
-      settings: { apiKey: '', model: DEFAULT_MODEL, useAiFallback: true, speechLang: 'es-ES' },
+      settings: defaultSettings,
       toast: null,
       showToast: (title, lines) => set({ toast: { title, lines } }),
       hideToast: () => set({ toast: null }),
@@ -93,7 +107,7 @@ export const useStore = create<State>()(
         if (userText) get().pushLog({ role: 'user', text: userText });
         const changed = cur !== before;
         if (changed) get().replace(cur);
-        get().pushLog({ role: 'app', text: lines[0] ?? 'Hecho.', details: lines.slice(1), undo: changed ? before : undefined, quickRolls: quick });
+        get().pushLog({ role: 'app', text: lines[0] ?? T('Hecho.', 'Done.'), details: lines.slice(1), undo: changed ? before : undefined, quickRolls: quick });
         if (!silent && lines.length) get().showToast(lines[0], lines.slice(1));
       },
 
@@ -112,7 +126,7 @@ export const useStore = create<State>()(
         if (!entry?.undo) return;
         s.replace(entry.undo);
         set((st) => ({
-          log: { ...st.log, [st.activeId]: list.map((e) => (e.id === entryId ? { ...e, undo: undefined, text: `↩️ Deshecho: ${e.text}` } : e)) },
+          log: { ...st.log, [st.activeId]: list.map((e) => (e.id === entryId ? { ...e, undo: undefined, text: `↩️ ${T('Deshecho', 'Undone')}: ${e.text}` } : e)) },
         }));
       },
       clearLog: () => set((s) => ({ log: { ...s.log, [s.activeId]: [] } })),
@@ -120,11 +134,28 @@ export const useStore = create<State>()(
       addNote: (n) => get().update((c) => void c.notes.unshift({ ...n, id: uid(), createdAt: Date.now() })),
       updateNote: (id, patch) => get().update((c) => { c.notes = c.notes.map((n) => (n.id === id ? { ...n, ...patch } : n)); }),
       deleteNote: (id) => get().update((c) => { c.notes = c.notes.filter((n) => n.id !== id); }),
-      setSettings: (p) => set((s) => ({ settings: { ...s.settings, ...p } })),
+      addFolder: (name) => {
+        const folder: NoteFolder = { id: uid(), name };
+        get().update((c) => { c.noteFolders.push(folder); });
+        return folder.id;
+      },
+      renameFolder: (id, name) => get().update((c) => {
+        // Al renombrar una carpeta predefinida deja de traducirse automáticamente
+        c.noteFolders = c.noteFolders.map((f) => (f.id === id ? { id: f.id, name } : f));
+      }),
+      deleteFolder: (id) => get().update((c) => {
+        c.noteFolders = c.noteFolders.filter((f) => f.id !== id);
+        c.notes = c.notes.map((n) => (n.folderId === id ? { ...n, folderId: null } : n));
+      }),
+      setSettings: (p) => set((s) => {
+        const settings = { ...s.settings, ...p };
+        setLang(settings.lang);
+        return { settings };
+      }),
     }),
     {
       name: 'dnd-companion',
-      version: 1,
+      version: 2,
       // Las instantáneas para deshacer pesan mucho: solo guardamos las 20 últimas
       partialize: (s) => ({
         characters: s.characters,
@@ -132,6 +163,19 @@ export const useStore = create<State>()(
         settings: s.settings,
         log: Object.fromEntries(Object.entries(s.log).map(([k, v]) => [k, v.slice(-60).map((e, i, a) => (i < a.length - 20 ? { ...e, undo: undefined } : e))])),
       }),
+      migrate: (persisted) => persisted as State,
+      // Completa campos nuevos en fichas y ajustes guardados con versiones anteriores
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<State>;
+        const settings = { ...current.settings, ...(p.settings ?? {}) };
+        setLang(settings.lang);
+        return {
+          ...current,
+          ...p,
+          settings,
+          characters: p.characters?.length ? p.characters.map((c) => normalizeCharacter(c as never)) : current.characters,
+        };
+      },
     },
   ),
 );
