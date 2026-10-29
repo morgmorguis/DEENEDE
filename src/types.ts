@@ -107,6 +107,14 @@ export interface Note {
   folderId?: string | null;
 }
 
+/** Participante en el orden de iniciativa: tu personaje, compañeros o enemigos */
+export interface InitEntry {
+  id: string;
+  name: string;
+  kind: 'self' | 'ally' | 'enemy';
+  initiative: number | null;
+}
+
 export interface CombatState {
   active: boolean;
   round: number;
@@ -115,6 +123,12 @@ export interface CombatState {
   bonus: boolean;
   reaction: boolean;
   movementUsed: number;
+  /** Orden de turnos (se puede reordenar arrastrando) */
+  order: InitEntry[];
+  /** Índice en `order` de quien tiene el turno */
+  turn: number;
+  /** Ya se ha pasado algún turno (antes de eso el turno es siempre del primero del orden) */
+  begun?: boolean;
 }
 
 export interface Coins {

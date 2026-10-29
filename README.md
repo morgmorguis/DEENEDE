@@ -1,5 +1,7 @@
 # Grimorio D&D
 
+<img src="public/icon-192.png" width="96" alt="Icono: un goblin en pixel art lanzando un d20" />
+
 Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2), en español e inglés.
 
 ## Qué hace
@@ -22,7 +24,7 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
 
   El daño se aplica en el orden de las reglas 2024: inmunidad → resistencia → vulnerabilidad → PG temporales → PG. Avisa de la salvación de concentración (CD 10 o mitad del daño, máx. 30) y la tira por ti, gestiona caer a 0 PG, muerte instantánea, salvaciones contra la muerte y fallos por recibir daño a 0 PG. Cada cambio se puede **deshacer**.
 - **Beneficios y perjuicios**: Bendición, Perdición, Escudo de la fe, Escudo, Celeridad, Lentitud, Furia, Esquivar, Armadura de mago, Piel robliza… con duración en rondas que baja sola al pasar turno, más efectos personalizados.
-- **Modo combate**: ronda e iniciativa, casillas de acción / acción adicional / reacción, movimiento restante, ataques con alcance, bonificador y maestría de arma, tiradas de ataque y daño (crítico incluido, bonus de Furia solo en ataques de FUE), conjuros con alcance y espacios, recursos, efectos activos y una chuleta de todas las acciones 2024.
+- **Modo combate**: al empezar te pregunta tu tirada de iniciativa (la escribes o la tira la app, nunca sola); **orden de iniciativa** con tus compañeros y los enemigos en burbujas que se reordenan arrastrando (también con el dedo), turno actual resaltado y «Siguiente turno» que avanza la ronda; casillas de acción / acción adicional / reacción, movimiento restante, ataques con alcance, bonificador y maestría de arma, tiradas de ataque y daño (crítico incluido, bonus de Furia solo en ataques de FUE), conjuros con alcance y espacios, recursos, efectos activos y una chuleta de todas las acciones 2024.
 - **Bloc de notas abatible** (botón 📜, disponible en todas las pantallas) con **carpetas** (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees): notas rápidas y un botón para **grabar la sesión**. La transcripción se convierte en una crónica escrita como un relato (con Claude) y se guarda en «Crónicas».
 - **Reglas consultables**: condiciones, habilidades (con tu bonificador), acciones, reglas clave (ventaja, crítico, concentración, descansos, cobertura, agarre…), maestrías de armas y efectos, con buscador.
 - Varios personajes, creación guiada por clase (PG, salvaciones, espacios y recursos automáticos), subir de nivel, exportar/importar.
@@ -63,6 +65,10 @@ npm run android    # compila la web, sincroniza y abre Android Studio
 En Android Studio pulsa ▶ con el móvil conectado (depuración USB activada), o usa `npm run apk` para generar `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 El reconocimiento de voz usa el servicio del sistema de Android (Google). Para grabar sesiones largas la app reinicia la escucha automáticamente tras cada pausa.
+
+## Icono
+
+El icono (un goblin en pixel art lanzando un d20) se genera con `python3 scripts/icon/goblin.py`, que crea todos los tamaños de Android, el icono adaptativo, la pantalla de carga y los iconos web a partir de una cuadrícula de 32×32 definida en el propio script.
 
 ## Estructura
 

@@ -4,6 +4,7 @@ import { abilityMods, activeReminders, armorClass, attackBonus, fmt, rollContext
 import { ACTIONS, COST_NAMES, damageTypeName, effectName, effectNotes, findMastery, resourceName } from '../rules/srd';
 import { Pips, Section, useDamageRoll, useRoll } from './common';
 import { EffectPicker } from './Sheet';
+import { InitiativePrompt, InitiativeTracker } from './Initiative';
 import { L, T } from '../i18n';
 
 export function CombatTab() {
@@ -15,6 +16,10 @@ export function CombatTab() {
   const [crit, setCrit] = useState(false);
   const [effOpen, setEffOpen] = useState(false);
   const [openAction, setOpenAction] = useState<string | null>(null);
+  const [initPrompt, setInitPrompt] = useState(false);
+  const startCombat = useStore((s) => s.startCombat);
+  const endCombat = useStore((s) => s.endCombat);
+  const endTurn = useStore((s) => s.endTurn);
   const spd = speed(c);
   const ac = armorClass(c);
   const m = abilityMods(c);
@@ -29,14 +34,13 @@ export function CombatTab() {
   if (!c.combat.active) {
     return (
       <div className="tab">
+        {initPrompt && <InitiativePrompt onClose={() => setInitPrompt(false)} />}
         <div className="empty-combat">
           <div className="big-emoji">⚔️</div>
           <h2>{T('Modo combate', 'Combat mode')}</h2>
           <p className="muted">{T('Controla tu acción, acción adicional, reacción y movimiento cada ronda; ve tus ataques con su alcance y recuerda qué te afecta.', 'Track your action, bonus action, reaction and movement each round; see your attacks with their range and what is affecting you.')}</p>
-          <button className="btn primary big" onClick={() => {
-            update((x) => { x.combat = { active: true, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0 }; });
-            run(T('¡Empieza el combate! Tiro iniciativa', 'Combat starts! Rolling initiative'), [{ type: 'rollInitiative' }]);
-          }}>{T('¡Empezar combate! (tira iniciativa)', 'Start combat! (rolls initiative)')}</button>
+          <button className="btn primary big" onClick={() => { startCombat(); setInitPrompt(true); }}>{T('¡Empezar combate!', 'Start combat!')}</button>
+          <p className="hint">{T('Te preguntaré tu tirada de iniciativa; podrás añadir compañeros y enemigos y ordenar los turnos.', 'I’ll ask for your initiative roll; you can add allies and enemies and order the turns.')}</p>
         </div>
       </div>
     );
@@ -54,11 +58,13 @@ export function CombatTab() {
     <div className="tab">
       <div className="combat-head">
         <div><span className="muted">{T('Ronda', 'Round')}</span> <b className="big-num">{c.combat.round}</b></div>
-        <button className="pill" onClick={() => run(T('Tiro iniciativa', 'Roll initiative'), [{ type: 'rollInitiative' }])}>{T('Iniciativa', 'Initiative')} {c.combat.initiative ?? '—'}</button>
+        <button className="pill" onClick={() => setInitPrompt(true)}>{T('Iniciativa', 'Initiative')} {c.combat.initiative ?? '—'}</button>
         <div className="pill">{T('CA', 'AC')} <b>{ac.value}</b></div>
         <div className="pill">{T('Vel.', 'Speed')} <b>{spd.value}</b></div>
-        <button className="pill end-turn" onClick={() => run(T('Fin de turno', 'End turn'), [{ type: 'nextRound' }])}>{T('Fin de turno', 'End turn')} ⏭️</button>
+        <button className="pill end-turn" onClick={endTurn}>{T('Fin de turno', 'End turn')} ⏭️</button>
       </div>
+
+      <InitiativeTracker />
 
       {reminders.length > 0 && <div className="reminders">{reminders.map((r, i) => <div key={i}>⚠️ {r}</div>)}</div>}
 
@@ -180,13 +186,11 @@ export function CombatTab() {
       </Section>
 
       <div className="combat-footer">
-        <button className="btn primary grow big" onClick={() => run(T('Fin de turno', 'End turn'), [{ type: 'nextRound' }])}>⏭️ {T('Fin de turno / nueva ronda', 'End turn / new round')}</button>
-        <button className="btn" onClick={() => {
-          update((x) => { x.combat.active = false; x.combat.initiative = null; });
-          useStore.getState().pushLog({ role: 'app', text: T('Fin del combate.', 'Combat over.') });
-        }}>{T('Terminar', 'End')}</button>
+        <button className="btn primary grow big" onClick={endTurn}>⏭️ {T('Fin de turno', 'End turn')}</button>
+        <button className="btn" onClick={endCombat}>{T('Terminar', 'End')}</button>
       </div>
       {effOpen && <EffectPicker onClose={() => setEffOpen(false)} />}
+      {initPrompt && <InitiativePrompt onClose={() => setInitPrompt(false)} />}
     </div>
   );
 }

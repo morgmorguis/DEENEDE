@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Character, LogEntry, Note, NoteFolder } from './types';
+import type { Character, InitEntry, LogEntry, Note, NoteFolder } from './types';
 import { normalizeCharacter, sampleCharacter, uid } from './rules/factory';
-import { applyCommand, runQuickRoll, type ApplyResult, type Command } from './rules/engine';
+import { SELF_ID, applyCommand, runQuickRoll, sortOrder, type ApplyResult, type Command } from './rules/engine';
+import { activeReminders } from './rules/calc';
 import { DEFAULT_MODEL } from './config';
 import { setLang, T, type Lang } from './i18n';
 
@@ -48,6 +49,14 @@ interface State {
   renameFolder: (id: string, name: string) => void;
   deleteFolder: (id: string) => void;
   setSettings: (p: Partial<Settings>) => void;
+  // Combate y orden de iniciativa
+  startCombat: () => void;
+  endCombat: () => void;
+  endTurn: () => void;
+  setOrder: (order: InitEntry[], turn?: number) => void;
+  upsertEntry: (e: InitEntry) => void;
+  removeEntry: (id: string) => void;
+  sortByInitiative: () => void;
 }
 
 const detected: Lang = typeof navigator !== 'undefined' && !navigator.language.toLowerCase().startsWith('es') ? 'en' : 'es';
@@ -149,6 +158,57 @@ export const useStore = create<State>()(
       deleteFolder: (id) => get().update((c) => {
         c.noteFolders = c.noteFolders.filter((f) => f.id !== id);
         c.notes = c.notes.map((n) => (n.folderId === id ? { ...n, folderId: null } : n));
+      }),
+      startCombat: () => get().update((c) => {
+        // Los compañeros se recuerdan entre combates; los enemigos no
+        const allies = c.combat.order.filter((e) => e.kind === 'ally').map((e) => ({ ...e, initiative: null }));
+        c.combat = { active: true, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0, turn: 0, begun: false, order: [{ id: SELF_ID, name: '', kind: 'self', initiative: null }, ...allies] };
+      }),
+      endCombat: () => {
+        get().update((c) => { c.combat.active = false; c.combat.initiative = null; c.combat.turn = 0; });
+        get().pushLog({ role: 'app', text: T('Fin del combate.', 'Combat over.') });
+      },
+      endTurn: () => {
+        const c = get().active();
+        const order = c.combat.order.length ? c.combat.order : [{ id: SELF_ID, name: '', kind: 'self' as const, initiative: c.combat.initiative }];
+        const next = c.combat.turn + 1;
+        const who = (e: InitEntry) => (e.kind === 'self' ? c.name : e.name);
+        if (next >= order.length) {
+          // Vuelta completa: nueva ronda (duraciones, acción, reacción, movimiento…)
+          get().runCommands(null, [{ type: 'nextRound' }], [], true);
+          get().update((x) => { x.combat.turn = 0; x.combat.begun = true; });
+          const log = get().log[get().activeId] ?? [];
+          const details = log[log.length - 1]?.details ?? [];
+          get().showToast(T(`Ronda ${c.combat.round + 1} · turno de ${who(order[0])}`, `Round ${c.combat.round + 1} · ${who(order[0])}’s turn`), details);
+          return;
+        }
+        const mine = order[next].kind === 'self';
+        get().update((x) => {
+          x.combat.turn = next;
+          x.combat.begun = true;
+          if (mine) Object.assign(x.combat, { action: false, bonus: false, reaction: false, movementUsed: 0 });
+        });
+        get().showToast(mine ? T('⚔️ ¡Tu turno!', '⚔️ Your turn!') : T(`Turno de ${who(order[next])}`, `${who(order[next])}’s turn`), mine ? activeReminders(get().active()) : []);
+      },
+      setOrder: (order, turn) => get().update((c) => {
+        const current = c.combat.order[c.combat.turn]?.id;
+        c.combat.order = order;
+        c.combat.turn = turn ?? (c.combat.begun ? Math.max(0, order.findIndex((e) => e.id === current)) : 0);
+      }),
+      upsertEntry: (e) => get().update((c) => {
+        const i = c.combat.order.findIndex((x) => x.id === e.id);
+        if (i >= 0) c.combat.order[i] = e;
+        else c.combat.order.push(e);
+        if (e.kind === 'self' && e.initiative != null) c.combat.initiative = e.initiative;
+      }),
+      removeEntry: (id) => get().update((c) => {
+        const current = c.combat.order[c.combat.turn]?.id;
+        c.combat.order = c.combat.order.filter((x) => x.id !== id);
+        c.combat.turn = Math.max(0, c.combat.order.findIndex((x) => x.id === current));
+      }),
+      sortByInitiative: () => get().update((c) => {
+        const sorted = sortOrder(c.combat.order, c.combat.turn);
+        Object.assign(c.combat, sorted, c.combat.begun ? {} : { turn: 0 });
       }),
       setSettings: (p) => set((s) => {
         const settings = { ...s.settings, ...p };

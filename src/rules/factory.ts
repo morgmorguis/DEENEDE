@@ -73,7 +73,7 @@ export function blankCharacter(): Character {
     coins: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
     notes: [],
     noteFolders: defaultFolders(),
-    combat: { active: false, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0 },
+    combat: { active: false, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0, order: [], turn: 0 },
   };
 }
 

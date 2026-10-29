@@ -1,4 +1,4 @@
-import type { Ability, Character, ConditionId, DamageType, Effect } from '../types';
+import type { Ability, Character, ConditionId, DamageType, Effect, InitEntry } from '../types';
 import {
   armorClass, abilityMods, damageDefenses, fmt, maxHp, rollD20, rollExpr, saveBonus, skillBonus,
 } from './calc';
@@ -23,6 +23,7 @@ export type Command =
   | { type: 'rollAbility'; ability: Ability }
   | { type: 'rollDice'; expr: string }
   | { type: 'rollInitiative' }
+  | { type: 'setInitiative'; value: number }
   | { type: 'exhaustion'; delta: number }
   | { type: 'deathSave'; roll?: number | null }
   | { type: 'nextRound' }
@@ -436,8 +437,13 @@ export function applyCommand(input: Character, cmd: Command): ApplyResult {
     case 'rollInitiative': {
       const c = clone(input);
       const r = rollD20(input, { kind: 'initiative' }, abilityMods(input).dex, T('Iniciativa', 'Initiative'));
-      c.combat.initiative = r.total;
+      setSelfInitiative(c, r.total);
       return done(c, r.lines);
+    }
+    case 'setInitiative': {
+      const c = clone(input);
+      setSelfInitiative(c, cmd.value);
+      return done(c, [T(`Tu iniciativa: ${cmd.value}.`, `Your initiative: ${cmd.value}.`)]);
     }
     case 'rollDice': {
       const r = rollExpr(cmd.expr);
@@ -512,4 +518,27 @@ export function runQuickRoll(c: Character, expr: string): ApplyResult {
     return done(res.char, [...lines, ...res.lines]);
   }
   return applyCommand(c, { type: 'rollDice', expr });
+}
+
+// ---------- Orden de iniciativa ----------
+
+export const SELF_ID = 'self';
+
+/** Ordena de mayor a menor iniciativa; los que no tienen tirada van al final. Conserva el turno actual. */
+export function sortOrder(order: InitEntry[], turn: number): { order: InitEntry[]; turn: number } {
+  const current = order[turn]?.id;
+  const sorted = order
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => (b.e.initiative ?? -Infinity) - (a.e.initiative ?? -Infinity) || a.i - b.i)
+    .map((x) => x.e);
+  return { order: sorted, turn: Math.max(0, sorted.findIndex((e) => e.id === current)) };
+}
+
+/** Guarda tu iniciativa en la ficha y en el orden de turnos */
+function setSelfInitiative(c: Character, value: number) {
+  c.combat.initiative = value;
+  if (!c.combat.order.some((e) => e.kind === 'self')) c.combat.order.unshift({ id: SELF_ID, name: '', kind: 'self', initiative: null });
+  c.combat.order = c.combat.order.map((e) => (e.kind === 'self' ? { ...e, initiative: value } : e));
+  // Al empezar (turno 0 de la ronda 1) reordenamos automáticamente; después se respeta el orden manual
+  if (!c.combat.begun) Object.assign(c.combat, sortOrder(c.combat.order, 0), { turn: 0 });
 }

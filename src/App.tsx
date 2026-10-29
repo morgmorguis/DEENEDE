@@ -28,7 +28,7 @@ export default function App() {
   }, [theme]);
   const [notesOpen, setNotesOpen] = useState(false);
   const inCombat = c.combat.active;
-  const run = useStore((s) => s.runCommands);
+  const endTurn = useStore((s) => s.endTurn);
   const cls = classById(c.classId);
 
   const tabs: { id: Tab; icon: string; label: string }[] = [
@@ -60,7 +60,7 @@ export default function App() {
             <span className={c.combat.action ? 'used' : ''}>{T('Acción', 'Action')}</span>
             <span className={c.combat.bonus ? 'used' : ''}>{T('Adicional', 'Bonus')}</span>
             <span className={c.combat.reaction ? 'used' : ''}>{T('Reacción', 'Reaction')}</span>
-            <button className="link small" onClick={() => run(T('Fin de turno', 'End turn'), [{ type: 'nextRound' }])}>{T('Fin de turno', 'End turn')} ⏭️</button>
+            <button className="link small" onClick={endTurn}>{T('Fin de turno', 'End turn')} ⏭️</button>
           </div>
         )}
       </header>
