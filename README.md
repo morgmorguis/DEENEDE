@@ -1,4 +1,4 @@
-# Grimorio D&D
+# Di en Di
 
 <img src="public/icon-192.png" width="96" alt="Icono: un goblin en pixel art lanzando dados hacia la cámara" />
 
@@ -62,7 +62,7 @@ npm install
 npm run android    # compila la web, sincroniza y abre Android Studio
 ```
 
-En Android Studio pulsa ▶ con el móvil conectado (depuración USB activada), o usa `npm run apk` para generar `android/app/build/outputs/apk/debug/app-debug.apk`.
+En Android Studio pulsa ▶ con el móvil conectado (depuración USB activada), o usa `npm run apk` para generar `android/app/build/outputs/apk/debug/Di en Di.apk`.
 
 El reconocimiento de voz usa el servicio del sistema de Android (Google). Para grabar sesiones largas la app reinicia la escucha automáticamente tras cada pausa.
 

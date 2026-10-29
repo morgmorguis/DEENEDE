@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Grimorio D&amp;D</string>
-    <string name="title_activity_main">Grimorio D&amp;D</string>
+    <string name="app_name">Di en Di</string>
+    <string name="title_activity_main">Di en Di</string>
     <string name="package_name">com.grimorio.dndcompanion</string>
     <string name="custom_url_scheme">com.grimorio.dndcompanion</string>
 </resources>

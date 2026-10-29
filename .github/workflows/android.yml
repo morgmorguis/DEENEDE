@@ -37,8 +37,9 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/Di en Di.apk"
 
       - uses: actions/upload-artifact@v5
         with:
-          name: grimorio-dnd-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: di-en-di-apk
+          path: "android/app/build/outputs/apk/debug/Di en Di.apk"

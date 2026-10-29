@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.grimorio.dndcompanion',
-  appName: 'Grimorio D&D',
+  appName: 'Di en Di',
   webDir: 'dist',
   android: {
     backgroundColor: '#15110f',
