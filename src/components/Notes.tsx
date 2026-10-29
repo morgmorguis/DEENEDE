@@ -50,8 +50,8 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
 
   const stopRec = async () => {
     if (!rec) return;
-    const text = await rec.stop();
     setRec(null);
+    const text = await rec.stop();
     if (timer.current) clearInterval(timer.current);
     setTranscript((text || live).trim());
     setLive('');

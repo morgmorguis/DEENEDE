@@ -21,6 +21,8 @@ export async function startRecording(lang: string, cb: Callbacks): Promise<Recor
   return startWeb(lang, cb);
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function startNative(lang: string, cb: Callbacks): Promise<Recorder> {
   const { available } = await SpeechRecognition.available();
   if (!available) throw new Error(T('El reconocimiento de voz no está disponible en este dispositivo.', 'Speech recognition isn’t available on this device.'));
@@ -28,6 +30,7 @@ async function startNative(lang: string, cb: Callbacks): Promise<Recorder> {
   if (perm.speechRecognition !== 'granted') throw new Error(T('Necesito permiso de micrófono para grabar.', 'I need microphone permission to record.'));
 
   let running = true;
+  let starting = false;
   let committed = '';
   let partial = '';
 
@@ -36,41 +39,58 @@ async function startNative(lang: string, cb: Callbacks): Promise<Recorder> {
     partial = '';
   };
 
+  const listen = async () => {
+    if (!running || starting) return;
+    starting = true;
+    try {
+      await SpeechRecognition.start({ language: lang, partialResults: true, popup: false, maxResults: 1 });
+    } catch {
+      // Los silencios largos dan error en Android: el vigilante de abajo vuelve a empezar
+    } finally {
+      starting = false;
+    }
+  };
+
   await SpeechRecognition.removeAllListeners();
   await SpeechRecognition.addListener('partialResults', (data) => {
+    if (!running) return;
     partial = data.matches?.[0] ?? '';
     cb.onText(committed, partial);
   });
   await SpeechRecognition.addListener('listeningState', (data) => {
-    if (data.status === 'stopped') {
+    if (data.status === 'stopped' && running) {
       commit();
       cb.onText(committed, '');
-      if (running) setTimeout(() => void listen(), 250);
+      setTimeout(() => void listen(), 250);
     }
   });
 
-  const listen = async () => {
-    if (!running) return;
+  // Vigilante: tras un silencio largo Android corta la escucha con un error y el plugin no avisa,
+  // así que comprobamos cada poco si sigue escuchando y, si no, la reanudamos.
+  const watchdog = setInterval(async () => {
+    if (!running || starting) return;
     try {
-      await SpeechRecognition.start({ language: lang, partialResults: true, popup: false, maxResults: 1 });
-    } catch (e) {
-      // "No match" y similares ocurren con silencios: reintentamos
-      if (running) setTimeout(() => void listen(), 500);
-      else cb.onError(String(e));
+      const { listening } = await SpeechRecognition.isListening();
+      if (!listening && running) {
+        commit();
+        cb.onText(committed, '');
+        void listen();
+      }
+    } catch {
+      /* ignorado */
     }
-  };
+  }, 1500);
+
   void listen();
 
   return {
     stop: async () => {
       running = false;
-      try {
-        await SpeechRecognition.stop();
-      } catch {
-        /* ya estaba parado */
-      }
+      clearInterval(watchdog);
       commit();
-      await SpeechRecognition.removeAllListeners();
+      // El stop() del plugin de Android nunca responde: no lo esperamos más de un momento
+      await Promise.race([SpeechRecognition.stop().catch(() => undefined), sleep(400)]);
+      void SpeechRecognition.removeAllListeners();
       return committed;
     },
   };

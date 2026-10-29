@@ -60,8 +60,8 @@ export function AssistantTab() {
 
   const toggleDictation = async () => {
     if (rec) {
-      const final = await rec.stop();
       setRec(null);
+      const final = await rec.stop();
       if (final.trim()) setText(final.trim());
       return;
     }
