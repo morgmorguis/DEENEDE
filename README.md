@@ -1,6 +1,6 @@
 # Grimorio D&D
 
-<img src="public/icon-192.png" width="96" alt="Icono: un goblin en pixel art lanzando un d20" />
+<img src="public/icon-192.png" width="96" alt="Icono: un goblin en pixel art lanzando dados hacia la cámara" />
 
 Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2), en español e inglés.
 
@@ -68,7 +68,7 @@ El reconocimiento de voz usa el servicio del sistema de Android (Google). Para g
 
 ## Icono
 
-El icono (un goblin en pixel art lanzando un d20) se genera con `python3 scripts/icon/goblin.py`, que crea todos los tamaños de Android, el icono adaptativo, la pantalla de carga y los iconos web a partir de una cuadrícula de 32×32 definida en el propio script.
+El icono (un goblin en pixel art que mira a cámara y lanza dados) se genera con `python3 scripts/icon/goblin.py`, que crea todos los tamaños de Android, el icono adaptativo, la pantalla de carga y los iconos web a partir de una cuadrícula de 40×40 dibujada por capas en el propio script.
 
 ## Estructura
 
