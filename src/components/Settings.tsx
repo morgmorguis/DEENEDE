@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useStore, type Theme } from '../store';
-import { createCharacter, normalizeCharacter, uid } from '../rules/factory';
+import { createCharacter } from '../rules/factory';
 import { ABILITIES, CLASSES, SKILLS, SPECIES, classById } from '../rules/srd';
 import { fmt, mod } from '../rules/calc';
 import type { Ability, Character } from '../types';
 import { Modal, NumberInput, Section } from './common';
 import { ImportModal } from './Import';
+import { BackupSection } from './Backup';
 import { DEFAULT_MODEL } from '../config';
 import { L, T, getLang } from '../i18n';
 import { translateCharacter } from '../rules/glossary';
@@ -20,9 +21,6 @@ export function SettingsTab() {
   const setSettings = useStore((s) => s.setSettings);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [io, setIo] = useState<'export' | 'import' | null>(null);
-  const [ioText, setIoText] = useState('');
-  const [ioError, setIoError] = useState('');
   const [showKey, setShowKey] = useState(false);
   const replace = useStore((s) => s.replace);
   const [translating, setTranslating] = useState<string | null>(null);
@@ -92,11 +90,9 @@ export function SettingsTab() {
           </div>
         ))}
         <button className="btn full mt" onClick={() => setImporting(true)}>📥 {T('Importar desde foto, PDF o Word', 'Import from photo, PDF or Word')}</button>
-        <div className="row mt">
-          <button className="btn grow" onClick={() => { setIo('export'); setIoText(JSON.stringify(active, null, 1)); }}>{T('Exportar ficha', 'Export sheet')}</button>
-          <button className="btn grow" onClick={() => { setIo('import'); setIoText(''); setIoError(''); }}>{T('Importar copia', 'Import copy')}</button>
-        </div>
       </Section>
+
+      <BackupSection />
 
       <Section title={T('Inteligencia artificial (opcional)', 'Artificial intelligence (optional)')}>
         <p className="small">{T('Con una clave de API de Claude, el asistente entiende frases libres, el diario convierte tus grabaciones en una crónica y puedes importar fichas desde fotos y documentos. Sin clave, todo lo demás funciona sin conexión.', 'With a Claude API key, the assistant understands free phrasing, the journal turns your recordings into a chronicle, and you can import sheets from photos and documents. Without a key everything else works offline.')}</p>
@@ -133,33 +129,6 @@ export function SettingsTab() {
 
       {creating && <NewCharacter onClose={() => setCreating(false)} onCreate={(c) => { add(c); setCreating(false); }} />}
       {importing && <ImportModal onClose={() => setImporting(false)} />}
-      {io && (
-        <Modal title={io === 'export' ? T('Exportar ficha', 'Export sheet') : T('Importar copia', 'Import copy')} onClose={() => setIo(null)}>
-          {io === 'export' ? (
-            <>
-              <p className="small">{T('Copia este texto y guárdalo donde quieras (o pásalo a otro móvil).', 'Copy this text and keep it wherever you like (or move it to another phone).')}</p>
-              <textarea className="tall mono" readOnly value={ioText} />
-              <button className="btn primary full" onClick={() => void navigator.clipboard?.writeText(ioText)}>{T('Copiar', 'Copy')}</button>
-            </>
-          ) : (
-            <>
-              <p className="small">{T('Pega aquí el texto de una ficha exportada.', 'Paste the text of an exported sheet here.')}</p>
-              <textarea className="tall mono" value={ioText} onChange={(e) => setIoText(e.target.value)} />
-              {ioError && <p className="error">{ioError}</p>}
-              <button className="btn primary full" onClick={() => {
-                try {
-                  const c = JSON.parse(ioText) as Character;
-                  if (!c.name || !c.abilities || !c.hp) throw new Error(T('No parece una ficha válida.', 'This doesn’t look like a valid sheet.'));
-                  add(normalizeCharacter({ ...c, id: uid() } as never));
-                  setIo(null);
-                } catch (e) {
-                  setIoError(e instanceof Error ? e.message : T('Texto no válido', 'Invalid text'));
-                }
-              }}>{T('Importar', 'Import')}</button>
-            </>
-          )}
-        </Modal>
-      )}
     </div>
   );
 }

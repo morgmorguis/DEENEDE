@@ -29,7 +29,8 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
 - **Modo combate**: al empezar te pregunta tu tirada de iniciativa (la escribes o la tira la app, nunca sola); **orden de iniciativa** con tus compañeros y los enemigos en burbujas que se reordenan arrastrando (también con el dedo), turno actual resaltado y «Siguiente turno» que avanza la ronda; casillas de acción / acción adicional / reacción, movimiento restante, ataques con alcance, bonificador y maestría de arma, tiradas de ataque y daño (crítico incluido, bonus de Furia solo en ataques de FUE), conjuros con alcance y espacios, recursos, efectos activos y una chuleta de todas las acciones 2024.
 - **Bloc de notas abatible** (botón 📜, disponible en todas las pantallas) con **carpetas** (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees): notas rápidas y un botón para **grabar la sesión**. La transcripción se convierte en una crónica escrita como un relato (con Claude) y se guarda en «Crónicas».
 - **Reglas consultables**: condiciones, habilidades (con tu bonificador), acciones, reglas clave (ventaja, crítico, concentración, descansos, cobertura, agarre…), maestrías de armas y efectos, con buscador.
-- Varios personajes, creación guiada por clase (PG, salvaciones, espacios y recursos automáticos), subir de nivel, exportar/importar.
+- Varios personajes, creación guiada por clase (PG, salvaciones, espacios y recursos automáticos) y subir de nivel.
+- **Copia de seguridad** (Ajustes → Copia de seguridad): exporta todas tus fichas con su progreso y su diario (notas, carpetas y crónicas), o solo la ficha actual, a un archivo `.json`. En Android se guarda en *Documentos/DiEnDi* y se abre el menú Compartir para mandarlo a Drive, al correo, etc. Para recuperarlo, «Restaurar copia» deja **añadirlo a tus fichas** (las que ya existen se actualizan) o **reemplazarlo todo**. Sirve para no perder datos al reinstalar o para pasar tus personajes a otro móvil.
 
 ## Inteligencia artificial (opcional)
 
@@ -85,6 +86,7 @@ El icono (un goblin en pixel art que mira a cámara y lanza dados) se genera con
 - `src/i18n.ts`: idioma de la app (`T('texto', 'text')`).
 - `src/importer.ts`: importación de fichas (pdf.js para PDF, mammoth para Word).
 - `src/offline/`: importación sin IA: `pdfForm.ts` (formularios PDF por posición), `textParse.ts` (texto libre), `ocr.ts` (OCR con Tesseract.js). El script `scripts/copy-ocr-assets.mjs` copia el motor y los idiomas a `public/ocr` al compilar, para que funcione sin internet.
+- `src/backup.ts`: copias de seguridad (exportar a archivo, leer y fusionar).
 - `src/ai.ts`: integración opcional con Claude.
 - `src/speech.ts`: reconocimiento de voz (plugin nativo / Web Speech API).
 - `src/components/`: pantallas.

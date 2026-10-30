@@ -627,3 +627,7 @@ p { margin: 6px 0; line-height: 1.45; }
 .flag p { margin: 6px 0 0; font-size: 13px; line-height: 1.4; }
 .import-flags { margin-top: 10px; }
 .import-flags .flag { background: rgba(0,0,0,.08); }
+
+/* ---------- Copia de seguridad ---------- */
+.restore-list { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 6px; }
+.restore-list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; background: var(--card2); }

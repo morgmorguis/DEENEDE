@@ -5,6 +5,7 @@ import { normalizeCharacter, sampleCharacter, uid } from './rules/factory';
 import { SELF_ID, applyCommand, runQuickRoll, sortOrder, type ApplyResult, type Command } from './rules/engine';
 import { activeReminders } from './rules/calc';
 import { DEFAULT_MODEL } from './config';
+import { mergeCharacters } from './backup';
 import { setLang, T, type Lang } from './i18n';
 
 export type Theme = 'basic' | 'green' | 'gray' | 'blue';
@@ -19,6 +20,8 @@ export interface Settings {
   useAiFallback: boolean;
   /** 'auto' = según el idioma de la app */
   speechLang: string;
+  /** Fecha (ms) de la última copia de seguridad exportada */
+  lastBackupAt: number | null;
 }
 
 interface State {
@@ -36,6 +39,8 @@ interface State {
   addCharacter: (c: Character) => void;
   removeCharacter: (id: string) => void;
   setActive: (id: string) => void;
+  /** Recupera fichas de una copia de seguridad: fusionando por id o reemplazando todas */
+  importCharacters: (chars: Character[], mode: 'merge' | 'replace') => void;
   /** Aplica comandos al personaje activo, los registra y (si no es silencioso) muestra un aviso */
   runCommands: (userText: string | null, cmds: Command[], extraLines?: string[], silent?: boolean) => void;
   quickRoll: (expr: string, label: string) => void;
@@ -63,7 +68,7 @@ const detected: Lang = typeof navigator !== 'undefined' && !navigator.language.t
 setLang(detected);
 const first = sampleCharacter();
 
-const defaultSettings: Settings = { lang: detected, theme: 'basic', tapToRoll: false, apiKey: '', model: DEFAULT_MODEL, useAiFallback: true, speechLang: 'auto' };
+const defaultSettings: Settings = { lang: detected, theme: 'basic', tapToRoll: false, apiKey: '', model: DEFAULT_MODEL, useAiFallback: true, speechLang: 'auto', lastBackupAt: null };
 
 export const speechLangFor = (s: Settings) => (s.speechLang === 'auto' ? (s.lang === 'es' ? 'es-ES' : 'en-US') : s.speechLang);
 
@@ -97,6 +102,12 @@ export const useStore = create<State>()(
           return { characters, activeId: characters[0].id };
         }),
       setActive: (id) => set({ activeId: id }),
+      importCharacters: (chars, mode) =>
+        set((s) => {
+          const characters = mergeCharacters(s.characters, chars, mode);
+          const activeId = characters.some((c) => c.id === s.activeId) ? s.activeId : chars[0].id;
+          return { characters, activeId };
+        }),
 
       pushLog: (e) =>
         set((s) => {
