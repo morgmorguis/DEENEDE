@@ -5,6 +5,7 @@ import { ACTIONS, COST_NAMES, damageTypeName, effectName, effectNotes, findMaste
 import { Pips, Section, useDamageRoll, useRoll } from './common';
 import { EffectPicker } from './Sheet';
 import { InitiativePrompt, InitiativeTracker } from './Initiative';
+import { longPress } from './InfoBubble';
 import { L, T } from '../i18n';
 
 export function CombatTab() {
@@ -102,7 +103,7 @@ export function CombatTab() {
           const mastery = findMastery(a.mastery);
           return (
             <div key={a.id} className="attack">
-              <div className="attack-head">
+              <div className="attack-head" {...longPress({ type: 'attack', id: a.id })}>
                 <b>{a.name}</b>
                 <span className="range">📏 {a.range || '—'}</span>
               </div>
@@ -129,7 +130,7 @@ export function CombatTab() {
           </div>
           {[...c.spells].sort((a, b) => a.level - b.level).map((s) => (
             <div key={s.id} className="spell-line">
-              <div className="grow">
+              <div className="grow" {...longPress({ type: 'spell', id: s.id })}>
                 <b>{s.name}</b> <span className="muted small">{s.level ? `${T('nv', 'lvl')} ${s.level}` : T('truco', 'cantrip')} · {s.castingTime} · 📏 {s.range}{s.concentration ? ' · 🧠' : ''}</span>
                 {s.notes && <div className="small muted">{s.notes}</div>}
               </div>
@@ -148,7 +149,7 @@ export function CombatTab() {
         <Section title={T('Recursos', 'Resources')}>
           {c.resources.map((r) => (
             <div key={r.id} className="res-line">
-              <span className="grow">{resourceName(r)}</span>
+              <span className="grow" {...longPress({ type: 'resource', id: r.id })}>{resourceName(r)}</span>
               {r.max <= 12 ? <Pips max={r.max} used={r.used} onChange={(u) => update((x) => { x.resources.find((y) => y.id === r.id)!.used = u; })} /> : <b>{r.max - r.used}/{r.max}</b>}
             </div>
           ))}
@@ -165,7 +166,7 @@ export function CombatTab() {
         {c.effects.length === 0 && <span className="muted">{T('Ninguno.', 'None.')}</span>}
         {c.effects.map((e) => (
           <div key={e.id} className="res-line">
-            <span className="grow">{e.kind === 'buff' ? '🟢' : '🔴'} {effectName(e)} <span className="muted small">{effectNotes(e)}</span></span>
+            <span className="grow" {...longPress({ type: 'effect', id: e.id })}>{e.kind === 'buff' ? '🟢' : '🔴'} {effectName(e)} <span className="muted small">{effectNotes(e)}</span></span>
             <b>{e.roundsLeft != null ? `${e.roundsLeft}r` : '∞'}</b>
             <button className="icon-btn" aria-label={T(`Quitar ${effectName(e)}`, `Remove ${effectName(e)}`)} onClick={() => run(null, [{ type: 'removeEffect', name: effectName(e) }])}>✕</button>
           </div>

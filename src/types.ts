@@ -197,6 +197,8 @@ export interface Character {
   notes: Note[];
   noteFolders: NoteFolder[];
   combat: CombatState;
+  /** Ids de avisos de la ficha que el jugador ha decidido ignorar */
+  ignoredFlags: string[];
 }
 
 export interface LogEntry {

@@ -7,7 +7,8 @@ import type { Ability, Character } from '../types';
 import { Modal, NumberInput, Section } from './common';
 import { ImportModal } from './Import';
 import { DEFAULT_MODEL } from '../config';
-import { L, T } from '../i18n';
+import { L, T, getLang } from '../i18n';
+import { translateCharacter } from '../rules/glossary';
 
 export function SettingsTab() {
   const characters = useStore((s) => s.characters);
@@ -23,6 +24,9 @@ export function SettingsTab() {
   const [ioText, setIoText] = useState('');
   const [ioError, setIoError] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const replace = useStore((s) => s.replace);
+  const [translating, setTranslating] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const active = characters.find((c) => c.id === activeId)!;
 
   return (
@@ -32,7 +36,27 @@ export function SettingsTab() {
           <button role="radio" aria-checked={settings.lang === 'es'} className={settings.lang === 'es' ? 'on' : ''} onClick={() => setSettings({ lang: 'es' })}>🇪🇸 Español</button>
           <button role="radio" aria-checked={settings.lang === 'en'} className={settings.lang === 'en' ? 'on' : ''} onClick={() => setSettings({ lang: 'en' })}>🇬🇧 English</button>
         </div>
-        <p className="hint">{T('Cambia toda la app: interfaz, reglas, avisos y el asistente. Lo que hayas escrito en tus fichas y notas no se traduce.', 'Changes the whole app: interface, rules, messages and the assistant. What you wrote in your sheets and notes isn’t translated.')}</p>
+        <p className="hint">{T('Cambia toda la app: interfaz, reglas, avisos y el asistente. Las notas no se traducen; la ficha, con el botón de abajo.', 'Changes the whole app: interface, rules, messages and the assistant. Notes aren’t translated; the sheet can be, with the button below.')}</p>
+        <button className="btn" disabled={busy} onClick={() => void (async () => {
+          setTranslating(null);
+          let next = translateCharacter(active, getLang());
+          if (settings.apiKey) {
+            setBusy(true);
+            setTranslating(T('Traduciendo textos largos con Claude…', 'Translating long texts with Claude…'));
+            try {
+              const { translateLongTexts } = await import('../ai');
+              next = await translateLongTexts(settings.apiKey, settings.model, next);
+              setTranslating(null);
+            } catch (e) {
+              const { describeError } = await import('../ai');
+              setTranslating(`⚠️ ${describeError(e)}`);
+            }
+            setBusy(false);
+          }
+          replace(next);
+          if (!settings.apiKey) setTranslating(T('Términos traducidos. La historia y los textos largos solo se traducen con Claude.', 'Terms translated. The backstory and long texts are only translated with Claude.'));
+        })()}>🌐 {T(`Traducir la ficha de ${active.name} al español`, `Translate ${active.name}’s sheet into English`)}</button>
+        {translating && <p className="hint">{translating}</p>}
       </Section>
 
       <Section title={T('Colores', 'Colors')}>
@@ -54,6 +78,7 @@ export function SettingsTab() {
           </span>
           <input type="checkbox" className="switch" checked={settings.tapToRoll} onChange={(e) => setSettings({ tapToRoll: e.target.checked })} />
         </label>
+        <p className="hint">💬 {T('Mantén pulsada 1,5 s una habilidad, salvación, arma, conjuro, rasgo, recurso o condición para ver qué hace y qué te limita ahora mismo.', 'Press and hold a skill, save, weapon, spell, feature, resource or condition for 1.5 s to see what it does and what limits it right now.')}</p>
       </Section>
 
       <Section title={T('Personajes', 'Characters')} right={<button className="btn small primary" onClick={() => setCreating(true)}>+ {T('Nuevo', 'New')}</button>}>

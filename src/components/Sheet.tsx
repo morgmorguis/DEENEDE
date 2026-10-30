@@ -16,6 +16,8 @@ import { Editor } from './Editor';
 import { ImportModal } from './Import';
 import { L, T } from '../i18n';
 import { imageFileToBase64 } from '../importer';
+import { longPress } from './InfoBubble';
+import { FlagsPanel } from './Flags';
 
 // ---------- Piezas con aspecto de hoja de papel ----------
 
@@ -108,13 +110,13 @@ export function SheetTab() {
     return (
       <Box key={a} title={abilityName(a)} className="p-ability">
         <div className="p-ab-top">
-          <button className="p-ab-mod" onClick={() => tapStat(a)} aria-label={`${abilityName(a)} ${fmt(m[a])}`}>{fmt(m[a])}</button>
+          <button className="p-ab-mod" {...longPress({ type: 'ability', ability: a })} onClick={() => tapStat(a)} aria-label={`${abilityName(a)} ${fmt(m[a])}`}>{fmt(m[a])}</button>
           <NumberInput className="p-ab-score" value={c.abilities[a]} min={1} max={30} ariaLabel={T(`Puntuación de ${abilityName(a)}`, `${abilityName(a)} score`)} onChange={(n) => set((x) => { x.abilities[a] = Math.max(1, Math.min(30, n)); })} />
         </div>
         <div className="p-row save">
           <ProfDot level={c.saveProf.includes(a) ? 1 : 0} onClick={() => toggleSave(a)} label={T('Competencia en salvación', 'Saving throw proficiency')} />
           <span className="p-bonus">{fmt(saveBonus(c, a))}</span>
-          <button className="p-row-name" onClick={() => tapStat(a, { save: true })}>
+          <button className="p-row-name" {...longPress({ type: 'save', ability: a })} onClick={() => tapStat(a, { save: true })}>
             {T('Tirada de salvación', 'Saving Throw')}
             {saveCtx.autoFail.length > 0 && <i className="tag bad">✕</i>}
             {saveCtx.advantage.length > 0 && <i className="tag good">V</i>}
@@ -127,7 +129,7 @@ export function SheetTab() {
             <div key={s.id} className="p-row">
               <ProfDot level={c.skillProf[s.id] ?? 0} onClick={() => cycleSkill(s.id)} label={T(`Competencia en ${L(s.name)}`, `${L(s.name)} proficiency`)} />
               <span className="p-bonus">{fmt(skillBonus(c, s.id))}</span>
-              <button className="p-row-name" onClick={() => tapStat(a, { skill: s.id })}>
+              <button className="p-row-name" {...longPress({ type: 'skill', id: s.id })} onClick={() => tapStat(a, { skill: s.id })}>
                 {L(s.name)}
                 {ctx.autoFail.length > 0 && <i className="tag bad">!</i>}
                 {ctx.advantage.length > 0 && <i className="tag good">V</i>}
@@ -146,6 +148,8 @@ export function SheetTab() {
         <button className="btn small" onClick={() => setImporting(true)}>📥 {T('Importar ficha', 'Import sheet')}</button>
         <button className="btn small" onClick={() => setEditing(true)}>⚙️ {T('Más opciones', 'More options')}</button>
       </div>
+
+      <FlagsPanel />
 
       {reminders.length > 0 && (
         <div className="reminders">{reminders.map((r, i) => <div key={i}>⚠️ {r}</div>)}</div>
@@ -266,7 +270,7 @@ export function SheetTab() {
                   {c.attacks.map((a) => {
                     const flat = m[a.ability];
                     return (
-                      <tr key={a.id} onClick={() => setAttackEdit(a.id)}>
+                      <tr key={a.id} {...longPress({ type: 'attack', id: a.id })} onClick={() => setAttackEdit(a.id)}>
                         <td><b>{a.name || '—'}</b></td>
                         <td>{fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}</td>
                         <td>{a.damage}{flat ? fmt(flat) : ''} {damageTypeName(a.damageType).toLowerCase()}</td>
@@ -283,7 +287,7 @@ export function SheetTab() {
               {c.features.length === 0 && <p className="p-empty">{T('Sin rasgos.', 'No features.')}</p>}
               {c.features.map((f) => (
                 <details key={f.id} className="p-feature" open={!f.name}>
-                  <summary>{f.name || T('Nuevo rasgo', 'New feature')}</summary>
+                  <summary {...longPress({ type: 'feature', id: f.id })}>{f.name || T('Nuevo rasgo', 'New feature')}</summary>
                   <input className="p-inline" value={f.name} placeholder={T('Nombre', 'Name')} onChange={(e) => set((x) => { x.features.find((y) => y.id === f.id)!.name = e.target.value; })} />
                   <textarea className="p-area" rows={3} value={f.text} onChange={(e) => set((x) => { x.features.find((y) => y.id === f.id)!.text = e.target.value; })} />
                   <button className="p-link" onClick={() => set((x) => { x.features = x.features.filter((y) => y.id !== f.id); })}>{T('Borrar', 'Delete')}</button>
@@ -303,14 +307,14 @@ export function SheetTab() {
                   const ci = CONDITIONS.find((x) => x.id === id)!;
                   return (
                     <span key={id} className="chip bad">
-                      <button className="chip-label" onClick={() => setInfo({ title: L(ci.name), lines: ci.effects.map(L) })}>{L(ci.name)}</button>
+                      <button className="chip-label" {...longPress({ type: 'condition', id })} onClick={() => setInfo({ title: L(ci.name), lines: ci.effects.map(L) })}>{L(ci.name)}</button>
                       <button className="chip-x" aria-label={T(`Quitar ${L(ci.name)}`, `Remove ${L(ci.name)}`)} onClick={() => run(null, [{ type: 'removeCondition', condition: id }])}>✕</button>
                     </span>
                   );
                 })}
                 {c.effects.map((e) => (
                   <span key={e.id} className={`chip ${e.kind === 'buff' ? 'good' : 'bad'}`}>
-                    <button className="chip-label" onClick={() => setInfo({ title: effectName(e), lines: [effectNotes(e), e.roundsLeft != null ? T(`Quedan ${e.roundsLeft} rondas.`, `${e.roundsLeft} rounds left.`) : ''].filter(Boolean) })}>
+                    <button className="chip-label" {...longPress({ type: 'effect', id: e.id })} onClick={() => setInfo({ title: effectName(e), lines: [effectNotes(e), e.roundsLeft != null ? T(`Quedan ${e.roundsLeft} rondas.`, `${e.roundsLeft} rounds left.`) : ''].filter(Boolean) })}>
                       {effectName(e)}{e.roundsLeft != null ? ` · ${e.roundsLeft}r` : ''}
                     </button>
                     <button className="chip-x" aria-label={T(`Quitar ${effectName(e)}`, `Remove ${effectName(e)}`)} onClick={() => run(null, [{ type: 'removeEffect', name: effectName(e) }])}>✕</button>
@@ -331,7 +335,7 @@ export function SheetTab() {
               )}
               {c.resources.map((r) => (
                 <div key={r.id} className="p-res-line">
-                  <span className="grow">{resourceName(r)} <span className="p-mini">({r.recovers === 'short' ? T('desc. corto', 'short rest') : T('desc. largo', 'long rest')})</span></span>
+                  <span className="grow" {...longPress({ type: 'resource', id: r.id })}>{resourceName(r)} <span className="p-mini">({r.recovers === 'short' ? T('desc. corto', 'short rest') : T('desc. largo', 'long rest')})</span></span>
                   {r.max <= 10 ? (
                     <Pips shape="diamond" max={r.max} used={r.used} onChange={(u) => set((x) => { x.resources.find((y) => y.id === r.id)!.used = u; })} />
                   ) : (
@@ -423,7 +427,7 @@ export function SheetTab() {
               </thead>
               <tbody>
                 {[...c.spells].sort((a, b) => a.level - b.level).map((s) => (
-                  <tr key={s.id} onClick={() => setSpellEdit(s.id)}>
+                  <tr key={s.id} {...longPress({ type: 'spell', id: s.id })} onClick={() => setSpellEdit(s.id)}>
                     <td>{s.level || T('T', 'C')}</td>
                     <td><b>{s.name || '—'}</b>{s.notes ? <div className="p-notes">{s.notes}</div> : null}</td>
                     <td>{s.castingTime}</td>

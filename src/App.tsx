@@ -10,6 +10,7 @@ import { NotesDrawer } from './components/Notes';
 import { Toast } from './components/common';
 import { armorClass } from './rules/calc';
 import { classById } from './rules/srd';
+import { InfoBubble } from './components/InfoBubble';
 import { L, T, setLang } from './i18n';
 
 type Tab = 'sheet' | 'combat' | 'assistant' | 'rules' | 'settings';
@@ -75,6 +76,7 @@ export default function App() {
 
       <NotesDrawer open={notesOpen} onToggle={() => setNotesOpen(!notesOpen)} />
       <Toast />
+      <InfoBubble />
 
       <nav className="bottomnav">
         {tabs.map((t) => (

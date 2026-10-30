@@ -264,7 +264,7 @@ const importSystem = () => `You extract the data of a Dungeons & Dragons 5e (202
 - armorClass is the total AC as written. Set shield=true only if the sheet marks a shield as equipped.
 - For attacks copy the attack bonus as a number (+6 → 6). Damage like "1d6+4"; keep extra notes (range, properties) in notes.
 - Use empty strings, 0, false or empty arrays for missing data. Don’t invent anything that isn’t on the sheet.
-- Keep free-text fields in the language they are written in. Write "warnings" in ${langName()}.
+- Write every text field (names of weapons, spells, features, traits, equipment, languages, backstory…) in ${langName()}, translating it if the sheet is written in another language. Use the official D&D 2024 terms in ${langName()} (e.g. "Shortsword" → "Espada corta"). Proper names of people and places stay as they are. Write "warnings" in ${langName()} too.
 - spellSlots: exactly 9 numbers (total slots for levels 1-9).
 - If PDF form-field values are provided as text, use them together with the page images to work out which label each value belongs to.`;
 
@@ -281,4 +281,37 @@ export async function importWithClaude(apiKey: string, model: string, blocks: Im
     messages: [{ role: 'user', content: [...blocks, { type: 'text', text: 'Extract this character sheet.' }] }],
   });
   return JSON.parse(textOf(await stream.finalMessage())) as ImportedSheet;
+}
+
+// ---------- Traducir textos largos de una ficha ----------
+
+const LONG_FIELDS = ['speciesTraits', 'feats', 'appearance', 'backstory', 'inventory'] as const;
+
+/** Traduce con Claude los textos libres de la ficha (historia, rasgos, rasgos de clase…) al idioma de la app. */
+export async function translateLongTexts(apiKey: string, model: string, c: Character): Promise<Character> {
+  const fields: Record<string, string> = {};
+  for (const k of LONG_FIELDS) if (c[k].trim()) fields[k] = c[k];
+  c.features.forEach((f, i) => { if (f.text.trim()) fields[`feature_${i}`] = f.text; });
+  c.attacks.forEach((a, i) => { if (a.notes?.trim()) fields[`attack_${i}`] = a.notes; });
+  c.spells.forEach((sp, i) => { if (sp.notes?.trim()) fields[`spell_${i}`] = sp.notes; });
+  const keys = Object.keys(fields);
+  if (!keys.length) return c;
+  const schema = { type: 'object', additionalProperties: false, required: keys, properties: Object.fromEntries(keys.map((k) => [k, str])) };
+  const res = await client(apiKey).beta.messages.create({
+    model,
+    max_tokens: 16000,
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    output_config: { effort: 'low', format: { type: 'json_schema', schema } },
+    system: `Translate each value of this D&D 2024 character sheet into ${langName()}. Use the official D&D 2024 terminology in ${langName()}. Keep proper names, numbers and dice expressions. If a value is already in ${langName()}, return it unchanged. Return the same keys.`,
+    messages: [{ role: 'user', content: JSON.stringify(fields) }],
+  });
+  const out = JSON.parse(textOf(res)) as Record<string, string>;
+  const pick = (k: string, fallback: string) => (typeof out[k] === 'string' && out[k].trim() ? out[k] : fallback);
+  const next: Character = { ...c };
+  for (const k of LONG_FIELDS) next[k] = pick(k, c[k]);
+  next.features = c.features.map((f, i) => ({ ...f, text: pick(`feature_${i}`, f.text) }));
+  next.attacks = c.attacks.map((a, i) => ({ ...a, notes: a.notes ? pick(`attack_${i}`, a.notes) : a.notes }));
+  next.spells = c.spells.map((sp, i) => ({ ...sp, notes: sp.notes ? pick(`spell_${i}`, sp.notes) : sp.notes }));
+  return next;
 }

@@ -4,7 +4,8 @@ import type { ImportBlock, ImportedSheet } from './ai';
 import { blankCharacter, uid } from './rules/factory';
 import { abilityMods, mod, profBonus } from './rules/calc';
 import { CLASSES, RESOURCE_NAMES, SKILLS, classById, pactSlotsFor } from './rules/srd';
-import { L, T } from './i18n';
+import { L, T, getLang } from './i18n';
+import { translateCharacter } from './rules/glossary';
 
 const MAX_SIDE = 2000;
 
@@ -184,7 +185,16 @@ export function sheetToCharacter(s: ImportedSheet, base?: Character): Character 
   if (cls) {
     c.resources = cls.resources(c.level, abilityMods(c)).map((r) => ({ id: uid(), key: r.key, name: L(RESOURCE_NAMES[r.key]), max: r.max, used: 0, recovers: r.recovers }));
   }
-  return c;
+  // Rasgos de clase conocidos sin descripción: usamos la de la app
+  if (cls) {
+    const known = cls.features(c.level);
+    c.features = c.features.map((f) => {
+      const k = known.find((x) => [x.name.es, x.name.en].some((n) => n.toLowerCase() === f.name.trim().toLowerCase()));
+      return k && !f.text.trim() ? { ...f, text: L(k.text) } : f;
+    });
+  }
+  // Los términos (equipo, idiomas, conjuros, rasgos…) se traducen al idioma de la app
+  return translateCharacter(c, getLang());
 }
 
 /** Resumen rápido para la vista previa */

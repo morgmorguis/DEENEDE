@@ -5,6 +5,8 @@ import { Modal, pickFiles } from './common';
 import { armorClass, fmt, mod } from '../rules/calc';
 import { ABILITIES, SKILLS } from '../rules/srd';
 import { L, T } from '../i18n';
+import { validate } from '../rules/flags';
+import { FlagList } from './Flags';
 
 type Step = 'pick' | 'reading' | 'preview';
 type Method = 'offline' | 'claude';
@@ -20,6 +22,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<Step>('pick');
   const [progress, setProgress] = useState<{ msg: string; fraction?: number }>({ msg: '' });
   const [error, setError] = useState<string | null>(null);
+  const [translatingLong, setTranslatingLong] = useState(false);
   const [result, setResult] = useState<{ char: Character; warnings: string[]; how: string } | null>(null);
 
   const add = async (accept: string) => {
@@ -125,6 +128,13 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
               <li>{T('Conjuros', 'Spells')}: {result.char.spells.length} · {T('Rasgos', 'Features')}: {result.char.features.length}</li>
               {result.char.languages && <li>{T('Idiomas', 'Languages')}: {result.char.languages}</li>}
             </ul>
+            {validate(result.char).length > 0 && (
+              <div className="import-flags">
+                <b>{T('Avisos según las reglas', 'Rules warnings')}:</b>
+                <FlagList flags={validate(result.char)} />
+                <p className="hint">{T('Podrás ignorarlos desde la ficha.', 'You can ignore them from the sheet.')}</p>
+              </div>
+            )}
             {result.warnings.length > 0 && (
               <div className="reminders">
                 <b>{T('Revisa esto', 'Please check')}:</b>
@@ -132,6 +142,21 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
           </div>
+          {method === 'offline' && settings.apiKey && (
+            <button className="btn full" disabled={translatingLong} onClick={() => void (async () => {
+              setTranslatingLong(true);
+              const ai = await import('../ai');
+              try {
+                const char = await ai.translateLongTexts(settings.apiKey, settings.model, result.char);
+                setResult({ ...result, char });
+              } catch (e) {
+                setError(ai.describeError(e));
+              } finally {
+                setTranslatingLong(false);
+              }
+            })()}>🌐 {translatingLong ? T('Traduciendo…', 'Translating…') : T('Traducir también historia y textos largos (Claude)', 'Also translate backstory and long texts (Claude)')}</button>
+          )}
+          {error && <p className="error">⚠️ {error}</p>}
           <button className="btn primary full" onClick={() => { addCharacter(result.char); onClose(); }}>➕ {T('Crear como nuevo personaje', 'Create as a new character')}</button>
           <button className="btn full" onClick={() => {
             if (!confirm(T(`¿Reemplazar la ficha de ${current.name}? Se conservan sus notas y su retrato.`, `Replace ${current.name}’s sheet? Notes and portrait are kept.`))) return;
