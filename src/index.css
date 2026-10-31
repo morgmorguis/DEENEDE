@@ -618,7 +618,7 @@ p { margin: 6px 0; line-height: 1.45; }
 .flags-chevron { margin-left: auto; opacity: .7; }
 .flags-body { padding: 0 12px 10px; }
 .flag-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.flag { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.12); border-left: 4px solid #6c8ebf; }
+.flag { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.12); border-left: 4px solid #6c8ebf; flex-wrap: wrap; }
 .flag.error { border-left-color: #c0392b; }
 .flag.warning { border-left-color: #d4a017; }
 .flag.ignored { opacity: .6; }
@@ -668,3 +668,18 @@ p { margin: 6px 0; line-height: 1.45; }
 .target-chip.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
 .target-chip.enemy.on { border-color: var(--red); box-shadow: 0 0 0 2px var(--red); }
 .tappable { cursor: pointer; }
+.turn-log { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px dashed var(--line); display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.turn-log li:first-child { color: var(--text); }
+
+/* ---------- Componentes de conjuros y recarga de rasgos ---------- */
+.spell-comp { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
+.spell-comp b { font-size: 11px; min-width: 16px; height: 16px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid currentColor; }
+.spell-comp b.comp-V { background: var(--sheet-accent); color: #fff; border-color: var(--sheet-accent); }
+.spell-comp .comp-tag { font-style: normal; font-size: 10px; font-weight: 800; padding: 0 4px; border-radius: 8px; background: rgba(0,0,0,.12); }
+.recharge-tag { margin-left: 8px; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: rgba(0,0,0,.08); color: var(--ink2); white-space: nowrap; }
+.lu-summary { width: 100%; border-collapse: collapse; font-size: 14px; }
+.lu-summary th { text-align: left; font-weight: 600; color: var(--muted); padding: 5px 8px 5px 0; vertical-align: top; width: 45%; }
+.lu-summary td { padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.lu-sub { font-size: 14px; margin: 14px 0 6px; color: var(--gold); }
+.levelup-page .recharge-tag { background: var(--card2); color: var(--muted); border: 1px solid var(--line); }
+.levelup-page .spell-comp b { color: var(--text); }

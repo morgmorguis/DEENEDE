@@ -1,11 +1,11 @@
 // Aplica una subida de nivel con las elecciones del jugador: PG, rasgos nuevos, subclase, mejoras de
 // característica o dotes, estilos, pericias, metamagia, invocaciones y conjuros nuevos.
-import type { Ability, Character, ProfLevel } from '../types';
+import type { Ability, Character, ProfLevel, Recharge } from '../types';
 import { L, T } from '../i18n';
-import { RESOURCE_NAMES, classById, pactSlotsFor, slotsFor } from './srd';
-import { abilityMods, mod } from './calc';
+import { RESOURCE_NAMES, abilityShort, classById, pactSlotsFor, skillName, slotsFor } from './srd';
+import { abilityMods, armorClass, fmt as fmtSigned, mod, passivePerception, profBonus as profBonusOf, speed, spellSaveDc } from './calc';
 import { uid } from './factory';
-import { BOONS, FEATS, FIGHTING_STYLES, INVOCATIONS, METAMAGIC, SUBCLASSES, levelEntry, spellCounts, type Option } from './progression';
+import { BOONS, FEATS, FIGHTING_STYLES, GAIN_SPELLS, INVOCATIONS, METAMAGIC, SUBCLASSES, levelEntry, rechargeOf, spellCounts, type Option } from './progression';
 import { SPELLS, findSpell } from './spells';
 
 export type AsiChoice =
@@ -27,6 +27,8 @@ export interface LevelUpChoices {
   spells?: string[];
 }
 
+const ABILITY_IDS: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+
 /** Media fija de PG por nivel: mitad del dado + 1 */
 export const averageHitDie = (hitDie: number) => hitDie / 2 + 1;
 
@@ -46,11 +48,22 @@ export function newSpellAllowance(classId: string, from: number) {
   return { cantrips: Math.max(0, b.cantrips - a.cantrips), spells: Math.max(0, b.prepared - a.prepared), maxLevel: maxSpellLevel(classId, from + 1) };
 }
 
-const addFeature = (c: Character, name: string, text: string) => {
+const addFeature = (c: Character, name: string, text: string, recharge?: Recharge) => {
   const existing = c.features.find((f) => f.name.trim().toLowerCase() === name.trim().toLowerCase());
-  if (existing) existing.text = text;
-  else c.features.push({ id: uid(), name, text });
+  if (existing) Object.assign(existing, { text }, recharge ? { recharge } : {});
+  else c.features.push({ id: uid(), name, text, ...(recharge ? { recharge } : {}) });
 };
+
+/** Añade un conjuro de la base de datos a la ficha (si no lo tiene ya) */
+export function addDbSpell(c: Character, en: string, alwaysPrepared = false) {
+  const info = SPELLS.find((s) => s.name.en === en);
+  if (!info || c.spells.some((s) => findSpell(s.name) === info)) return;
+  c.spells.push({
+    id: uid(), name: L(info.name), level: info.level, prepared: true, castingTime: L(info.time), range: L(info.range),
+    concentration: info.concentration, ritual: info.ritual, material: info.components.includes('M'), components: info.components,
+    ...(alwaysPrepared ? { alwaysPrepared: true } : {}),
+  });
+}
 const pick = (list: Option[], id?: string) => (id ? list.find((x) => x.id === id) : undefined);
 const raise = (c: Character, a: Ability, n: number, cap: number) => { c.abilities[a] = Math.min(cap, c.abilities[a] + n); };
 
@@ -109,11 +122,13 @@ export function applyLevelUp(c: Character, ch: LevelUpChoices): Character {
     // Rasgos nuevos del nivel
     const entry = levelEntry(cls.id, level);
     for (const gain of entry.features) {
-      if (['Subclass', 'Ability Score Improvement', 'Epic Boon'].includes(gain.name.en)) continue;
+      // Lo genérico que se concreta con una elección (subclase, mejora, don, estilo) se añade ya elegido
+      if (['Subclass', 'Ability Score Improvement', 'Epic Boon', 'Fighting Style'].includes(gain.name.en)) continue;
       if (gain.subclass) {
         const name = next.subclass ? `${next.subclass} (${T('nivel', 'level')} ${level})` : `${L(gain.name)} (${T('nivel', 'level')} ${level})`;
         addFeature(next, name, L(gain.text));
-      } else addFeature(next, L(gain.name), L(gain.text));
+      } else addFeature(next, L(gain.name), L(gain.text), rechargeOf(gain.name.en));
+      for (const en of GAIN_SPELLS[gain.name.en] ?? []) addDbSpell(next, en, true);
     }
     for (const choice of entry.choices) {
       if (choice.kind !== 'option') continue;
@@ -122,21 +137,70 @@ export function applyLevelUp(c: Character, ch: LevelUpChoices): Character {
     }
   }
 
+  // Rasgos que dan competencia en salvaciones
+  if (cls?.id === 'picaro' && level === 15) for (const a of ['wis', 'cha'] as Ability[]) if (!next.saveProf.includes(a)) next.saveProf.push(a);
+  if (cls?.id === 'monje' && level === 14) next.saveProf = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+
   if (feat) next.feats = [next.feats.trim(), `${L(feat.name)}: ${L(feat.text)}`].filter(Boolean).join('\n');
   if (boon) next.feats = [next.feats.trim(), `${L(boon.name)}: ${L(boon.text)}`].filter(Boolean).join('\n');
   const style = pick(FIGHTING_STYLES, ch.fightingStyle);
   if (style) addFeature(next, `${T('Estilo de combate', 'Fighting Style')}: ${L(style.name)}`, L(style.text));
   for (const id of ch.expertise ?? []) next.skillProf[id] = 2 as ProfLevel;
   for (const id of ch.metamagic ?? []) { const m = pick(METAMAGIC, id); if (m) addFeature(next, `${T('Metamagia', 'Metamagic')}: ${L(m.name)}`, L(m.text)); }
-  for (const id of ch.invocations ?? []) { const m = pick(INVOCATIONS, id); if (m) addFeature(next, `${T('Invocación', 'Invocation')}: ${L(m.name)}`, L(m.text)); }
-
-  for (const en of ch.spells ?? []) {
-    const info = SPELLS.find((s) => s.name.en === en);
-    if (!info || next.spells.some((s) => findSpell(s.name) === info)) continue;
-    next.spells.push({
-      id: uid(), name: L(info.name), level: info.level, prepared: true, castingTime: L(info.time), range: L(info.range),
-      concentration: info.concentration, ritual: info.ritual, material: info.components.includes('M'),
-    });
+  for (const id of ch.invocations ?? []) {
+    const m = pick(INVOCATIONS, id);
+    if (!m) continue;
+    addFeature(next, `${T('Invocación', 'Invocation')}: ${L(m.name)}`, L(m.text), /sin gastar espacio|without a spell slot|without a slot/i.test(m.text.en) ? 'atwill' : undefined);
+    for (const en of GAIN_SPELLS[m.name.en] ?? []) addDbSpell(next, en, true);
   }
+
+  for (const en of ch.spells ?? []) addDbSpell(next, en);
   return next;
+}
+
+export interface LevelUpDiff {
+  stats: { label: string; from: string; to: string }[];
+  features: { name: string; text: string; recharge?: Recharge; updated: boolean }[];
+  spells: { name: string; level: number; components: string; always: boolean; concentration: boolean }[];
+  feats: string[];
+}
+
+/** Qué cambia entre la ficha antes y después de subir: estadísticas, rasgos y conjuros nuevos */
+export function levelUpDiff(before: Character, after: Character): LevelUpDiff {
+  const stats: LevelUpDiff['stats'] = [];
+  const add = (label: string, a: string | number, b: string | number) => { if (String(a) !== String(b)) stats.push({ label, from: String(a), to: String(b) }); };
+  add(T('Nivel', 'Level'), before.level, after.level);
+  add(T('PG máximos', 'Max HP'), before.hp.max, after.hp.max);
+  add(T('Dados de golpe', 'Hit Dice'), `${before.level}d${before.hitDie}`, `${after.level}d${after.hitDie}`);
+  add(T('Bonificador por competencia', 'Proficiency Bonus'), fmtSigned(profBonusOf(before.level)), fmtSigned(profBonusOf(after.level)));
+  for (const a of ABILITY_IDS) {
+    if (before.abilities[a] !== after.abilities[a]) add(abilityShort(a), `${before.abilities[a]} (${fmtSigned(mod(before.abilities[a]))})`, `${after.abilities[a]} (${fmtSigned(mod(after.abilities[a]))})`);
+  }
+  add(T('Clase de armadura', 'Armor Class'), armorClass(before).value, armorClass(after).value);
+  add(T('Velocidad', 'Speed'), speed(before).value, speed(after).value);
+  add(T('Percepción pasiva', 'Passive Perception'), passivePerception(before), passivePerception(after));
+  const dcA = spellSaveDc(before); const dcB = spellSaveDc(after);
+  if (dcA != null && dcB != null) add(T('CD de salvación de conjuros', 'Spell save DC'), dcA, dcB);
+  const newSaves = after.saveProf.filter((x) => !before.saveProf.includes(x));
+  if (newSaves.length) stats.push({ label: T('Salvaciones con competencia', 'Proficient saves'), from: before.saveProf.map(abilityShort).join(', ') || '—', to: after.saveProf.map(abilityShort).join(', ') });
+  const newExp = Object.keys(after.skillProf).filter((k) => after.skillProf[k] === 2 && before.skillProf[k] !== 2);
+  if (newExp.length) stats.push({ label: T('Pericia', 'Expertise'), from: '', to: newExp.map(skillName).join(', ') });
+  if (before.subclass !== after.subclass) add(T('Subclase', 'Subclass'), before.subclass || '—', after.subclass);
+  const slotsTxt = (c: Character) => c.pactSlots ? T(`${c.pactSlots.max} de nv ${c.pactSlots.level} (pacto)`, `${c.pactSlots.max} of lvl ${c.pactSlots.level} (pact)`) : c.slots.map((s, i) => `${s.max}×${i + 1}`).join(' · ') || '—';
+  add(T('Espacios de conjuro', 'Spell slots'), slotsTxt(before), slotsTxt(after));
+  for (const r of after.resources) {
+    const prev = before.resources.find((x) => x.key ? x.key === r.key : x.name === r.name);
+    const rc = r.recovers === 'short' ? T('desc. corto', 'short rest') : T('desc. largo', 'long rest');
+    if (!prev) stats.push({ label: `${r.name} (${rc})`, from: '—', to: String(r.max) });
+    else if (prev.max !== r.max) stats.push({ label: `${r.name} (${rc})`, from: String(prev.max), to: String(r.max) });
+  }
+  const features = after.features
+    .filter((f) => { const p = before.features.find((x) => x.name === f.name); return !p || p.text !== f.text; })
+    .map((f) => ({ name: f.name, text: f.text, recharge: f.recharge ?? rechargeOf(f.name), updated: before.features.some((x) => x.name === f.name) }));
+  const spells = after.spells.filter((s) => !before.spells.some((x) => x.id === s.id)).map((s) => ({
+    name: s.name, level: s.level, components: s.components ?? '', always: !!s.alwaysPrepared, concentration: s.concentration,
+  }));
+  const featLines = (txt: string) => txt.split('\n').map((x) => x.trim()).filter(Boolean);
+  const feats = featLines(after.feats).filter((x) => !featLines(before.feats).includes(x)).map((x) => x.split(':')[0]);
+  return { stats, features, spells, feats };
 }

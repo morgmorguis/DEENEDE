@@ -19,6 +19,9 @@ import { imageFileToBase64 } from '../importer';
 import { ExplainModal, longPress } from './InfoBubble';
 import { FlagsPanel } from './Flags';
 import { LevelUpPage } from './LevelUp';
+import { findSpell, spellComponents } from '../rules/spells';
+import { RECHARGE_LABEL, rechargeOf } from '../rules/progression';
+import type { Recharge } from '../types';
 
 // ---------- Piezas con aspecto de hoja de papel ----------
 
@@ -293,7 +296,7 @@ export function SheetTab() {
               {c.features.length === 0 && <p className="p-empty">{T('Sin rasgos.', 'No features.')}</p>}
               {c.features.map((f) => (
                 <button key={f.id} className="p-feature" {...longPress({ type: 'feature', id: f.id })} onClick={() => (f.name ? setFeatInfo(f.id) : setFeatEdit(f.id))}>
-                  <b>{f.name || T('Nuevo rasgo', 'New feature')}</b>
+                  <b>{f.name || T('Nuevo rasgo', 'New feature')}{featureRecharge(c, f) && <span className="recharge-tag">{L(RECHARGE_LABEL[featureRecharge(c, f)!])}</span>}</b>
                   {f.text && <span className="p-feature-text">{f.text}</span>}
                 </button>
               ))}
@@ -427,7 +430,7 @@ export function SheetTab() {
           <Box title={T('Trucos y conjuros preparados', 'Cantrips & Prepared Spells')} className="p-spells" right={<button className="p-add" onClick={() => { const id = uid(); set((x) => { x.spells.push({ id, name: '', level: 0, prepared: true, castingTime: T('Acción', 'Action'), range: '', concentration: false }); }); setSpellEdit(id); }}>+</button>}>
             <table className="p-table">
               <thead>
-                <tr><th>{T('Nv', 'Lvl')}</th><th>{T('Nombre', 'Name')}</th><th>{T('Tiempo', 'Time')}</th><th>{T('Alcance', 'Range')}</th><th>C R M</th></tr>
+                <tr><th>{T('Nv', 'Lvl')}</th><th>{T('Nombre', 'Name')}</th><th>{T('Tiempo', 'Time')}</th><th>{T('Alcance', 'Range')}</th><th title={T('Componentes: V verbal, S somático, M material · C concentración · R ritual', 'Components: V verbal, S somatic, M material · C concentration · R ritual')}>{T('Comp.', 'Comp.')}</th></tr>
               </thead>
               <tbody>
                 {[...c.spells].sort((a, b) => a.level - b.level).map((s) => (
@@ -436,7 +439,7 @@ export function SheetTab() {
                     <td><b>{s.name || '—'}</b>{s.notes ? <div className="p-notes">{s.notes}</div> : null}</td>
                     <td>{s.castingTime}</td>
                     <td>{s.range}</td>
-                    <td className="p-crm">{s.concentration ? '◆' : '◇'}{s.ritual ? '◆' : '◇'}{s.material ? '◆' : '◇'}</td>
+                    <td className="p-crm"><SpellComp sp={s} /></td>
                   </tr>
                 ))}
                 {c.spells.length === 0 && <tr><td colSpan={5} className="p-empty">{T('Toca + para añadir un conjuro', 'Tap + to add a spell')}</td></tr>}
@@ -606,6 +609,19 @@ function AttackModal({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
+/** Componentes como en el manual (V, S, M) y marcas de concentración y ritual */
+export function SpellComp({ sp }: { sp: Spell }) {
+  const comp = spellComponents(sp);
+  const info = findSpell(sp.name);
+  return (
+    <span className="spell-comp">
+      {['V', 'S', 'M'].filter((k) => comp.includes(k)).map((k) => <b key={k} className={`comp-${k}`} title={k === 'V' ? T('Verbal: tienes que poder hablar', 'Verbal: you must be able to speak') : k === 'S' ? T('Somático: necesitas una mano libre', 'Somatic: you need a free hand') : T('Material', 'Material')}>{k}</b>)}
+      {(sp.concentration || info?.concentration) && <i className="comp-tag" title={T('Concentración', 'Concentration')}>C</i>}
+      {(sp.ritual || info?.ritual) && <i className="comp-tag" title={T('Ritual', 'Ritual')}>R</i>}
+    </span>
+  );
+}
+
 function FeatureModal({ id, onClose }: { id: string; onClose: () => void }) {
   const c = useChar();
   const update = useStore((s) => s.update);
@@ -616,6 +632,12 @@ function FeatureModal({ id, onClose }: { id: string; onClose: () => void }) {
     <Modal title={f.name || T('Nuevo rasgo', 'New feature')} onClose={onClose}>
       <label className="field">{T('Nombre', 'Name')}<input value={f.name} autoFocus={!f.name} onChange={(e) => set((x) => { x.name = e.target.value; })} /></label>
       <label className="field">{T('Qué hace', 'What it does')}<textarea className="tall" value={f.text} onChange={(e) => set((x) => { x.text = e.target.value; })} /></label>
+      <label className="field">{T('Se recupera con', 'Recovers on')}
+        <select value={f.recharge ?? ''} onChange={(e) => set((x) => { x.recharge = (e.target.value || undefined) as Recharge | undefined; })}>
+          <option value="">{rechargeOf(f.name) ? `${T('Según las reglas', 'Per the rules')}: ${L(RECHARGE_LABEL[rechargeOf(f.name)!])}` : T('Pasivo / no tiene usos', 'Passive / no uses')}</option>
+          {(Object.keys(RECHARGE_LABEL) as Recharge[]).map((k) => <option key={k} value={k}>{L(RECHARGE_LABEL[k])}</option>)}
+        </select>
+      </label>
       <div className="row">
         <button className="btn danger" onClick={() => { update((ch) => { ch.features = ch.features.filter((y) => y.id !== id); }); onClose(); }}>{T('Borrar', 'Delete')}</button>
         <button className="btn primary grow" onClick={onClose}>{T('Hecho', 'Done')}</button>
@@ -641,7 +663,17 @@ function SpellModal({ id, onClose }: { id: string; onClose: () => void }) {
       <div className="row wrap">
         <label className="check"><input type="checkbox" checked={sp.concentration} onChange={(e) => set((x) => { x.concentration = e.target.checked; })} /> {T('Concentración', 'Concentration')}</label>
         <label className="check"><input type="checkbox" checked={!!sp.ritual} onChange={(e) => set((x) => { x.ritual = e.target.checked; })} /> {T('Ritual', 'Ritual')}</label>
-        <label className="check"><input type="checkbox" checked={!!sp.material} onChange={(e) => set((x) => { x.material = e.target.checked; })} /> {T('Material', 'Material')}</label>
+        {(['V', 'S', 'M'] as const).map((k) => {
+          const comp = spellComponents(sp);
+          const on = comp.includes(k);
+          return (
+            <label key={k} className="check"><input type="checkbox" checked={on} onChange={(e) => set((x) => {
+              const list = ['V', 'S', 'M'].filter((y) => (y === k ? e.target.checked : comp.includes(y)));
+              x.components = list.join(', ');
+              x.material = list.includes('M');
+            })} /> {k === 'V' ? T('V (verbal)', 'V (verbal)') : k === 'S' ? T('S (somático)', 'S (somatic)') : T('M (material)', 'M (material)')}</label>
+          );
+        })}
       </div>
       <label className="field">{T('Notas / qué hace', 'Notes / what it does')}<textarea value={sp.notes ?? ''} onChange={(e) => set((x) => { x.notes = e.target.value; })} /></label>
       <div className="row">
@@ -684,4 +716,13 @@ export function EffectPicker({ onClose }: { onClose: () => void }) {
       }}>{T('Añadir', 'Add')}</button>
     </Modal>
   );
+}
+
+/** Cómo se recupera un rasgo: lo guardado, lo que dicen las reglas o el recurso de clase con el mismo nombre */
+function featureRecharge(c: Character, f: Character['features'][number]): Recharge | undefined {
+  if (f.recharge) return f.recharge;
+  const known = rechargeOf(f.name);
+  if (known) return known;
+  const res = c.resources.find((r) => r.name.toLowerCase() === f.name.trim().toLowerCase());
+  return res ? res.recovers : undefined;
 }

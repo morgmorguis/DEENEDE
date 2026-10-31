@@ -6,8 +6,8 @@ import type { Ability } from '../types';
 import { L, T } from '../i18n';
 import { ABILITIES, CLASSES, RESOURCE_NAMES, SKILLS, abilityShort, slotsFor, pactSlotsFor } from '../rules/srd';
 import { fmt, mod, profBonus, rollExpr } from '../rules/calc';
-import { BOONS, FEATS, FIGHTING_STYLES, INVOCATIONS, METAMAGIC, SUBCLASSES, levelEntry, inClassList, type Option } from '../rules/progression';
-import { applyLevelUp, averageHitDie, newSpellAllowance, type LevelUpChoices } from '../rules/levelup';
+import { BOONS, FEATS, FIGHTING_STYLES, INVOCATIONS, METAMAGIC, RECHARGE_LABEL, SUBCLASSES, levelEntry, inClassList, type Option } from '../rules/progression';
+import { applyLevelUp, averageHitDie, levelUpDiff, newSpellAllowance, type LevelUpChoices } from '../rules/levelup';
 import { SPELLS, findSpell } from '../rules/spells';
 
 function OptionList({ options, selected, onToggle, max = 1 }: { options: Option[]; selected: string[]; onToggle: (id: string) => void; max?: number }) {
@@ -132,25 +132,28 @@ export function LevelUpPage({ onClose }: { onClose: () => void }) {
     if ([5, 11, 17].includes(level) && c.spells.some((s) => s.level === 0)) autoGains.push(T('Tus trucos de daño mejoran.', 'Your damage cantrips get stronger.'));
   }
 
+  const choices: LevelUpChoices = {
+    hpGain,
+    subclass,
+    asi: choice('asi') && (asiMode === 'asi' || featId) ? (asiMode === 'asi' ? { mode: 'asi', plus } : { mode: 'feat', featId: featId!, ability: featAbility }) : undefined,
+    boon: boonId ? { id: boonId, ability: boonAbility } : undefined,
+    fightingStyle: style,
+    expertise,
+    metamagic,
+    invocations,
+    options,
+    spells,
+  };
+  // Vista previa: la ficha tal y como quedará con lo elegido hasta ahora
+  const preview = c.level < 20 ? applyLevelUp(c, choices) : c;
+  const diff = levelUpDiff(c, preview);
+
   const lvlUp = () => {
-    const choices: LevelUpChoices = {
-      hpGain,
-      subclass,
-      asi: choice('asi') ? (asiMode === 'asi' ? { mode: 'asi', plus } : { mode: 'feat', featId: featId!, ability: featAbility }) : undefined,
-      boon: boonId ? { id: boonId, ability: boonAbility } : undefined,
-      fightingStyle: style,
-      expertise,
-      metamagic,
-      invocations,
-      options,
-      spells,
-    };
-    const next = applyLevelUp(c, choices);
-    replace(next);
+    replace(preview);
     showToast(T(`⬆️ ¡Nivel ${level}!`, `⬆️ Level ${level}!`), [
-      T(`PG máximos ${c.hp.max} → ${next.hp.max}`, `Max HP ${c.hp.max} → ${next.hp.max}`),
-      ...autoGains,
-      ...entry.features.filter((f) => !['Subclass', 'Ability Score Improvement', 'Epic Boon'].includes(f.name.en)).map((f) => `+ ${L(f.name)}`),
+      ...diff.stats.filter((x) => x.label !== T('Nivel', 'Level')).map((x) => (x.from ? `${x.label}: ${x.from} → ${x.to}` : `${x.label}: ${x.to}`)),
+      ...diff.features.map((f) => `${f.updated ? '⬆️' : '+'} ${f.name}${f.recharge ? ` (${L(RECHARGE_LABEL[f.recharge])})` : ''}`),
+      ...diff.spells.map((sp) => `✨ ${sp.name}`),
     ]);
     onClose();
   };
@@ -298,6 +301,40 @@ export function LevelUpPage({ onClose }: { onClose: () => void }) {
             </div>
           </Card>
         )}
+
+        <Card title={T('Resumen: así quedará tu ficha', 'Summary: your sheet after leveling up')}>
+          <table className="lu-summary">
+            <tbody>
+              {diff.stats.map((x) => (
+                <tr key={x.label}><th>{x.label}</th><td>{x.from && <><span className="muted">{x.from}</span> → </>}<b>{x.to}</b></td></tr>
+              ))}
+            </tbody>
+          </table>
+          {diff.features.length > 0 && (
+            <>
+              <h3 className="lu-sub">{T('Rasgos nuevos o mejorados en tu ficha', 'New or improved features on your sheet')}</h3>
+              <ul className="lu-gains">
+                {diff.features.map((f) => (
+                  <li key={f.name}><b>{f.updated ? '⬆️ ' : '➕ '}{f.name}{f.updated && <small className="muted"> ({T('mejora', 'improved')})</small>}{f.recharge && <span className="recharge-tag">{L(RECHARGE_LABEL[f.recharge])}</span>}</b><span>{f.text}</span></li>
+                ))}
+              </ul>
+            </>
+          )}
+          {diff.spells.length > 0 && (
+            <>
+              <h3 className="lu-sub">{T('Conjuros que se añaden', 'Spells added')}</h3>
+              <ul className="lu-gains">
+                {diff.spells.map((sp) => (
+                  <li key={sp.name}>
+                    <b>{sp.name} <span className="spell-comp">{['V', 'S', 'M'].filter((k) => sp.components.includes(k)).map((k) => <b key={k} className={`comp-${k}`}>{k}</b>)}{sp.concentration && <i className="comp-tag">C</i>}</span></b>
+                    <span>{sp.level === 0 ? T('Truco · a voluntad', 'Cantrip · at will') : T(`Nivel ${sp.level} · gasta un espacio de conjuro`, `Level ${sp.level} · uses a spell slot`)}{sp.always ? T(' · siempre preparado (rasgo de clase)', ' · always prepared (class feature)') : ''}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {diff.feats.length > 0 && <p className="small">🎖️ {T('Dotes', 'Feats')}: {diff.feats.join(', ')}</p>}
+        </Card>
       </div>
 
       <div className="lu-foot">

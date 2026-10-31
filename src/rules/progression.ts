@@ -1,7 +1,8 @@
 // Progresión de clases de D&D 2024 (niveles 1-20): rasgos que se ganan, elecciones que hay que hacer y
 // opciones disponibles explicadas. Resumido y parafraseado; nombres de subclases y dotes según el
 // Player's Handbook 2024 y el SRD 5.2 (CC-BY-4.0).
-import type { Ability } from '../types';
+import type { Ability, Recharge } from '../types';
+import { CLASSES } from './srd';
 import type { Tr } from '../i18n';
 
 export interface Gain { name: Tr; text: Tr; subclass?: boolean }
@@ -487,8 +488,83 @@ const LISTS: Record<string, string> = {
   'Fireball': 'SW', 'Counterspell': 'SKW', 'Haste': 'SW', 'Fly': 'SKW', 'Revivify': 'CDPR', 'Spirit Guardians': 'C', 'Lightning Bolt': 'SW',
   'Dispel Magic': 'BCDPSKW', 'Hypnotic Pattern': 'BSKW', 'Polymorph': 'BDSW', 'Greater Invisibility': 'BSW', 'Dimension Door': 'BSKW',
   'Banishment': 'CPSKW', 'Cone of Cold': 'DSW', 'Hold Monster': 'BSKW',
+  'Divine Smite': 'P', 'Find Familiar': 'W', 'Speak with Animals': 'BDR', 'Find Steed': 'P',
 };
 const LETTER: Record<string, string> = { bardo: 'B', clerigo: 'C', druida: 'D', paladin: 'P', explorador: 'R', hechicero: 'S', brujo: 'K', mago: 'W' };
 
 /** ¿Está este conjuro (por su nombre en inglés) en la lista de la clase? */
 export const inClassList = (spellEn: string, classId: string) => !!LETTER[classId] && (LISTS[spellEn] ?? '').includes(LETTER[classId]);
+
+// ---------- Recarga de rasgos y conjuros que se obtienen sí o sí ----------
+
+/** Cómo se recuperan los rasgos con usos limitados (por su nombre en inglés) */
+const RECHARGE_EN: Record<string, Recharge> = {
+  'Rage': 'long', 'Relentless Rage': 'short', 'Bardic Inspiration': 'long', 'Font of Inspiration': 'short', 'Channel Divinity': 'short',
+  'Divine Intervention': 'long', 'Greater Divine Intervention': 'long', 'Wild Shape': 'short', 'Wild Companion': 'slot', 'Wild Resurgence': 'long',
+  'Second Wind': 'short', 'Action Surge': 'short', 'Action Surge (two uses)': 'short', 'Indomitable': 'long', 'Monk’s Focus': 'short',
+  'Uncanny Metabolism': 'long', 'Stunning Strike': 'short', 'Lay On Hands': 'long', 'Paladin’s Smite': 'long', 'Faithful Steed': 'long',
+  'Abjure Foes': 'short', 'Favored Enemy': 'long', 'Tireless': 'long', 'Nature’s Veil': 'long', 'Stroke of Luck': 'short',
+  'Innate Sorcery': 'long', 'Font of Magic': 'long', 'Sorcerous Restoration': 'long', 'Metamagic': 'long', 'Magical Cunning': 'long',
+  'Contact Patron': 'long', 'Mystic Arcanum (level 6)': 'long', 'Mystic Arcanum (level 7)': 'long', 'Mystic Arcanum (level 8)': 'long',
+  'Mystic Arcanum (level 9)': 'long', 'Arcane Recovery': 'long', 'Spell Mastery': 'atwill', 'Signature Spells': 'short',
+  'Pact Magic': 'short', 'Eldritch Invocations': 'atwill', 'Deflect Attacks': 'atwill',
+};
+
+/** Conjuros que un rasgo te da siempre preparados (nombres en inglés) */
+export const GAIN_SPELLS: Record<string, string[]> = {
+  'Paladin’s Smite': ['Divine Smite'],
+  'Faithful Steed': ['Find Steed'],
+  'Pact of the Chain': ['Find Familiar'],
+};
+
+const norm = (n: string) => n.trim().toLowerCase().replace(/[’']/g, "'");
+let rechargeIndex: Map<string, Recharge> | null = null;
+/** Recarga de un rasgo por su nombre en español o inglés */
+export function rechargeOf(name: string): Recharge | undefined {
+  if (!rechargeIndex) {
+    rechargeIndex = new Map();
+    const add = (t: Tr) => { const rc = RECHARGE_EN[t.en]; if (rc) { rechargeIndex!.set(norm(t.en), rc); rechargeIndex!.set(norm(t.es), rc); } };
+    for (const table of Object.values(PROGRESSION)) for (const e of Object.values(table)) e.features.forEach((f) => add(f.name));
+    for (const c of CLASSES) c.features(20).forEach((f) => add(f.name));
+  }
+  return rechargeIndex.get(norm(name));
+}
+
+export const RECHARGE_LABEL: Record<Recharge, Tr> = {
+  short: r('⛺ Descanso corto', '⛺ Short rest'),
+  long: r('🌙 Descanso largo', '🌙 Long rest'),
+  slot: r('✨ Espacio de conjuro', '✨ Spell slot'),
+  atwill: r('♾️ A voluntad', '♾️ At will'),
+};
+
+// ---------- Competencias de cada clase ----------
+
+export const ARMOR_NAMES = {
+  light: { es: 'armadura ligera', en: 'Light armor' }, medium: { es: 'armadura intermedia', en: 'Medium armor' },
+  heavy: { es: 'armadura pesada', en: 'Heavy armor' }, shields: { es: 'escudos', en: 'Shields' },
+};
+export interface ClassProf {
+  armor: { light: boolean; medium: boolean; heavy: boolean; shields: boolean };
+  weapons: Tr;
+  martial: 'all' | 'finesse-light' | 'none';
+  tools?: { name: Tr; match: RegExp };
+  skills: number;
+}
+const A = (light: boolean, medium: boolean, heavy: boolean, shields: boolean) => ({ light, medium, heavy, shields });
+const SIMPLE_MARTIAL: Tr = { es: 'Armas sencillas y marciales', en: 'Simple and Martial weapons' };
+const SIMPLE: Tr = { es: 'Armas sencillas', en: 'Simple weapons' };
+/** Competencias que da cada clase en las reglas 2024 */
+export const CLASS_PROFS: Record<string, ClassProf> = {
+  barbaro: { armor: A(true, true, false, true), weapons: SIMPLE_MARTIAL, martial: 'all', skills: 2 },
+  bardo: { armor: A(true, false, false, false), weapons: SIMPLE, martial: 'none', tools: { name: { es: 'tres instrumentos musicales', en: 'three musical instruments' }, match: /instrument|laud|lute|flaut|flute|lira|lyre|tambor|drum|gaita|bagpipe|viol|cuerno|horn|dulc|chirim|shawm/ }, skills: 3 },
+  clerigo: { armor: A(true, true, false, true), weapons: SIMPLE, martial: 'none', skills: 2 },
+  druida: { armor: A(true, false, false, true), weapons: SIMPLE, martial: 'none', tools: { name: { es: 'útiles de herborista', en: 'Herbalism Kit' }, match: /herbor|herbalism/ }, skills: 2 },
+  guerrero: { armor: A(true, true, true, true), weapons: SIMPLE_MARTIAL, martial: 'all', skills: 2 },
+  monje: { armor: A(false, false, false, false), weapons: { es: 'Armas sencillas y marciales con la propiedad Ligera', en: 'Simple weapons and Martial weapons with the Light property' }, martial: 'finesse-light', skills: 2 },
+  paladin: { armor: A(true, true, true, true), weapons: SIMPLE_MARTIAL, martial: 'all', skills: 2 },
+  explorador: { armor: A(true, true, false, true), weapons: SIMPLE_MARTIAL, martial: 'all', skills: 3 },
+  picaro: { armor: A(true, false, false, false), weapons: { es: 'Armas sencillas y marciales con la propiedad Sutil o Ligera', en: 'Simple weapons and Martial weapons with the Finesse or Light property' }, martial: 'finesse-light', tools: { name: { es: 'herramientas de ladrón', en: 'Thieves’ Tools' }, match: /ladron|thieve/ }, skills: 4 },
+  hechicero: { armor: A(false, false, false, false), weapons: SIMPLE, martial: 'none', skills: 2 },
+  brujo: { armor: A(true, false, false, false), weapons: SIMPLE, martial: 'none', skills: 2 },
+  mago: { armor: A(false, false, false, false), weapons: SIMPLE, martial: 'none', skills: 2 },
+};

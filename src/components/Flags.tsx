@@ -6,7 +6,7 @@ import { T } from '../i18n';
 
 const ICON: Record<Flag['severity'], string> = { error: '⛔', warning: '⚠️', info: 'ℹ️' };
 
-export function FlagList({ flags, onIgnore, ignored }: { flags: Flag[]; onIgnore?: (id: string) => void; ignored?: boolean }) {
+export function FlagList({ flags, onIgnore, ignored, onFix }: { flags: Flag[]; onIgnore?: (id: string) => void; ignored?: boolean; onFix?: (f: Flag) => void }) {
   return (
     <ul className="flag-list">
       {flags.map((f) => (
@@ -15,6 +15,7 @@ export function FlagList({ flags, onIgnore, ignored }: { flags: Flag[]; onIgnore
             <summary><span className="flag-icon">{ICON[f.severity]}</span> {f.title}</summary>
             <p>{f.reason}</p>
           </details>
+          {onFix && f.fix && !ignored && <button className="btn small primary" onClick={() => onFix(f)}>🔧 {T('Corregir', 'Fix')}</button>}
           {onIgnore && <button className="btn small" onClick={() => onIgnore(f.id)}>{ignored ? T('Restaurar', 'Restore') : T('Ignorar', 'Ignore')}</button>}
         </li>
       ))}
@@ -25,6 +26,7 @@ export function FlagList({ flags, onIgnore, ignored }: { flags: Flag[]; onIgnore
 export function FlagsPanel() {
   const c = useChar();
   const update = useStore((s) => s.update);
+  const replace = useStore((s) => s.replace);
   const [open, setOpen] = useState(false);
   const [showIgnored, setShowIgnored] = useState(false);
   const all = validate(c);
@@ -44,7 +46,7 @@ export function FlagsPanel() {
       </button>
       {open && (
         <div className="flags-body">
-          {active.length > 0 && <FlagList flags={active} onIgnore={(id) => update((x) => { x.ignoredFlags = [...x.ignoredFlags, id]; })} />}
+          {active.length > 0 && <FlagList flags={active} onIgnore={(id) => update((x) => { x.ignoredFlags = [...x.ignoredFlags, id]; })} onFix={(f) => replace(f.fix!(c))} />}
           {ignored.length > 0 && (
             <>
               <button className="p-link" onClick={() => setShowIgnored(!showIgnored)}>{showIgnored ? T('Ocultar ignorados', 'Hide ignored') : T(`Mostrar ignorados (${ignored.length})`, `Show ignored (${ignored.length})`)}</button>

@@ -3,7 +3,7 @@ import { useChar, useStore } from '../store';
 import { activeReminders, armorClass, fmt, speed, spellAttack, spellSaveDc } from '../rules/calc';
 import { ACTIONS, COST_NAMES, effectName, effectNotes, resourceName } from '../rules/srd';
 import { Pips, Section, useRoll } from './common';
-import { EffectPicker } from './Sheet';
+import { EffectPicker, SpellComp } from './Sheet';
 import { InitiativePrompt, InitiativeTracker, TurnPanel } from './Initiative';
 import { ExplainModal, longPress } from './InfoBubble';
 import { L, T } from '../i18n';
@@ -101,7 +101,7 @@ export function CombatTab() {
           {[...c.spells].sort((a, b) => a.level - b.level).map((s) => (
             <div key={s.id} className="spell-line">
               <div className="grow tappable" {...longPress({ type: 'spell', id: s.id })} onClick={() => setSpellInfo(s.id)}>
-                <b>{s.name}</b> <span className="muted small">{s.level ? `${T('nv', 'lvl')} ${s.level}` : T('truco', 'cantrip')} · {s.castingTime} · 📏 {s.range}{s.concentration ? ' · 🧠' : ''}</span>
+                <b>{s.name}</b> <SpellComp sp={s} /> <span className="muted small">{s.level ? `${T('nv', 'lvl')} ${s.level}` : T('truco', 'cantrip')} · {s.castingTime} · 📏 {s.range}</span>
                 {s.notes && <div className="small muted">{s.notes}</div>}
               </div>
               <button className="btn small" onClick={() => {

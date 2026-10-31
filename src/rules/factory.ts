@@ -1,6 +1,7 @@
 import type { Ability, Character, Resource } from '../types';
 import { abilityMods, mod } from './calc';
 import { CLASSES, DEFAULT_FOLDERS, RESOURCE_NAMES, SKILLS, classById, pactSlotsFor, slotsFor } from './srd';
+import { CLASS_PROFS } from './progression';
 import { L, T } from '../i18n';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -143,6 +144,13 @@ export function createCharacter(input: NewCharacterInput): Character {
   if (cls.id === 'monje') {
     c.baseAc = 10 + mod(input.abilities.dex) + mod(input.abilities.wis);
     c.acNote = T('Defensa sin armadura', 'Unarmored Defense');
+  }
+  // Competencias que da la clase (reglas 2024)
+  const prof = CLASS_PROFS[cls.id];
+  if (prof) {
+    c.armorTraining = { ...prof.armor };
+    c.weaponProf = L(prof.weapons);
+    if (prof.tools) c.toolProf = L(prof.tools.name);
   }
   c.resources = cls.resources(level, abilityMods(c)).map((r) => ({ id: uid(), used: 0, key: r.key, name: L(RESOURCE_NAMES[r.key]), max: r.max, recovers: r.recovers }));
   return c;

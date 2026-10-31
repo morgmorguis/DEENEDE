@@ -1,13 +1,18 @@
 // Avisos de la ficha: datos que deberían estar y no están, o cosas que no cuadran con las reglas de 2024.
 // Cada aviso tiene un id estable para poder ignorarlo y que no vuelva a aparecer.
 import type { Character } from '../types';
-import { T } from '../i18n';
+import { L, T } from '../i18n';
 import { ABILITIES, CLASSES, abilityName, abilityShort, pactSlotsFor, skillName, slotsFor } from './srd';
 import { abilityMods, mod } from './calc';
 import { findSpell } from './spells';
+import { ARMOR_NAMES, CLASS_PROFS } from './progression';
 
 export type FlagSeverity = 'error' | 'warning' | 'info';
-export interface Flag { id: string; severity: FlagSeverity; title: string; reason: string }
+export interface Flag {
+  id: string; severity: FlagSeverity; title: string; reason: string;
+  /** Corrección automática (p. ej. marcar el entrenamiento con armaduras que da tu clase) */
+  fix?: (c: Character) => Character;
+}
 
 /** Experiencia necesaria para cada nivel (reglas 2024) */
 export const XP_TABLE = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
@@ -21,9 +26,17 @@ const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 const SMALL_SPECIES = /\b(mediano|halfling|gnomo|gnome)\b/;
 const MEDIUM_ONLY = /\b(enano|dwarf|elfo|elf|draconido|dragonborn|goliat|goliath|orco|orc)\b/;
 
+/** Armas marciales (nombres en inglés y español, sin tildes) */
+const MARTIAL = ['battle ?axe|hacha de batalla', 'flail|mayal', 'glaive|guja', 'great ?axe|gran hacha|hacha a dos manos', 'great ?sword|espadon|mandoble', 'halberd|alabarda',
+  'lance|lanza de caballeria', 'long ?sword|espada larga', 'maul|mazo', 'morning ?star|lucero del alba', 'pike|pica', 'rapier|estoque', 'scimitar|cimitarra',
+  'short ?sword|espada corta', 'trident|tridente', 'war ?hammer|martillo de guerra', 'war ?pick|pico de guerra', 'whip|latigo', 'blowgun|cerbatana',
+  'hand crossbow|ballesta de mano', 'heavy crossbow|ballesta pesada', 'long ?bow|arco largo', 'musket|mosquete', 'pistol|pistola'].map((x) => new RegExp(`\\b(${x})\\b`));
+/** Marciales con Sutil o Ligera (pícaro y monje) */
+const FINESSE_LIGHT = ['rapier|estoque', 'scimitar|cimitarra', 'short ?sword|espada corta', 'whip|latigo', 'hand crossbow|ballesta de mano'].map((x) => new RegExp(`\\b(${x})\\b`));
+
 export function validate(c: Character): Flag[] {
   const out: Flag[] = [];
-  const add = (id: string, severity: FlagSeverity, title: string, reason: string) => out.push({ id, severity, title, reason });
+  const add = (id: string, severity: FlagSeverity, title: string, reason: string, fix?: (c: Character) => Character) => out.push({ id, severity, title, reason, fix });
   const cls = CLASSES.find((x) => x.id === c.classId);
   const mods = abilityMods(c);
 
@@ -35,7 +48,7 @@ export function validate(c: Character): Flag[] {
   if (!c.background.trim()) add('missing-background', 'warning', T('Falta el trasfondo', 'Missing background'), T('En 2024 el trasfondo da +3 a características, una dote de origen, 2 habilidades y una herramienta.', 'In 2024 your background grants +3 to ability scores, an Origin feat, 2 skills and a tool.'));
   if (c.saveProf.length === 0) add('missing-saves', 'error', T('Sin competencias en salvaciones', 'No saving throw proficiencies'), T('Todas las clases dan competencia en dos tiradas de salvación. Marca las de tu clase con el círculo junto a «Tirada de salvación».', 'Every class grants proficiency in two saving throws. Tick your class’s ones with the circle next to “Saving Throw”.'));
   if (c.attacks.length === 0) add('missing-attacks', 'info', T('Sin armas ni ataques', 'No weapons or attacks'), T('No hay ningún ataque en la tabla. Como mínimo tienes un golpe sin armas (1 + mod. FUE contundente).', 'There are no attacks in the table. At the very least you have an Unarmed Strike (1 + STR mod bludgeoning).'));
-  if (Object.values(c.skillProf).filter(Boolean).length < 2) add('few-skills', 'warning', T('Pocas habilidades competentes', 'Few skill proficiencies'), T('Tu clase da al menos 2 habilidades y tu trasfondo otras 2. Puede que no se hayan marcado al importar.', 'Your class grants at least 2 skills and your background 2 more. They may not have been ticked on import.'));
+  if (!cls && Object.values(c.skillProf).filter(Boolean).length < 2) add('few-skills', 'warning', T('Pocas habilidades competentes', 'Few skill proficiencies'), T('Tu clase da al menos 2 habilidades y tu trasfondo otras 2. Puede que no se hayan marcado al importar.', 'Your class grants at least 2 skills and your background 2 more. They may not have been ticked on import.'));
 
   // ---- Características ----
   for (const a of ABILITIES) {
@@ -46,11 +59,53 @@ export function validate(c: Character): Flag[] {
 
   // ---- Clase ----
   if (cls) {
-    const expected = [...cls.saves].sort().join();
-    if (c.saveProf.length && [...c.saveProf].sort().join() !== expected) {
-      add('save-mismatch', 'warning', T('Salvaciones distintas a las de tu clase', 'Saves don’t match your class'),
-        T(`${cls.name.es} es competente en salvaciones de ${cls.saves.map(abilityShort).join(' y ')}; tienes ${c.saveProf.map(abilityShort).join(', ')}. Al hacer multiclase solo cuentan las de la primera clase. Una dote como Resiliente añade otra.`,
-          `${cls.name.en} is proficient in ${cls.saves.map(abilityShort).join(' and ')} saves; you have ${c.saveProf.map(abilityShort).join(', ')}. When multiclassing only the first class’s count. A feat such as Resilient adds another.`));
+    const missingSaves = cls.saves.filter((a) => !c.saveProf.includes(a));
+    if (c.saveProf.length && missingSaves.length) {
+      add('save-mismatch', 'warning', T('Te faltan salvaciones de tu clase', 'Missing class saving throws'),
+        T(`${cls.name.es} da competencia en salvaciones de ${cls.saves.map(abilityShort).join(' y ')}; no tienes marcada ${missingSaves.map(abilityShort).join(' ni ')}. (Si tu primera clase fue otra, al hacer multiclase solo cuentan las de la primera.)`,
+          `${cls.name.en} grants proficiency in ${cls.saves.map(abilityShort).join(' and ')} saves; ${missingSaves.map(abilityShort).join(' and ')} isn’t ticked. (If you started in another class, only the first class’s saves count when multiclassing.)`),
+        (x) => ({ ...x, saveProf: [...new Set([...x.saveProf, ...cls.saves])] }));
+    }
+    const extraSource = /resilient|resiliente|slippery mind|mente escurridiza|disciplined survivor|superviviente disciplinado/i.test(`${c.feats} ${c.features.map((f) => f.name).join(' ')}`);
+    const extraSaves = c.saveProf.filter((a) => !cls.saves.includes(a));
+    if (extraSaves.length && !extraSource) add('save-extra', 'info', T('Salvaciones de más', 'Extra saving throws'),
+      T(`Tienes competencia en salvaciones de ${extraSaves.map(abilityShort).join(', ')}, que ${cls.name.es} no da. Es correcto si viene de una dote (Resiliente), de otra clase inicial o de un rasgo.`,
+        `You’re proficient in ${extraSaves.map(abilityShort).join(', ')} saves, which ${cls.name.en} doesn’t grant. That’s fine if it comes from a feat (Resilient), a different starting class or a feature.`),
+      (x) => ({ ...x, saveProf: x.saveProf.filter((a) => cls.saves.includes(a)) }));
+
+    // Competencias que da la clase
+    const prof = CLASS_PROFS[cls.id];
+    if (prof) {
+      const missingArmor = (Object.keys(prof.armor) as (keyof typeof prof.armor)[]).filter((k) => prof.armor[k] && !c.armorTraining[k]);
+      if (missingArmor.length) add('armor-training', 'warning', T('Falta entrenamiento con armaduras', 'Missing armor training'),
+        T(`${cls.name.es} te da entrenamiento con: ${missingArmor.map((k) => ARMOR_NAMES[k].es).join(', ')}. Sin él, llevar esa armadura te da desventaja en todo lo que use FUE o DES y no puedes lanzar conjuros.`,
+          `${cls.name.en} grants training with: ${missingArmor.map((k) => ARMOR_NAMES[k].en).join(', ')}. Without it, wearing that armor gives you Disadvantage on anything using STR or DEX and you can’t cast spells.`),
+        (x) => ({ ...x, armorTraining: { ...x.armorTraining, ...Object.fromEntries(missingArmor.map((k) => [k, true])) } }));
+      const wp = fold(c.weaponProf);
+      const hasSimple = /simple|sencill/.test(wp);
+      const hasMartial = /martial|marcial/.test(wp);
+      if (!hasSimple || (prof.martial === 'all' && !hasMartial)) add('weapon-prof', 'warning', T('Faltan competencias con armas', 'Missing weapon proficiencies'),
+        T(`${cls.name.es} es competente con: ${L(prof.weapons)}. Sin competencia no sumas tu bonificador de competencia al atacar con esas armas.`,
+          `${cls.name.en} is proficient with: ${L(prof.weapons)}. Without proficiency you don’t add your Proficiency Bonus when attacking with those weapons.`),
+        (x) => ({ ...x, weaponProf: [x.weaponProf.trim(), L(prof.weapons)].filter(Boolean).join('; ') }));
+      if (prof.tools && !prof.tools.match.test(fold(c.toolProf))) add('tool-prof', 'info', T('Falta una competencia con herramientas', 'Missing tool proficiency'),
+        T(`${cls.name.es} da competencia con ${L(prof.tools.name)}.`, `${cls.name.en} grants proficiency with ${L(prof.tools.name)}.`),
+        (x) => ({ ...x, toolProf: [x.toolProf.trim(), L(prof.tools!.name)].filter(Boolean).join('; ') }));
+      const skills = Object.values(c.skillProf).filter(Boolean).length;
+      if (skills < prof.skills + 2) add('skill-count', 'warning', T('Te faltan habilidades', 'Missing skill proficiencies'),
+        T(`${cls.name.es} da ${prof.skills} habilidades y tu trasfondo 2 más: deberías tener al menos ${prof.skills + 2} marcadas y tienes ${skills}.`,
+          `${cls.name.en} grants ${prof.skills} skills and your background 2 more: you should have at least ${prof.skills + 2} ticked and you have ${skills}.`));
+      // Ataques con armas marciales sin competencia
+      for (const a of c.attacks) {
+        const w = fold(a.name);
+        const martial = MARTIAL.find((m) => m.test(w));
+        if (!martial) continue;
+        const allowed = prof.martial === 'all' || hasMartial || (prof.martial === 'finesse-light' && FINESSE_LIGHT.some((m) => m.test(w)));
+        if (!allowed) add(`martial:${w}`, 'warning', T(`Sin competencia con ${a.name}`, `Not proficient with ${a.name}`),
+          T(`${a.name} es un arma marcial y ${cls.name.es} no tiene competencia con ella: no sumas tu bonificador de competencia al atacar ni puedes usar su maestría.`,
+            `${a.name} is a martial weapon and ${cls.name.en} isn’t proficient with it: you don’t add your Proficiency Bonus to attacks or use its mastery.`),
+          (x) => ({ ...x, attacks: x.attacks.map((y) => (y.id === a.id ? { ...y, proficient: false } : y)) }));
+      }
     }
     if (c.hitDie !== cls.hitDie) add('hitdie-mismatch', 'warning', T('Dado de golpe incorrecto', 'Wrong hit die'), T(`${cls.name.es} usa d${cls.hitDie} y la ficha tiene d${c.hitDie}.`, `${cls.name.en} uses d${cls.hitDie} and the sheet has d${c.hitDie}.`));
 

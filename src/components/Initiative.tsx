@@ -207,6 +207,9 @@ type ActKind = 'hit' | 'heal' | 'hurt';
 export function TurnPanel() {
   const c = useChar();
   const [act, setAct] = useState<ActKind | null>(null);
+  const [other, setOther] = useState(false);
+  const log = useStore((s) => s.log[s.activeId]);
+  const recent = (log ?? []).filter((e) => e.role === 'app' || e.role === 'user').slice(-4).reverse();
   const order = c.combat.order;
   const current = order[c.combat.turn];
   if (!current) return null;
@@ -220,8 +223,13 @@ export function TurnPanel() {
         <button className="btn" onClick={() => setAct('hit')}>⚔️ {mine ? T('He pegado', 'I hit') : T('Ha pegado', 'Hit someone')}</button>
         <button className="btn" onClick={() => setAct('heal')}>💚 {mine ? T('He curado', 'I healed') : T('Ha curado', 'Healed someone')}</button>
         {!mine && <button className="btn" onClick={() => setAct('hurt')}>🩸 {T('Ha recibido daño', 'Took damage')}</button>}
+        <button className="btn" onClick={() => setOther(true)}>💬 {T('Otra acción', 'Other action')}</button>
       </div>
       {act && <ActionModal actor={current} kind={act} onClose={() => setAct(null)} />}
+      {recent.length > 0 && (
+        <ul className="turn-log">{recent.map((e) => <li key={e.id}>{e.text}</li>)}</ul>
+      )}
+      {other && <OtherActionModal name={name} onClose={() => setOther(false)} />}
     </section>
   );
 }
@@ -267,6 +275,48 @@ function ActionModal({ actor, kind, onClose }: { actor: InitEntry; kind: ActKind
         combatAction({ actorId: actor.id, kind, targetId: kind === 'hurt' ? actor.id : target, amount: n, roll: roll.trim() === '' ? null : Number(roll) });
         onClose();
       }}>{T('Aplicar', 'Apply')}</button>
+    </Modal>
+  );
+}
+
+/** Acciones que no son daño ni curación: hablar, moverse, esquivar… Se anotan en el registro del combate. */
+const OTHER_ACTIONS: { es: string; en: string; icon: string }[] = [
+  { es: 'Habla', en: 'Talks', icon: '💬' }, { es: 'Se mueve', en: 'Moves', icon: '🏃' }, { es: 'Esquiva', en: 'Dodges', icon: '🛡️' },
+  { es: 'Ayuda', en: 'Helps', icon: '🤝' }, { es: 'Se esconde', en: 'Hides', icon: '🫥' }, { es: 'Lanza un conjuro', en: 'Casts a spell', icon: '✨' },
+  { es: 'Usa un objeto', en: 'Uses an item', icon: '🎒' }, { es: 'Se destraba', en: 'Disengages', icon: '↩️' }, { es: 'Prepara una acción', en: 'Readies an action', icon: '⏳' },
+  { es: 'Huye', en: 'Flees', icon: '💨' }, { es: 'No hace nada', en: 'Does nothing', icon: '😶' },
+];
+
+function OtherActionModal({ name, onClose }: { name: string; onClose: () => void }) {
+  const pushLog = useStore((s) => s.pushLog);
+  const showToast = useStore((s) => s.showToast);
+  const manualRolls = useStore((s) => s.settings.manualRolls);
+  const [what, setWhat] = useState<string | null>(null);
+  const [detail, setDetail] = useState('');
+  const [roll, setRoll] = useState('');
+  const save = () => {
+    const text = [`${name}: ${what ?? ''}`.trim(), detail.trim(), roll.trim() ? T(`(tirada ${roll})`, `(roll ${roll})`) : ''].filter(Boolean).join(' — ');
+    pushLog({ role: 'app', text });
+    showToast(text, []);
+    onClose();
+  };
+  return (
+    <Modal title={T(`¿Qué hace ${name}?`, `What does ${name} do?`)} onClose={onClose}>
+      <div className="target-chips">
+        {OTHER_ACTIONS.map((a) => {
+          const label = T(a.es, a.en);
+          return <button key={a.en} className={`target-chip ${what === label ? 'on' : ''}`} onClick={() => setWhat(what === label ? null : label)}>{a.icon} {label}</button>;
+        })}
+      </div>
+      <label className="field">{T('Detalles (opcional)', 'Details (optional)')}
+        <textarea value={detail} placeholder={T('«Pide la rendición al jefe goblin»', '“Demands the goblin boss surrender”')} onChange={(e) => setDetail(e.target.value)} />
+      </label>
+      {manualRolls && (
+        <label className="field">{T('Tirada (opcional)', 'Roll (optional)')}
+          <input type="number" inputMode="numeric" value={roll} onChange={(e) => setRoll(e.target.value)} />
+        </label>
+      )}
+      <button className="btn primary full" disabled={!what && !detail.trim()} onClick={save}>{T('Anotar', 'Log it')}</button>
     </Modal>
   );
 }

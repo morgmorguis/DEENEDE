@@ -67,6 +67,10 @@ export interface Spell {
   concentration: boolean;
   ritual?: boolean;
   material?: boolean;
+  /** Componentes como en el manual: «V, S, M» (verbal, somático, material) */
+  components?: string;
+  /** Siempre preparado por un rasgo de clase (no cuenta para el límite) */
+  alwaysPrepared?: boolean;
   notes?: string;
 }
 
@@ -80,10 +84,14 @@ export interface Resource {
   recovers: 'short' | 'long';
 }
 
+/** Cómo se recupera un rasgo o conjuro: descanso corto, largo, gastando un espacio de conjuro o a voluntad */
+export type Recharge = 'short' | 'long' | 'slot' | 'atwill';
+
 export interface Feature {
   id: string;
   name: string;
   text: string;
+  recharge?: Recharge;
 }
 
 export interface SlotState {

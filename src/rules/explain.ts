@@ -5,7 +5,7 @@ import {
   ACTIONS, CLASSES, CONDITIONS, COST_NAMES, MASTERIES, SKILLS, abilityName, abilityShort, conditionName, damageTypeName, effectName, effectNotes, findMastery, resourceName,
 } from './srd';
 import { abilityMods, attackBonus, fmt, mod, profBonus, rollContext, saveBonus, skillBonus, spellAttack, spellSaveDc, type RollKind } from './calc';
-import { findSpell } from './spells';
+import { findSpell, spellComponents } from './spells';
 
 export type InfoTarget =
   | { type: 'ability'; ability: Ability }
@@ -127,6 +127,10 @@ export function explain(c: Character, t: InfoTarget): Explanation | null {
       const ritual = sp.ritual || !!info?.ritual;
       if (raging(c)) limits.push({ tone: 'bad', text: T('Estás en Furia: no puedes lanzar conjuros ni concentrarte.', 'You’re raging: you can’t cast spells or concentrate.') });
       if (!sp.prepared && sp.level > 0) limits.push({ tone: 'bad', text: T('No está preparado: no puedes lanzarlo hasta prepararlo.', 'Not prepared: you can’t cast it until you prepare it.') });
+      lines.push(sp.level === 0
+        ? T('Truco: se lanza a voluntad, sin gastar espacios.', 'Cantrip: cast at will, no slots needed.')
+        : T(`Gasta un espacio de conjuro de nivel ${sp.level} o superior; los espacios se recuperan con un descanso largo${c.pactSlots ? ' (los de pacto, también con uno corto)' : ''}.`, `Uses a spell slot of level ${sp.level} or higher; slots come back on a Long Rest${c.pactSlots ? ' (Pact slots also on a Short Rest)' : ''}.`)
+          + (sp.alwaysPrepared ? T(' Siempre lo tienes preparado gracias a un rasgo de clase.', ' You always have it prepared thanks to a class feature.') : ''));
       if (sp.level > 0) {
         const top = maxSlotLevel(c);
         if (top < sp.level) limits.push({ tone: 'bad', text: T(`Aún no tienes espacios de nivel ${sp.level}.`, `You don’t have level ${sp.level} slots yet.`) });
@@ -144,7 +148,10 @@ export function explain(c: Character, t: InfoTarget): Explanation | null {
       }
       const time = (sp.castingTime || (info ? info.time.en : '')).toLowerCase();
       if (/bonus|adicional/.test(time)) limits.push({ tone: 'info', text: T('Si lanzas un conjuro con acción adicional, no puedes gastar otro espacio de conjuro en ese turno.', 'If you cast a spell with a Bonus Action, you can’t expend another spell slot on that turn.') });
-      if (info?.components.includes('M') || sp.material) limits.push({ tone: 'info', text: T('Componente material: necesitas una bolsa de componentes o un canalizador (o el material si tiene coste).', 'Material component: you need a component pouch or a focus (or the material itself if it has a cost).') });
+      const comp = spellComponents(sp);
+      if (comp.includes('V')) limits.push({ tone: 'info', text: T('V (verbal): tienes que poder hablar en voz alta; no puedes lanzarlo amordazado ni dentro de un Silencio, y delata que lanzas un conjuro.', 'V (verbal): you must be able to speak aloud; you can’t cast it while gagged or inside Silence, and it reveals you’re casting.') });
+      if (comp.includes('S')) limits.push({ tone: 'info', text: T('S (somático): necesitas al menos una mano libre para gesticular (puede ser la del canalizador).', 'S (somatic): you need at least one free hand to gesture (it can be the one holding your focus).') });
+      if (comp.includes('M') || sp.material) limits.push({ tone: 'info', text: T('Componente material: necesitas una bolsa de componentes o un canalizador (o el material si tiene coste).', 'Material component: you need a component pouch or a focus (or the material itself if it has a cost).') });
       if (sp.level === 0 && info) limits.push({ tone: 'info', text: T(`Los trucos mejoran a nivel 5, 11 y 17 (tú eres nivel ${c.level}).`, `Cantrips improve at levels 5, 11 and 17 (you’re level ${c.level}).`) });
       return { title: info ? L(info.name) : sp.name || T('Conjuro', 'Spell'), subtitle: meta, lines, limits: [...actionLimits(c), ...limits] };
     }

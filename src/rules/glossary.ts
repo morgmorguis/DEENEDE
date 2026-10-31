@@ -276,6 +276,8 @@ export function translateCharacter(c: Character, to: Lang): Character {
         range: s.range ? tt(s.range) : info ? info.range[to] : '',
         concentration: s.concentration || !!info?.concentration,
         ritual: s.ritual || !!info?.ritual,
+        components: s.components || info?.components,
+        material: s.material || !!info?.components.includes('M'),
       };
     }),
     features: c.features.map((f) => ({ ...f, name: tt(f.name, 'feature') })),

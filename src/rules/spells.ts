@@ -69,6 +69,10 @@ export const SPELLS: SpellInfo[] = [
   s(r('Hechizar persona', 'Charm Person'), 1, ACT, ft(30), 'V, S', HOUR1, false, r('Un humanoide hace una salvación de Sabiduría (con ventaja si lo estáis atacando) o queda Hechizado por ti. Sabe que lo hechizaste cuando termina.', 'A Humanoid makes a Wisdom save (with Advantage if you or allies are fighting it) or is Charmed by you. It knows it was charmed when the spell ends.')),
   s(r('Detectar magia', 'Detect Magic'), 1, ACT, SELF, 'V, S', MIN10, true, r('Percibes la magia a 30 pies de ti y puedes ver su aura y su escuela.', 'You sense magic within 30 feet and can see its aura and school.'), true),
   s(r('Armadura de mago', 'Mage Armor'), 1, ACT, TOUCH, 'V, S, M', H8, false, r('Una criatura sin armadura tiene CA base 13 + su modificador de Destreza.', 'An unarmored creature’s base AC becomes 13 + its Dexterity modifier.')),
+  s(r('Castigo divino', 'Divine Smite'), 1, BON, SELF, 'V', INST, false, r('Justo después de impactar con un arma cuerpo a cuerpo o un ataque sin armas: el objetivo recibe 2d8 de daño radiante extra (+1d8 si es infernal o muerto viviente; +1d8 por cada nivel de espacio por encima de 1).', 'Right after you hit with a melee weapon or an Unarmed Strike: the target takes an extra 2d8 Radiant damage (+1d8 if it’s a Fiend or Undead; +1d8 per slot level above 1).')),
+  s(r('Encontrar familiar', 'Find Familiar'), 1, r('1 hora', '1 hour'), ft(10), 'V, S, M', INST, false, r('Invocas un espíritu con forma de animal pequeño que te sirve: puede ayudar, explorar y compartes sus sentidos. Puede entregar tus conjuros de toque.', 'You summon a spirit in the form of a small animal that serves you: it can Help, scout and share its senses with you. It can deliver your touch spells.'), true),
+  s(r('Hablar con los animales', 'Speak with Animals'), 1, ACT, SELF, 'V, S', r('10 minutos', '10 minutes'), false, r('Entiendes a las bestias y puedes comunicarte verbalmente con ellas durante la duración.', 'You can comprehend and verbally communicate with Beasts for the duration.'), true),
+  s(r('Encontrar corcel', 'Find Steed'), 2, ACT, ft(30), 'V, S', INST, false, r('Invocas un espíritu con forma de montura leal (celestial, feérica o infernal) que te obedece en combate y comparte tus conjuros de efecto propio.', 'You summon a loyal otherworldly steed (celestial, fey or fiendish) that obeys you in combat and can share your self-targeting spells.')),
   s(r('Marca del cazador', 'Hunter’s Mark'), 1, BON, ft(90), 'V', HOUR1, true, r('Marcas a una criatura: tus impactos con ataques le hacen 1d6 de daño de fuerza extra y tienes ventaja en Percepción y Supervivencia para encontrarla. Si cae, puedes pasar la marca con una acción adicional.', 'You mark a creature: your attack hits deal an extra 1d6 Force damage to it and you have Advantage on Perception and Survival checks to find it. If it drops, you can move the mark as a Bonus Action.')),
   s(r('Maleficio', 'Hex'), 1, BON, ft(90), 'V, S, M', HOUR1, true, r('Maldices a una criatura: tus impactos le hacen 1d6 de daño necrótico extra y tiene desventaja en las pruebas de la característica que elijas.', 'You curse a creature: your hits deal an extra 1d6 Necrotic damage to it and it has Disadvantage on checks with the ability you choose.')),
   s(r('Escudo de la fe', 'Shield of Faith'), 1, BON, ft(60), 'V, S, M', MIN10, true, r('Una criatura gana +2 a la CA mientras dure.', 'A creature gains +2 AC for the duration.')),
@@ -125,4 +129,12 @@ export function findSpell(name: string): SpellInfo | undefined {
   const k = key(name);
   if (!k) return undefined;
   return SPELLS.find((sp) => key(sp.name.es) === k || key(sp.name.en) === k);
+}
+
+/** Componentes de un conjuro de la ficha: los guardados, los de la base de datos o al menos la M si se marcó material */
+export function spellComponents(sp: { name: string; components?: string; material?: boolean }): string {
+  if (sp.components?.trim()) return sp.components;
+  const info = findSpell(sp.name);
+  if (info) return info.components;
+  return sp.material ? 'M' : '';
 }
