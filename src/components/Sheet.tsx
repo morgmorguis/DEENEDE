@@ -16,8 +16,9 @@ import { Editor } from './Editor';
 import { ImportModal } from './Import';
 import { L, T } from '../i18n';
 import { imageFileToBase64 } from '../importer';
-import { longPress } from './InfoBubble';
+import { ExplainModal, longPress } from './InfoBubble';
 import { FlagsPanel } from './Flags';
+import { LevelUpPage } from './LevelUp';
 
 // ---------- Piezas con aspecto de hoja de papel ----------
 
@@ -61,6 +62,7 @@ export function SheetTab() {
   const roll = useRoll();
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [levelUp, setLevelUp] = useState(false);
   const [hpOpen, setHpOpen] = useState(false);
   const [statInfo, setStatInfo] = useState<{ ability: Ability; skill?: string; save?: boolean } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
@@ -68,6 +70,9 @@ export function SheetTab() {
   const [effOpen, setEffOpen] = useState(false);
   const [attackEdit, setAttackEdit] = useState<string | null>(null);
   const [spellEdit, setSpellEdit] = useState<string | null>(null);
+  const [spellInfo, setSpellInfo] = useState<string | null>(null);
+  const [featInfo, setFeatInfo] = useState<string | null>(null);
+  const [featEdit, setFeatEdit] = useState<string | null>(null);
 
   if (editing) return <Editor onDone={() => setEditing(false)} />;
 
@@ -145,6 +150,7 @@ export function SheetTab() {
   return (
     <div className="tab sheet-tab">
       <div className="sheet-toolbar">
+        <button className="btn small primary lvlup-btn" disabled={c.level >= 20} onClick={() => setLevelUp(true)}>⬆️ {T('Subir de nivel', 'Level up')}</button>
         <button className="btn small" onClick={() => setImporting(true)}>📥 {T('Importar ficha', 'Import sheet')}</button>
         <button className="btn small" onClick={() => setEditing(true)}>⚙️ {T('Más opciones', 'More options')}</button>
       </div>
@@ -196,8 +202,8 @@ export function SheetTab() {
             <Box title={T('Puntos de golpe', 'Hit Points')} className="p-hp">
               <div className="p-hp-grid">
                 <button className="p-hp-current" onClick={() => setHpOpen(true)}>
-                  <b>{c.dead ? '☠️' : c.hp.current}</b>
-                  <span>{T('Actuales', 'Current')}</span>
+                  <b>{c.dead ? '☠️' : c.hp.current + c.hp.temp}</b>
+                  <span>{c.hp.temp > 0 && !c.dead ? `${c.hp.current} + ${c.hp.temp} ${T('temp.', 'temp')}` : T('Actuales', 'Current')}</span>
                 </button>
                 <label className="p-hp-small">
                   <NumberInput value={c.hp.temp} min={0} onChange={(n) => set((x) => { x.hp.temp = Math.max(0, n); })} />
@@ -283,15 +289,13 @@ export function SheetTab() {
               </table>
             </Box>
 
-            <Box title={T('Rasgos de clase', 'Class Features')} right={<button className="p-add" onClick={() => set((x) => { x.features.push({ id: uid(), name: '', text: '' }); })}>+</button>}>
+            <Box title={T('Rasgos de clase', 'Class Features')} right={<button className="p-add" onClick={() => { const id = uid(); set((x) => { x.features.push({ id, name: '', text: '' }); }); setFeatEdit(id); }}>+</button>}>
               {c.features.length === 0 && <p className="p-empty">{T('Sin rasgos.', 'No features.')}</p>}
               {c.features.map((f) => (
-                <details key={f.id} className="p-feature" open={!f.name}>
-                  <summary {...longPress({ type: 'feature', id: f.id })}>{f.name || T('Nuevo rasgo', 'New feature')}</summary>
-                  <input className="p-inline" value={f.name} placeholder={T('Nombre', 'Name')} onChange={(e) => set((x) => { x.features.find((y) => y.id === f.id)!.name = e.target.value; })} />
-                  <textarea className="p-area" rows={3} value={f.text} onChange={(e) => set((x) => { x.features.find((y) => y.id === f.id)!.text = e.target.value; })} />
-                  <button className="p-link" onClick={() => set((x) => { x.features = x.features.filter((y) => y.id !== f.id); })}>{T('Borrar', 'Delete')}</button>
-                </details>
+                <button key={f.id} className="p-feature" {...longPress({ type: 'feature', id: f.id })} onClick={() => (f.name ? setFeatInfo(f.id) : setFeatEdit(f.id))}>
+                  <b>{f.name || T('Nuevo rasgo', 'New feature')}</b>
+                  {f.text && <span className="p-feature-text">{f.text}</span>}
+                </button>
               ))}
             </Box>
 
@@ -427,7 +431,7 @@ export function SheetTab() {
               </thead>
               <tbody>
                 {[...c.spells].sort((a, b) => a.level - b.level).map((s) => (
-                  <tr key={s.id} {...longPress({ type: 'spell', id: s.id })} onClick={() => setSpellEdit(s.id)}>
+                  <tr key={s.id} {...longPress({ type: 'spell', id: s.id })} onClick={() => (s.name ? setSpellInfo(s.id) : setSpellEdit(s.id))}>
                     <td>{s.level || T('T', 'C')}</td>
                     <td><b>{s.name || '—'}</b>{s.notes ? <div className="p-notes">{s.notes}</div> : null}</td>
                     <td>{s.castingTime}</td>
@@ -484,9 +488,13 @@ export function SheetTab() {
       </div>
 
       {hpOpen && <HpModal onClose={() => setHpOpen(false)} />}
+      {levelUp && <LevelUpPage onClose={() => setLevelUp(false)} />}
       {statInfo && <StatInfoModal {...statInfo} onClose={() => setStatInfo(null)} />}
       {attackEdit && <AttackModal id={attackEdit} onClose={() => setAttackEdit(null)} />}
       {spellEdit && <SpellModal id={spellEdit} onClose={() => setSpellEdit(null)} />}
+      {spellInfo && <ExplainModal target={{ type: 'spell', id: spellInfo }} onClose={() => setSpellInfo(null)} onEdit={() => { setSpellEdit(spellInfo); setSpellInfo(null); }} />}
+      {featInfo && <ExplainModal target={{ type: 'feature', id: featInfo }} onClose={() => setFeatInfo(null)} onEdit={() => { setFeatEdit(featInfo); setFeatInfo(null); }} />}
+      {featEdit && <FeatureModal id={featEdit} onClose={() => setFeatEdit(null)} />}
       {importing && <ImportModal onClose={() => setImporting(false)} />}
       {condOpen && (
         <Modal title={T('Añadir condición', 'Add condition')} onClose={() => setCondOpen(false)}>
@@ -592,6 +600,24 @@ function AttackModal({ id, onClose }: { id: string; onClose: () => void }) {
       <p className="hint">{T(`Bonificador de ataque: ${fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}. El modificador de característica se suma al daño automáticamente.`, `Attack bonus: ${fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}. The ability modifier is added to damage automatically.`)}</p>
       <div className="row">
         <button className="btn danger" onClick={() => { update((ch) => { ch.attacks = ch.attacks.filter((y) => y.id !== id); }); onClose(); }}>{T('Borrar', 'Delete')}</button>
+        <button className="btn primary grow" onClick={onClose}>{T('Hecho', 'Done')}</button>
+      </div>
+    </Modal>
+  );
+}
+
+function FeatureModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const c = useChar();
+  const update = useStore((s) => s.update);
+  const f = c.features.find((x) => x.id === id);
+  if (!f) return null;
+  const set = (fn: (x: Character['features'][number]) => void) => update((ch) => { fn(ch.features.find((y) => y.id === id)!); });
+  return (
+    <Modal title={f.name || T('Nuevo rasgo', 'New feature')} onClose={onClose}>
+      <label className="field">{T('Nombre', 'Name')}<input value={f.name} autoFocus={!f.name} onChange={(e) => set((x) => { x.name = e.target.value; })} /></label>
+      <label className="field">{T('Qué hace', 'What it does')}<textarea className="tall" value={f.text} onChange={(e) => set((x) => { x.text = e.target.value; })} /></label>
+      <div className="row">
+        <button className="btn danger" onClick={() => { update((ch) => { ch.features = ch.features.filter((y) => y.id !== id); }); onClose(); }}>{T('Borrar', 'Delete')}</button>
         <button className="btn primary grow" onClick={onClose}>{T('Hecho', 'Done')}</button>
       </div>
     </Modal>

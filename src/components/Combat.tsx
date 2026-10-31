@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useChar, useStore } from '../store';
-import { abilityMods, activeReminders, armorClass, attackBonus, fmt, rollContext, speed, spellAttack, spellSaveDc } from '../rules/calc';
-import { ACTIONS, COST_NAMES, damageTypeName, effectName, effectNotes, findMastery, resourceName } from '../rules/srd';
-import { Pips, Section, useDamageRoll, useRoll } from './common';
+import { activeReminders, armorClass, fmt, speed, spellAttack, spellSaveDc } from '../rules/calc';
+import { ACTIONS, COST_NAMES, effectName, effectNotes, resourceName } from '../rules/srd';
+import { Pips, Section, useRoll } from './common';
 import { EffectPicker } from './Sheet';
-import { InitiativePrompt, InitiativeTracker } from './Initiative';
-import { longPress } from './InfoBubble';
+import { InitiativePrompt, InitiativeTracker, TurnPanel } from './Initiative';
+import { ExplainModal, longPress } from './InfoBubble';
 import { L, T } from '../i18n';
 
 export function CombatTab() {
@@ -13,18 +13,15 @@ export function CombatTab() {
   const update = useStore((s) => s.update);
   const run = useStore((s) => s.runCommands);
   const roll = useRoll();
-  const dmgRoll = useDamageRoll();
-  const [crit, setCrit] = useState(false);
   const [effOpen, setEffOpen] = useState(false);
   const [openAction, setOpenAction] = useState<string | null>(null);
   const [initPrompt, setInitPrompt] = useState(false);
+  const [spellInfo, setSpellInfo] = useState<string | null>(null);
   const startCombat = useStore((s) => s.startCombat);
   const endCombat = useStore((s) => s.endCombat);
   const endTurn = useStore((s) => s.endTurn);
   const spd = speed(c);
   const ac = armorClass(c);
-  const m = abilityMods(c);
-  const atkCtx = rollContext(c, { kind: 'attack' });
   const reminders = activeReminders(c);
   const incapacitated = c.conditions.some((x) => ['incapacitado', 'aturdido', 'paralizado', 'petrificado', 'inconsciente'].includes(x)) || c.hp.current === 0;
   const moveLeft = Math.max(0, spd.value - c.combat.movementUsed);
@@ -39,7 +36,7 @@ export function CombatTab() {
         <div className="empty-combat">
           <div className="big-emoji">⚔️</div>
           <h2>{T('Modo combate', 'Combat mode')}</h2>
-          <p className="muted">{T('Controla tu acción, acción adicional, reacción y movimiento cada ronda; ve tus ataques con su alcance y recuerda qué te afecta.', 'Track your action, bonus action, reaction and movement each round; see your attacks with their range and what is affecting you.')}</p>
+          <p className="muted">{T('Controla tu acción, acción adicional, reacción y movimiento cada ronda, la vida de compañeros y enemigos y lo que hace cada uno en su turno.', 'Track your action, bonus action, reaction and movement each round, your allies’ and enemies’ HP and what each one does on their turn.')}</p>
           <button className="btn primary big" onClick={() => { startCombat(); setInitPrompt(true); }}>{T('¡Empezar combate!', 'Start combat!')}</button>
           <p className="hint">{T('Te preguntaré tu tirada de iniciativa; podrás añadir compañeros y enemigos y ordenar los turnos.', 'I’ll ask for your initiative roll; you can add allies and enemies and order the turns.')}</p>
         </div>
@@ -66,6 +63,7 @@ export function CombatTab() {
       </div>
 
       <InitiativeTracker />
+      <TurnPanel />
 
       {reminders.length > 0 && <div className="reminders">{reminders.map((r, i) => <div key={i}>⚠️ {r}</div>)}</div>}
 
@@ -89,34 +87,6 @@ export function CombatTab() {
         <p className="hint">{T('Terreno difícil: cada pie cuesta 2. Arrastrarse o trepar sin velocidad de trepar: también cuesta el doble.', 'Difficult terrain: every foot costs 2. Crawling or climbing without a climb speed also costs double.')}</p>
       </Section>
 
-      <Section title={T('Ataques', 'Attacks')} right={<label className="check"><input type="checkbox" checked={crit} onChange={(e) => setCrit(e.target.checked)} /> {T('Crítico', 'Critical')}</label>}>
-        {(atkCtx.advantage.length > 0 || atkCtx.disadvantage.length > 0) && (
-          <p className="hint">
-            {atkCtx.advantage.length > 0 && <>✅ {T('Ventaja', 'Advantage')}: {atkCtx.advantage.join(', ')}. </>}
-            {atkCtx.disadvantage.length > 0 && <>⬇️ {T('Desventaja', 'Disadvantage')}: {atkCtx.disadvantage.join(', ')}.</>}
-          </p>
-        )}
-        {c.attacks.length === 0 && <p className="muted">{T('Añade tus armas en la hoja (tabla «Armas y trucos de daño»).', 'Add your weapons on the sheet (“Weapons & Damage Cantrips” table).')}</p>}
-        {c.attacks.map((a) => {
-          const bonus = attackBonus(c, a.ability, a.proficient, a.extraBonus);
-          const flat = m[a.ability];
-          const mastery = findMastery(a.mastery);
-          return (
-            <div key={a.id} className="attack">
-              <div className="attack-head" {...longPress({ type: 'attack', id: a.id })}>
-                <b>{a.name}</b>
-                <span className="range">📏 {a.range || '—'}</span>
-              </div>
-              <div className="muted small">{fmt(bonus)} {T('para impactar', 'to hit')} · {a.damage}{flat ? fmt(flat) : ''} {damageTypeName(a.damageType).toLowerCase()}{a.notes ? ` · ${a.notes}` : ''}</div>
-              {mastery && <div className="small mastery">⚙️ {L(mastery.name)}: {L(mastery.text)}</div>}
-              <div className="row mt">
-                <button className="btn grow" onClick={() => { roll(c, { kind: 'attack' }, bonus, `${T('Ataque', 'Attack')}: ${a.name}`); if (!c.combat.action) update((x) => { x.combat.action = true; }); }}>🎲 {T('Atacar', 'Attack')} {fmt(bonus)}</button>
-                <button className="btn grow" onClick={() => { dmgRoll(c, a.name, a.damage, flat, crit, 'damage', a.ability === 'str'); setCrit(false); }}>💥 {T('Daño', 'Damage')}</button>
-              </div>
-            </div>
-          );
-        })}
-      </Section>
 
       {(c.spells.length > 0 || c.spellAbility) && (
         <Section title={T('Conjuros', 'Spells')} right={c.spellAbility ? <span className="small muted">{T('CD', 'DC')} {spellSaveDc(c)} · {fmt(spellAttack(c)!)}</span> : undefined}>
@@ -130,7 +100,7 @@ export function CombatTab() {
           </div>
           {[...c.spells].sort((a, b) => a.level - b.level).map((s) => (
             <div key={s.id} className="spell-line">
-              <div className="grow" {...longPress({ type: 'spell', id: s.id })}>
+              <div className="grow tappable" {...longPress({ type: 'spell', id: s.id })} onClick={() => setSpellInfo(s.id)}>
                 <b>{s.name}</b> <span className="muted small">{s.level ? `${T('nv', 'lvl')} ${s.level}` : T('truco', 'cantrip')} · {s.castingTime} · 📏 {s.range}{s.concentration ? ' · 🧠' : ''}</span>
                 {s.notes && <div className="small muted">{s.notes}</div>}
               </div>
@@ -190,6 +160,7 @@ export function CombatTab() {
         <button className="btn primary grow big" onClick={endTurn}>⏭️ {T('Fin de turno', 'End turn')}</button>
         <button className="btn" onClick={endCombat}>{T('Terminar', 'End')}</button>
       </div>
+      {spellInfo && <ExplainModal target={{ type: 'spell', id: spellInfo }} onClose={() => setSpellInfo(null)} />}
       {effOpen && <EffectPicker onClose={() => setEffOpen(false)} />}
       {initPrompt && <InitiativePrompt onClose={() => setInitPrompt(false)} />}
     </div>

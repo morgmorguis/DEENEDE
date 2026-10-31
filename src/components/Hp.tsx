@@ -10,9 +10,12 @@ export function HpBar() {
   const c = useChar();
   const [open, setOpen] = useState(false);
   const mhp = maxHp(c);
-  const pct = Math.max(0, Math.min(100, (c.hp.current / mhp) * 100));
-  const tempPct = Math.min(100 - pct, (c.hp.temp / mhp) * 100);
-  const color = c.dead ? 'var(--muted)' : pct > 50 ? 'var(--hp-good)' : pct > 25 ? 'var(--hp-mid)' : 'var(--hp-bad)';
+  // Si los temporales superan el máximo, la barra se escala para que se vean enteros
+  const scale = Math.max(mhp, c.hp.current + c.hp.temp);
+  const pct = Math.max(0, Math.min(100, (c.hp.current / scale) * 100));
+  const tempPct = Math.min(100 - pct, (c.hp.temp / scale) * 100);
+  const lifePct = (c.hp.current / mhp) * 100;
+  const color = c.dead ? 'var(--muted)' : lifePct > 50 ? 'var(--hp-good)' : lifePct > 25 ? 'var(--hp-mid)' : 'var(--hp-bad)';
   return (
     <>
       <button className="hpbar" onClick={() => setOpen(true)} aria-label={T('Puntos de golpe: tocar para modificar', 'Hit points: tap to change')}>
@@ -23,8 +26,9 @@ export function HpBar() {
         <div className="hpbar-text">
           {c.dead ? T('☠️ Muerto', '☠️ Dead') : (
             <>
-              ❤️ <b>{c.hp.current}</b>/{mhp}
-              {c.hp.temp > 0 && <span className="temp"> +{c.hp.temp}</span>}
+              ❤️ {c.hp.temp > 0
+                ? <><b>{c.hp.current + c.hp.temp}</b>/{mhp} <span className="temp">({c.hp.current} + {c.hp.temp} {T('temp.', 'temp')})</span></>
+                : <><b>{c.hp.current}</b>/{mhp}</>}
               {c.hp.current === 0 && !c.stable && <span className="warn"> · 💀 {c.deathSaves.success}✓ {c.deathSaves.fail}✗</span>}
               {c.hp.current === 0 && c.stable && <span> · {T('Estable', 'Stable')}</span>}
             </>
@@ -56,7 +60,7 @@ export function HpModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title={T('Puntos de golpe', 'Hit points')} onClose={onClose}>
-      <p className="muted">{T('PG', 'HP')} {c.hp.current}/{maxHp(c)} · {T('temporales', 'temporary')} {c.hp.temp}</p>
+      <p className="muted">{T('PG', 'HP')} {c.hp.current}/{maxHp(c)} · {T('temporales', 'temporary')} {c.hp.temp}{c.hp.temp > 0 ? ` · ${T('total', 'total')} ${c.hp.current + c.hp.temp}` : ''}</p>
       <input className="big-input" inputMode="numeric" type="number" placeholder={T('Cantidad', 'Amount')} value={amount} autoFocus onChange={(e) => setAmount(e.target.value)} />
       <div className="row wrap">
         <select value={type} onChange={(e) => setType(e.target.value as DamageType | '')} aria-label={T('Tipo de daño', 'Damage type')}>
@@ -78,6 +82,7 @@ export function HpModal({ onClose }: { onClose: () => void }) {
           {T('Revivir con 1 PG (p. ej. Revivificar)', 'Revive with 1 HP (e.g. Revivify)')}
         </button>
       )}
+      <p className="hint">{T('«Temporales»: pon los PG temporales que te dan (un conjuro, un rasgo…). Se suman a tu vida y el daño los gasta primero. No se acumulan entre sí: si ya tienes, te quedas con el número mayor.', '“Temp”: enter the Temporary HP you’re granted (a spell, a feature…). They add to your life and damage uses them up first. They don’t stack with each other: you keep the higher number.')}</p>
       <p className="hint">{T('El daño se aplica en orden: inmunidad → resistencia → vulnerabilidad → PG temporales → PG. Se comprueban concentración, caída a 0 PG y muerte instantánea.', 'Damage is applied in order: immunity → resistance → vulnerability → temporary HP → HP. Concentration, dropping to 0 HP and instant death are checked.')}</p>
     </Modal>
   );

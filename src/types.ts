@@ -113,6 +113,12 @@ export interface InitEntry {
   name: string;
   kind: 'self' | 'ally' | 'enemy';
   initiative: number | null;
+  /** PG máximos (null = desconocidos, se muestra «?») */
+  hpMax?: number | null;
+  /** Daño acumulado (los PG actuales son hpMax − daño). Se cuenta aunque no se conozca el máximo. */
+  damage?: number;
+  /** PG temporales */
+  temp?: number;
 }
 
 export interface CombatState {

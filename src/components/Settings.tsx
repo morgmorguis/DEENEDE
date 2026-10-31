@@ -76,6 +76,13 @@ export function SettingsTab() {
           </span>
           <input type="checkbox" className="switch" checked={settings.tapToRoll} onChange={(e) => setSettings({ tapToRoll: e.target.checked })} />
         </label>
+        <label className="switch-row">
+          <span className="grow">
+            <b>{T('Anotar tiradas a mano en combate', 'Enter rolls by hand in combat')}</b>
+            <span className="hint block">{T('Al anotar lo que hace cada uno en su turno (pegar, curar, recibir daño) aparece también un campo para escribir la tirada que ha sacado. Desactivado: solo se anota la cantidad, sin dados.', 'When noting what each participant does on their turn (hit, heal, take damage), a field to type the roll they got also appears. Off: only the amount is noted, no dice.')}</span>
+          </span>
+          <input type="checkbox" className="switch" checked={settings.manualRolls} onChange={(e) => setSettings({ manualRolls: e.target.checked })} />
+        </label>
         <p className="hint">💬 {T('Mantén pulsada 1,5 s una habilidad, salvación, arma, conjuro, rasgo, recurso o condición para ver qué hace y qué te limita ahora mismo.', 'Press and hold a skill, save, weapon, spell, feature, resource or condition for 1.5 s to see what it does and what limits it right now.')}</p>
       </Section>
 

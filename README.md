@@ -26,10 +26,12 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
 
   El daño se aplica en el orden de las reglas 2024: inmunidad → resistencia → vulnerabilidad → PG temporales → PG. Avisa de la salvación de concentración (CD 10 o mitad del daño, máx. 30) y la tira por ti, gestiona caer a 0 PG, muerte instantánea, salvaciones contra la muerte y fallos por recibir daño a 0 PG. Cada cambio se puede **deshacer**.
 - **Beneficios y perjuicios**: Bendición, Perdición, Escudo de la fe, Escudo, Celeridad, Lentitud, Furia, Esquivar, Armadura de mago, Piel robliza… con duración en rondas que baja sola al pasar turno, más efectos personalizados.
-- **Modo combate**: al empezar te pregunta tu tirada de iniciativa (la escribes o la tira la app, nunca sola); **orden de iniciativa** con tus compañeros y los enemigos en burbujas que se reordenan arrastrando (también con el dedo), turno actual resaltado y «Siguiente turno» que avanza la ronda; casillas de acción / acción adicional / reacción, movimiento restante, ataques con alcance, bonificador y maestría de arma, tiradas de ataque y daño (crítico incluido, bonus de Furia solo en ataques de FUE), conjuros con alcance y espacios, recursos, efectos activos y una chuleta de todas las acciones 2024.
+- **Modo combate**: al empezar te pregunta tu tirada de iniciativa (la escribes o la tira la app, nunca sola); **orden de iniciativa** con tus compañeros y los enemigos en burbujas que se reordenan arrastrando, con **su vida** (los enemigos empiezan con «?» y se va sumando el daño que reciben hasta que pongas su máximo). En cada turno anotas, sin dados, si quien juega **ha pegado, curado o recibido daño** y a quién; si te pegan a ti se aplican tus resistencias y temporales. Opcionalmente (Ajustes) puedes escribir también la tirada. Además: acción / acción adicional / reacción, movimiento restante, conjuros con alcance y espacios, recursos, efectos activos y una chuleta de todas las acciones 2024.
 - **Bloc de notas abatible** (botón 📜, disponible en todas las pantallas) con **carpetas** (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees): notas rápidas y un botón para **grabar la sesión**. La transcripción se convierte en una crónica escrita como un relato (con Claude) y se guarda en «Crónicas».
 - **Reglas consultables**: condiciones, habilidades (con tu bonificador), acciones, reglas clave (ventaja, crítico, concentración, descansos, cobertura, agarre…), maestrías de armas y efectos, con buscador.
-- Varios personajes, creación guiada por clase (PG, salvaciones, espacios y recursos automáticos) y subir de nivel.
+- Varios personajes y creación guiada por clase (PG, salvaciones, espacios y recursos automáticos).
+- **Subir de nivel** (botón ⬆️ en la hoja): una pantalla te enseña lo que ganas en el siguiente nivel según tu clase (rasgos explicados, espacios de conjuro, recursos, bonificador por competencia) y te deja elegir lo que permiten las reglas 2024: PG (media fija o tirada), subclase, mejora de característica o dote, don épico, estilo de combate, pericias, metamagia, invocaciones, opciones de clase y conjuros nuevos de tu lista. Al pulsar **LVL UP** se actualiza toda la ficha.
+- **PG temporales** sumados a tu vida (p. ej. «51/45 (45 + 6 temp.)»), y al tocar un conjuro o un rasgo ves qué hace, con un botón para editarlo.
 - **Copia de seguridad** (Ajustes → Copia de seguridad): exporta todas tus fichas con su progreso y su diario (notas, carpetas y crónicas), o solo la ficha actual, a un archivo `.json`. En Android se guarda en *Documentos/DiEnDi* y se abre el menú Compartir para mandarlo a Drive, al correo, etc. Para recuperarlo, «Restaurar copia» deja **añadirlo a tus fichas** (las que ya existen se actualizan) o **reemplazarlo todo**. Sirve para no perder datos al reinstalar o para pasar tus personajes a otro móvil.
 
 ## Inteligencia artificial (opcional)
@@ -82,6 +84,7 @@ El icono (un goblin en pixel art que mira a cámara y lanza dados) se genera con
 - `src/rules/spells.ts`: conjuros habituales con su resumen (ES/EN).
 - `src/rules/glossary.ts`: glosario de términos de D&D inglés ↔ español para traducir fichas.
 - `src/rules/explain.ts`: contenido de la burbuja de información.
+- `src/rules/progression.ts` y `src/rules/levelup.ts`: progresión de clases 1-20 y subida de nivel.
 - `src/rules/flags.ts`: avisos de datos que faltan o incompatibles con las reglas.
 - `src/i18n.ts`: idioma de la app (`T('texto', 'text')`).
 - `src/importer.ts`: importación de fichas (pdf.js para PDF, mammoth para Word).

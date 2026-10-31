@@ -20,6 +20,8 @@ export interface Settings {
   useAiFallback: boolean;
   /** 'auto' = según el idioma de la app */
   speechLang: string;
+  /** En combate, anotar a mano la tirada de cada acción de compañeros y enemigos */
+  manualRolls: boolean;
   /** Fecha (ms) de la última copia de seguridad exportada */
   lastBackupAt: number | null;
 }
@@ -62,13 +64,15 @@ interface State {
   upsertEntry: (e: InitEntry) => void;
   removeEntry: (id: string) => void;
   sortByInitiative: () => void;
+  /** Acción de un participante en su turno: ha pegado a alguien, ha curado o ha recibido daño (sin dados) */
+  combatAction: (a: { actorId: string; kind: 'hit' | 'heal' | 'hurt'; targetId: string; amount: number; roll?: number | null }) => void;
 }
 
 const detected: Lang = typeof navigator !== 'undefined' && !navigator.language.toLowerCase().startsWith('es') ? 'en' : 'es';
 setLang(detected);
 const first = sampleCharacter();
 
-const defaultSettings: Settings = { lang: detected, theme: 'basic', tapToRoll: false, apiKey: '', model: DEFAULT_MODEL, useAiFallback: true, speechLang: 'auto', lastBackupAt: null };
+const defaultSettings: Settings = { lang: detected, theme: 'basic', tapToRoll: false, apiKey: '', model: DEFAULT_MODEL, useAiFallback: true, speechLang: 'auto', manualRolls: false, lastBackupAt: null };
 
 export const speechLangFor = (s: Settings) => (s.speechLang === 'auto' ? (s.lang === 'es' ? 'es-ES' : 'en-US') : s.speechLang);
 
@@ -221,6 +225,47 @@ export const useStore = create<State>()(
         const sorted = sortOrder(c.combat.order, c.combat.turn);
         Object.assign(c.combat, sorted, c.combat.begun ? {} : { turn: 0 });
       }),
+      combatAction: ({ actorId, kind, targetId, amount, roll }) => {
+        const c = get().active();
+        const nameOf = (id: string) => (id === SELF_ID ? c.name : c.combat.order.find((e) => e.id === id)?.name ?? '?');
+        const n = Math.max(0, Math.round(amount));
+        const actor = nameOf(actorId);
+        const target = nameOf(targetId);
+        const rollTxt = roll != null ? T(` (tirada ${roll})`, ` (roll ${roll})`) : '';
+        const text = kind === 'hit'
+          ? T(`${actor} golpea a ${target}${rollTxt}: ${n} de daño`, `${actor} hits ${target}${rollTxt}: ${n} damage`)
+          : kind === 'heal'
+            ? T(`${actor} cura a ${target}${rollTxt}: ${n} PG`, `${actor} heals ${target}${rollTxt}: ${n} HP`)
+            : T(`${actor} recibe ${n} de daño${rollTxt}`, `${actor} takes ${n} damage${rollTxt}`);
+        const hurt = kind !== 'heal';
+        if (targetId === SELF_ID) {
+          // A tu personaje se le aplican las reglas completas (resistencias, temporales, concentración…)
+          get().runCommands(text, [hurt ? { type: 'damage', amount: n, damageType: null, critical: false } : { type: 'heal', amount: n }]);
+          return;
+        }
+        let status = '';
+        get().update((x) => {
+          const e = x.combat.order.find((y) => y.id === targetId);
+          if (!e) return;
+          let dmg = e.damage ?? 0;
+          let temp = e.temp ?? 0;
+          if (hurt) {
+            const absorbed = Math.min(temp, n);
+            temp -= absorbed;
+            dmg += n - absorbed;
+          } else {
+            dmg = Math.max(0, dmg - n);
+          }
+          if (e.hpMax != null) dmg = Math.min(dmg, e.hpMax);
+          e.damage = dmg;
+          e.temp = temp;
+          status = e.hpMax != null
+            ? (e.hpMax - dmg <= 0 ? T(`💀 ${e.name} cae (0/${e.hpMax})`, `💀 ${e.name} is down (0/${e.hpMax})`) : `❤️ ${e.name}: ${e.hpMax - dmg}/${e.hpMax}`)
+            : T(`❤️ ${e.name}: ? (daño recibido ${dmg})`, `❤️ ${e.name}: ? (damage taken ${dmg})`);
+        });
+        get().pushLog({ role: 'app', text, details: [status] });
+        get().showToast(text, [status]);
+      },
       setSettings: (p) => set((s) => {
         const settings = { ...s.settings, ...p };
         setLang(settings.lang);

@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { useChar } from '../store';
 import { explain, type InfoTarget } from '../rules/explain';
 import { T } from '../i18n';
+import { Modal } from './common';
 
 export const LONG_PRESS_MS = 1500;
 
@@ -133,5 +134,28 @@ export function InfoBubble() {
         <span className="ib-close">{T('Toca para cerrar', 'Tap to close')}</span>
       </div>
     </>
+  );
+}
+
+/** Descripción completa de algo de la ficha (al tocarlo): qué hace, sus límites y un botón para editarlo */
+export function ExplainModal({ target, onClose, onEdit }: { target: InfoTarget; onClose: () => void; onEdit?: () => void }) {
+  const c = useChar();
+  const info = explain(c, target);
+  if (!info) return null;
+  return (
+    <Modal title={info.title} onClose={onClose}>
+      {info.subtitle && <p className="muted small">{info.subtitle}</p>}
+      {info.lines.map((l, i) => <p key={i} className="explain-line">{l}</p>)}
+      {info.limits.length > 0 && (
+        <div className="reminders">
+          <b>{T('Ahora mismo', 'Right now')}:</b>
+          {info.limits.map((l, i) => <div key={i}>{l.tone === 'good' ? '✅' : l.tone === 'bad' ? '⛔' : 'ℹ️'} {l.text}</div>)}
+        </div>
+      )}
+      <div className="row">
+        {onEdit && <button className="btn" onClick={onEdit}>✏️ {T('Editar', 'Edit')}</button>}
+        <button className="btn primary grow" onClick={onClose}>{T('Cerrar', 'Close')}</button>
+      </div>
+    </Modal>
   );
 }
