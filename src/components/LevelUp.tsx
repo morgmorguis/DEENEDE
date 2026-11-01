@@ -9,6 +9,7 @@ import { fmt, mod, profBonus, rollExpr } from '../rules/calc';
 import { BOONS, FEATS, FIGHTING_STYLES, INVOCATIONS, METAMAGIC, RECHARGE_LABEL, SUBCLASSES, levelEntry, inClassList, type Option } from '../rules/progression';
 import { applyLevelUp, averageHitDie, levelUpDiff, newSpellAllowance, type LevelUpChoices } from '../rules/levelup';
 import { SPELLS, findSpell } from '../rules/spells';
+import { useFx } from './Transition';
 
 function OptionList({ options, selected, onToggle, max = 1 }: { options: Option[]; selected: string[]; onToggle: (id: string) => void; max?: number }) {
   return (
@@ -149,6 +150,7 @@ export function LevelUpPage({ onClose }: { onClose: () => void }) {
   const diff = levelUpDiff(c, preview);
 
   const lvlUp = () => {
+    useFx.getState().play('levelup', T(`¡NIVEL ${level}!`, `LEVEL ${level}!`), `${c.name} · ${T('PG', 'HP')} ${c.hp.max} → ${preview.hp.max}`);
     replace(preview);
     showToast(T(`⬆️ ¡Nivel ${level}!`, `⬆️ Level ${level}!`), [
       ...diff.stats.filter((x) => x.label !== T('Nivel', 'Level')).map((x) => (x.from ? `${x.label}: ${x.from} → ${x.to}` : `${x.label}: ${x.to}`)),

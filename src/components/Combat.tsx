@@ -6,6 +6,7 @@ import { Pips, Section, useRoll } from './common';
 import { EffectPicker, SpellComp } from './Sheet';
 import { InitiativePrompt, InitiativeTracker, TurnPanel } from './Initiative';
 import { ExplainModal, longPress } from './InfoBubble';
+import { useFx } from './Transition';
 import { L, T } from '../i18n';
 
 export function CombatTab() {
@@ -18,6 +19,7 @@ export function CombatTab() {
   const [initPrompt, setInitPrompt] = useState(false);
   const [spellInfo, setSpellInfo] = useState<string | null>(null);
   const startCombat = useStore((s) => s.startCombat);
+  const play = useFx((s) => s.play);
   const endCombat = useStore((s) => s.endCombat);
   const endTurn = useStore((s) => s.endTurn);
   const spd = speed(c);
@@ -37,7 +39,7 @@ export function CombatTab() {
           <div className="big-emoji">⚔️</div>
           <h2>{T('Modo combate', 'Combat mode')}</h2>
           <p className="muted">{T('Controla tu acción, acción adicional, reacción y movimiento cada ronda, la vida de compañeros y enemigos y lo que hace cada uno en su turno.', 'Track your action, bonus action, reaction and movement each round, your allies’ and enemies’ HP and what each one does on their turn.')}</p>
-          <button className="btn primary big" onClick={() => { startCombat(); setInitPrompt(true); }}>{T('¡Empezar combate!', 'Start combat!')}</button>
+          <button className="btn primary big" onClick={() => { play('combat'); startCombat(); setTimeout(() => setInitPrompt(true), 2400); }}>{T('¡Empezar combate!', 'Start combat!')}</button>
           <p className="hint">{T('Te preguntaré tu tirada de iniciativa; podrás añadir compañeros y enemigos y ordenar los turnos.', 'I’ll ask for your initiative roll; you can add allies and enemies and order the turns.')}</p>
         </div>
       </div>

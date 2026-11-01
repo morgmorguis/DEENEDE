@@ -7,7 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { apply, createRoom, join, setOnline, viewFor, type Room } from '../src/party/room';
+import { apply, createRoom, join, normalizeRoom, setOnline, viewFor, type Room } from '../src/party/room';
 import type { ClientMessage, ServerMessage } from '../src/party/protocol';
 
 const args = process.argv.slice(2);
@@ -24,7 +24,7 @@ function load(): Room {
   try {
     const r = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')) as Room;
     r.members.forEach((m) => { m.online = false; });
-    return r;
+    return normalizeRoom(r);
   } catch {
     return createRoom();
   }
@@ -44,6 +44,7 @@ save();
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.wasm': 'application/wasm', '.gz': 'application/gzip', '.webmanifest': 'application/manifest+json',
+  '.woff': 'font/woff', '.woff2': 'font/woff2',
 };
 
 const server = http.createServer((req, res) => {
@@ -138,6 +139,7 @@ server.listen(PORT, () => {
   console.log(`\n${line}\n  🎲  Servidor de partida de «Di en Di»\n${line}`);
   console.log(`  Código de la partida:  ${room.code}`);
   console.log(`  Pantalla del DM (solo en este PC, no la compartas):\n    ${dmUrl}`);
+  console.log(`  Clave del DM (para entrar como DM desde el móvil o la tablet): ${room.dmKey}`);
   console.log('\n  Jugadores en tu misma Wi-Fi: en la app, «Partida» → dirección:');
   for (const ip of lanIps()) console.log(`    http://${ip}:${PORT}`);
   console.log('\n  Jugadores a distancia (Tailscale Funnel), en otra ventana:');

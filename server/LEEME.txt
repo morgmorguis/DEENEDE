@@ -1,5 +1,15 @@
-DI EN DI - SERVIDOR DE PARTIDA (Windows)
-========================================
+DI EN DI PARA WINDOWS
+=====================
+
+Hay dos programas:
+  · «Di en Di.exe»            → la app para JUGAR (tu ficha, combate, diario…), como en el móvil.
+                                 No hace falta ser el DM. Para unirte a una partida usa la pestaña
+                                 «Partida» con la dirección y el código que te dé el DM.
+                                 Tus fichas se guardan en este PC (haz copias en Ajustes).
+  · «Di en Di - Servidor.exe» → solo para el DM: crea la partida compartida.
+
+SERVIDOR DE PARTIDA (DM)
+------------------------
 
 1. Haz doble clic en «Di en Di - Servidor.exe».
    - Si Windows SmartScreen avisa: «Más información» → «Ejecutar de todas formas».
@@ -25,3 +35,10 @@ JUGAR A DISTANCIA (sin Cloudflare): Tailscale Funnel
    Para pararlo: Ctrl+C en esa ventana (o «tailscale funnel reset»).
 
 Opciones: «Di en Di - Servidor.exe --port 4000» usa otro puerto.
+
+EL DM DESDE EL MÓVIL O LA TABLET
+--------------------------------
+Con el servidor abierto en el PC, en la app del móvil/tablet: pestaña «Partida» →
+dirección del servidor → marca «Soy el DM» y escribe la CLAVE DEL DM (es lo que va
+después de «?dm=» en la dirección de la pantalla del DM). Tendrás la pantalla del DM
+y la pestaña «Personajes» con tus aliados y enemigos, sin ficha de personaje.

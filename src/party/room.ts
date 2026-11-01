@@ -2,7 +2,7 @@
 // comandos de cada cliente y envía a cada uno solo lo que puede ver (los jugadores nunca reciben
 // monstruos ocultos, vida exacta de monstruos ni notas del DM).
 import type {
-  Combatant, CombatantView, Command, Encounter, HpState, LogEvent, Member, Role, RoomView, SheetOp,
+  Combatant, CombatantView, Command, Encounter, HpState, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
 
 export interface StoredMember extends Member { token: string }
@@ -19,6 +19,8 @@ export interface Room {
   snapshots: Snapshot[];
   /** Se ha hecho algo en el turno actual */
   acted: boolean;
+  /** Personajes que el DM tiene preparados (nunca se envían a los jugadores) */
+  roster: RosterEntry[];
 }
 
 export interface Effect { to: string; ops: SheetOp[] }
@@ -31,10 +33,50 @@ export const rid = (n = 8) => Array.from({ length: n }, () => 'abcdefghijkmnpqrs
 const code6 = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 
 export function createRoom(): Room {
-  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false };
+  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [] };
 }
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+const d20 = () => 1 + Math.floor(Math.random() * 20);
+
+/** Completa partidas guardadas con versiones anteriores */
+export function normalizeRoom(room: Room): Room {
+  const r = room;
+  r.roster ??= [];
+  r.encounter.phase ??= 'running';
+  r.encounter.ready ??= [];
+  return r;
+}
+const phaseOf = (e: Encounter): Phase => e.phase ?? 'running';
+
+/** Quién tiene que pulsar «Listo»: el DM y los jugadores conectados con personaje en el combate */
+export function neededReady(r: Room): string[] {
+  const pcs = new Set(r.encounter.order.filter((c) => c.kind === 'pc' && c.ownerId).map((c) => c.ownerId!));
+  return r.members.filter((m) => m.online && (m.role === 'dm' || pcs.has(m.id))).map((m) => m.id);
+}
+
+/** Empieza los turnos: orden por iniciativa y primer turno */
+function begin(r: Room) {
+  const e = r.encounter;
+  e.phase = 'running';
+  e.ready = [];
+  e.begun = false;
+  e.turn = 0;
+  e.round = 1;
+  sortOrder(e);
+  pushLog(r, { kind: 'begin' });
+  if (e.order[0]) pushLog(r, { kind: 'turn', actorId: e.order[0].id, actor: e.order[0].name });
+  r.snapshots = [snap(r)];
+  r.acted = false;
+}
+
+function checkBegin(r: Room) {
+  const e = r.encounter;
+  if (!e.active || phaseOf(e) !== 'setup') return;
+  const need = neededReady(r);
+  const ready = e.ready ?? [];
+  if (need.some((id) => r.members.find((m) => m.id === id)?.role === 'player') && need.every((id) => ready.includes(id))) begin(r);
+}
 
 export function hpState(c: Pick<Combatant, 'hp' | 'hpMax'>): HpState {
   if (c.hp == null || c.hpMax == null) return 'unknown';
@@ -62,9 +104,10 @@ export function join(room: Room, name: string, token?: string, dmKey?: string): 
 }
 
 export function setOnline(room: Room, memberId: string, online: boolean): Room {
-  const r = clone(room);
+  const r = normalizeRoom(clone(room));
   const m = r.members.find((x) => x.id === memberId);
   if (m) m.online = online;
+  checkBegin(r);
   return r;
 }
 
@@ -135,7 +178,7 @@ function pcFrom(m: StoredMember, prev?: Combatant): Combatant {
 }
 
 export function apply(room: Room, memberId: string, cmd: Command): Result {
-  const r = clone(room);
+  const r = normalizeRoom(clone(room));
   const me = r.members.find((m) => m.id === memberId);
   if (!me) return { room, effects: [], error: 'not-member' };
   const dm = me.role === 'dm';
@@ -143,6 +186,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
   const effects: Effect[] = [];
   const deny = (): Result => ({ room, effects: [], error: 'not-allowed' });
   const ownsPc = (id: string) => e.order.some((c) => c.id === id && c.kind === 'pc' && c.ownerId === me.id);
+  const running = e.active && phaseOf(e) === 'running';
 
   switch (cmd.t) {
     case 'summary': {
@@ -150,6 +194,8 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       if (!me.name || me.name === 'Jugador') me.name = cmd.summary.name;
       const i = e.order.findIndex((c) => c.kind === 'pc' && c.ownerId === me.id);
       if (i >= 0) e.order[i] = pcFrom(me, e.order[i]);
+      // Quien llega durante la preparación entra en el combate
+      else if (e.active && phaseOf(e) === 'setup' && me.role === 'player') e.order.push(pcFrom(me));
       return { room: r, effects };
     }
 
@@ -162,8 +208,21 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       return { room: r, effects };
     }
 
+    case 'ready': {
+      if (!e.active || phaseOf(e) !== 'setup') return { room, effects: [], error: 'not-setup' };
+      const pc = e.order.find((c) => c.kind === 'pc' && c.ownerId === me.id);
+      if (!dm && !pc) return deny();
+      if (cmd.value && pc && pc.initiative == null && !dm) return { room, effects: [], error: 'need-initiative' };
+      const set = new Set(e.ready ?? []);
+      if (cmd.value) set.add(me.id); else set.delete(me.id);
+      e.ready = [...set];
+      checkBegin(r);
+      return { room: r, effects };
+    }
+
     case 'act': {
       if (!e.active) return { room, effects: [], error: 'no-combat' };
+      if (!running) return { room, effects: [], error: 'not-running' };
       const actor = e.order.find((c) => c.id === cmd.actorId);
       if (!actor) return deny();
       if (!dm && !ownsPc(actor.id)) return deny();
@@ -189,6 +248,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
 
     case 'nextTurn': {
       if (!e.active || !e.order.length) return { room, effects: [], error: 'no-combat' };
+      if (!running) return { room, effects: [], error: 'not-running' };
       const cur = current(e);
       if (!dm && !(cur && cur.ownerId === me.id)) return deny();
       // Pasa al siguiente que siga en pie (los monstruos derrotados no juegan)
@@ -213,7 +273,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
     }
 
     case 'undo': {
-      if (!e.active || !r.snapshots.length) return { room, effects: [], error: 'nothing-to-undo' };
+      if (!running || !r.snapshots.length) return { room, effects: [], error: 'nothing-to-undo' };
       const { target, owner } = undoTarget(r);
       if (!target) return { room, effects: [], error: 'nothing-to-undo' };
       if (!dm && owner !== me.id) return deny();
@@ -241,14 +301,46 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       // Entran los personajes de los jugadores; el resto lo añade el DM
       const keep = e.order.filter((c) => c.kind !== 'pc');
       const pcs = r.members.filter((m) => m.role === 'player' && m.summary).map((m) => pcFrom(m, e.order.find((c) => c.ownerId === m.id)));
-      r.encounter = { active: true, round: 1, turn: 0, begun: false, order: [...pcs.map((c) => ({ ...c, initiative: null })), ...keep] };
+      r.encounter = { active: true, phase: 'setup', ready: [], round: 1, turn: 0, begun: false, order: [...pcs.map((c) => ({ ...c, initiative: null })), ...keep] };
       pushLog(r, { kind: 'start' });
       r.snapshots = [snap(r)];
       r.acted = false;
       return { room: r, effects };
     }
+    case 'begin': {
+      if (!e.active || phaseOf(e) !== 'setup') return { room, effects: [], error: 'not-setup' };
+      begin(r);
+      return { room: r, effects };
+    }
+    case 'rosterSave': {
+      const entry = { ...cmd.entry, id: cmd.entry.id || rid(), name: cmd.entry.name.trim() || 'PNJ' };
+      const i = r.roster.findIndex((x) => x.id === entry.id);
+      if (i >= 0) r.roster[i] = entry; else r.roster.push(entry);
+      return { room: r, effects };
+    }
+    case 'rosterRemove': {
+      r.roster = r.roster.filter((x) => x.id !== cmd.id);
+      return { room: r, effects };
+    }
+    case 'rosterToCombat': {
+      const entry = r.roster.find((x) => x.id === cmd.id);
+      if (!entry) return deny();
+      const n = Math.max(1, Math.min(20, cmd.count));
+      for (let i = 1; i <= n; i++) {
+        const c = newCombatant({
+          name: n > 1 ? `${entry.name} ${i}` : entry.name, kind: entry.kind, hpMax: entry.hpMax, hp: entry.hpMax, ac: entry.ac,
+          initBonus: entry.initBonus, initiative: d20() + entry.initBonus, hidden: cmd.hidden, showHp: entry.kind === 'npc', notes: entry.notes, monster: entry.monster,
+        });
+        e.order.push(c);
+        pushLog(r, { kind: 'add', targetId: c.id, target: c.name });
+      }
+      if (!e.begun) r.snapshots = [snap(r)];
+      return { room: r, effects };
+    }
     case 'end': {
       e.active = false;
+      e.phase = 'running';
+      e.ready = [];
       pushLog(r, { kind: 'end' });
       // Los monstruos se quitan; los PNJ aliados se quedan para el próximo combate
       e.order = e.order.filter((c) => c.kind !== 'monster');
@@ -315,7 +407,8 @@ function undoTarget(r: Room): { target?: Snapshot; owner?: string } {
 
 // ---------- Vista de cada cliente ----------
 
-export function viewFor(room: Room, memberId: string): RoomView | null {
+export function viewFor(raw: Room, memberId: string): RoomView | null {
+  const room = normalizeRoom(clone(raw));
   const me = room.members.find((m) => m.id === memberId);
   if (!me) return null;
   const dm = me.role === 'dm';
@@ -341,13 +434,17 @@ export function viewFor(room: Room, memberId: string): RoomView | null {
       return secret || (!tgt && ev.after) ? { ...ev, after: undefined } : ev;
     })
     .slice(-400);
-  const { target, owner } = e.active && room.snapshots.length ? undoTarget(room) : {};
+  const { target, owner } = e.active && phaseOf(e) === 'running' && room.snapshots.length ? undoTarget(room) : {};
   return {
     code: room.code,
     you: { id: me.id, role: me.role, name: me.name },
     members: room.members.map(({ token: _t, ...m }) => { void _t; return m; }),
+    roster: dm ? room.roster : [],
     encounter: {
       active: e.active,
+      phase: phaseOf(e),
+      ready: e.ready ?? [],
+      needed: neededReady(room),
       round: e.round,
       begun: e.begun,
       order,
@@ -356,6 +453,6 @@ export function viewFor(room: Room, memberId: string): RoomView | null {
     },
     log,
     canUndo: !!target && (dm || owner === me.id),
-    canEndTurn: e.active && !!cur && (dm || cur.ownerId === me.id),
+    canEndTurn: e.active && phaseOf(e) === 'running' && !!cur && (dm || cur.ownerId === me.id),
   };
 }

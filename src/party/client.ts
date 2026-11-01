@@ -57,6 +57,9 @@ export const ERRORS: Record<string, [string, string]> = {
   'no-target': ['Elige a quién.', 'Choose a target.'],
   'nothing-to-undo': ['No hay nada que deshacer.', 'Nothing to undo.'],
   'not-member': ['Vuelve a unirte a la partida.', 'Join the game again.'],
+  'not-setup': ['El combate ya ha empezado.', 'The combat has already started.'],
+  'not-running': ['Esperad a que todos estén listos.', 'Wait until everyone is ready.'],
+  'need-initiative': ['Pon tu iniciativa antes de marcar Listo.', 'Enter your initiative before marking Ready.'],
 };
 const errorText = (code: string) => (ERRORS[code] ? T(...ERRORS[code]) : code);
 

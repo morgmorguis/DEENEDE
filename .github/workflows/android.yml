@@ -59,8 +59,10 @@ jobs:
       - run: npm run build
       - run: npm run server:build
 
-      - name: Empaquetar .exe
-        run: npx --yes @yao-pkg/pkg@6 server/build/server.cjs --targets node22-win-x64 --output "server/build/Di en Di - Servidor.exe" --config server/pkg.json
+      - name: Empaquetar .exe (servidor del DM y app para jugadores)
+        run: |
+          npx --yes @yao-pkg/pkg@6 server/build/server.cjs --targets node22-win-x64 --output "server/build/Di en Di - Servidor.exe" --config server/pkg.json
+          npx --yes @yao-pkg/pkg@6 server/build/app.cjs --targets node22-win-x64 --output "server/build/Di en Di.exe" --config server/pkg.json
 
       - name: Probar que el .exe arranca y sirve la app
         shell: pwsh
@@ -73,15 +75,22 @@ jobs:
           if ($html -notmatch 'id="root"') { throw "No sirve la app web" }
           Write-Host "Servidor OK, código $($info.code)"
           Stop-Process -Id $p.Id
+          $a = Start-Process -FilePath "server/build/Di en Di.exe" -ArgumentList "--no-open" -PassThru
+          Start-Sleep -Seconds 4
+          $app = (Invoke-WebRequest http://127.0.0.1:47800/ -UseBasicParsing).Content
+          if ($app -notmatch 'id="root"') { throw "La app de Windows no sirve la web" }
+          Write-Host "App de Windows OK"
+          Stop-Process -Id $a.Id
 
       - name: Preparar descarga
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item "server/build/Di en Di - Servidor.exe" out/
+          Copy-Item "server/build/Di en Di.exe" out/
           Copy-Item server/LEEME.txt out/
 
       - uses: actions/upload-artifact@v5
         with:
-          name: di-en-di-servidor-windows
+          name: di-en-di-windows
           path: out/

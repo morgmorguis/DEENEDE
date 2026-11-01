@@ -163,7 +163,8 @@ function logLine(ev: LogEvent, dm: boolean): string {
     case 'down': return T(`💀 ${ev.target} cae`, `💀 ${ev.target} is down`);
     case 'turn': return T(`▶ Turno de ${ev.actor}`, `▶ ${ev.actor}’s turn`);
     case 'round': return T(`— Ronda ${ev.round} —`, `— Round ${ev.round} —`);
-    case 'start': return T('⚔️ Empieza el combate', '⚔️ Combat starts');
+    case 'start': return T('⚔️ ¡Combate! Preparación', '⚔️ Combat! Getting ready');
+    case 'begin': return T('✅ Todos listos: empiezan los turnos', '✅ Everyone ready: turns begin');
     case 'end': return T('🏁 Fin del combate', '🏁 Combat over');
     case 'undo': return T(`↩️ ${ev.actor} deshace el último turno`, `↩️ ${ev.actor} undoes the last turn`);
     case 'add': return T(`➕ ${ev.target} entra en el combate`, `➕ ${ev.target} joins the combat`);
@@ -306,21 +307,70 @@ function DmCombatantModal({ c, onClose }: { c: CombatantView; onClose: () => voi
 
 // ---------- Combate compartido ----------
 
-function InitiativeAsk({ view, myPc }: { view: RoomView; myPc: CombatantView }) {
+/** Preparación: cada jugador introduce sus datos, ve los de sus aliados y marca «Listo» */
+function SetupPanel({ view }: { view: RoomView }) {
   const send = useParty((s) => s.send);
   const c = useChar();
-  const [v, setV] = useState('');
+  const update = useStore((s) => s.update);
+  const dm = view.you.role === 'dm';
+  const e = view.encounter;
+  const myPc = e.order.find((x) => x.kind === 'pc' && x.ownerId === view.you.id);
+  const [init, setInit] = useState(myPc?.initiative != null ? String(myPc.initiative) : '');
+  const meReady = e.ready.includes(view.you.id);
   const dex = Math.floor((c.abilities.dex - 10) / 2);
-  if (myPc.initiative != null || view.encounter.begun) return null;
+  const waiting = e.needed.filter((id) => !e.ready.includes(id)).map((id) => view.members.find((m) => m.id === id)).filter(Boolean);
+  const pcs = e.order.filter((x) => x.kind === 'pc');
+  const nameOf = (id: string) => view.members.find((m) => m.id === id);
+  const dmMember = view.members.find((m) => m.role === 'dm' && e.needed.includes(m.id));
+
   return (
-    <div className="init-ask-box">
-      <b>🎲 {T('¿Cuánto has sacado en iniciativa?', 'What did you roll for initiative?')}</b>
-      <span className="small muted">{T(`1d20 ${fmt(dex)}`, `1d20 ${fmt(dex)}`)}</span>
-      <div className="row">
-        <input className="grow" type="number" inputMode="numeric" value={v} onChange={(e) => setV(e.target.value)} />
-        <button className="btn primary" disabled={v === ''} onClick={() => send({ t: 'setInitiative', id: myPc.id, value: Number(v) })}>{T('Enviar', 'Send')}</button>
-      </div>
-    </div>
+    <Section title={T('⚔️ Preparación del combate', '⚔️ Getting ready for combat')} className="setup-panel">
+      {myPc && (
+        <div className="setup-me">
+          <h3>{T('Tus datos', 'Your data')}</h3>
+          <div className="grid3">
+            <label className="field">{T('Iniciativa (total)', 'Initiative (total)')}
+              <input type="number" inputMode="numeric" value={init} disabled={meReady} placeholder={`1d20 ${fmt(dex)}`}
+                onChange={(ev) => setInit(ev.target.value)}
+                onBlur={() => init !== '' && send({ t: 'setInitiative', id: myPc.id, value: Number(init) })} />
+            </label>
+            <label className="field">{T('PG actuales', 'Current HP')}
+              <input type="number" inputMode="numeric" value={c.hp.current} disabled={meReady} onChange={(ev) => update((x) => { x.hp.current = Math.max(0, Math.min(x.hp.max, Number(ev.target.value) || 0)); })} />
+            </label>
+            <label className="field">{T('PG temporales', 'Temp HP')}
+              <input type="number" inputMode="numeric" value={c.hp.temp} disabled={meReady} onChange={(ev) => update((x) => { x.hp.temp = Math.max(0, Number(ev.target.value) || 0); })} />
+            </label>
+          </div>
+          <p className="small muted">{T(`CA ${myPc.ac ?? '—'} · los demás datos salen de tu ficha.`, `AC ${myPc.ac ?? '—'} · everything else comes from your sheet.`)}</p>
+          {!meReady
+            ? <button className="btn primary full big ready-btn" disabled={init === ''} onClick={() => { send({ t: 'setInitiative', id: myPc.id, value: Number(init) }); send({ t: 'ready', value: true }); }}>✅ {T('¡Listo!', 'Ready!')}</button>
+            : <button className="btn full ready-btn on" onClick={() => send({ t: 'ready', value: false })}>✅ {T('Listo · tocar para quitar', 'Ready · tap to undo')}</button>}
+        </div>
+      )}
+      {dm && (
+        <div className="row wrap">
+          {!meReady
+            ? <button className="btn primary grow ready-btn" onClick={() => send({ t: 'ready', value: true })}>✅ {T('DM listo', 'DM ready')}</button>
+            : <button className="btn grow ready-btn on" onClick={() => send({ t: 'ready', value: false })}>✅ {T('DM listo · quitar', 'DM ready · undo')}</button>}
+          <button className="btn" onClick={() => { if (confirm(T('¿Empezar ya, sin esperar a que estén todos listos?', 'Start now without waiting for everyone?'))) send({ t: 'begin' }); }}>⏩ {T('Empezar ya', 'Start now')}</button>
+        </div>
+      )}
+      <h3 className="mt">{T('La party', 'The party')}</h3>
+      <ul className="setup-list">
+        {pcs.map((p) => {
+          const ready = !!p.ownerId && e.ready.includes(p.ownerId);
+          return (
+            <li key={p.id} className={ready ? 'ready' : ''}>
+              <span className="grow"><b>{p.name}</b>{nameOf(p.ownerId ?? '')?.name !== p.name && <span className="small muted"> {nameOf(p.ownerId ?? '')?.name}</span>}</span>
+              <span className="small">🎲 {p.initiative ?? '—'} · ❤️ {hpText(p)} · {T('CA', 'AC')} {p.ac ?? '—'}</span>
+              <span className="ready-mark">{ready ? '✅' : '⏳'}</span>
+            </li>
+          );
+        })}
+        {dmMember && <li className={e.ready.includes(dmMember.id) ? 'ready' : ''}><span className="grow"><b>🎲 DM</b></span><span className="ready-mark">{e.ready.includes(dmMember.id) ? '✅' : '⏳'}</span></li>}
+      </ul>
+      {waiting.length > 0 && <p className="hint">{T('Esperando a', 'Waiting for')}: {waiting.map((m) => m!.summary?.name ?? m!.name).join(', ')}</p>}
+    </Section>
   );
 }
 
@@ -337,14 +387,14 @@ function SharedCombat({ view }: { view: RoomView }) {
 
   return (
     <>
-      <Section title={e.active ? `${T('Combate', 'Combat')} · ${T('Ronda', 'Round')} ${e.round}` : T('Combate', 'Combat')}
+      {e.active && e.phase === 'setup' && <SetupPanel view={view} />}
+      <Section title={e.active ? (e.phase === 'setup' ? T('Combatientes', 'Combatants') : `${T('Combate', 'Combat')} · ${T('Ronda', 'Round')} ${e.round}`) : T('Combate', 'Combat')}
         right={dm ? (e.active
           ? <button className="btn small danger" onClick={() => { if (confirm(T('¿Terminar el combate? Los monstruos se quitarán.', 'End combat? Monsters will be removed.'))) send({ t: 'end' }); }}>🏁 {T('Terminar', 'End')}</button>
           : <button className="btn small primary" onClick={() => send({ t: 'start' })}>⚔️ {T('Empezar combate', 'Start combat')}</button>) : undefined}>
         {!e.active && !dm && <p className="muted">{T('Cuando el DM empiece un combate aparecerá aquí.', 'When the DM starts a combat it will show up here.')}</p>}
         {(e.active || (dm && e.order.length > 0)) && (
           <>
-            {myPc && <InitiativeAsk view={view} myPc={myPc} />}
             <ol className="party-order">
               {e.order.map((c) => {
                 const active = c.id === e.currentId;
@@ -375,7 +425,7 @@ function SharedCombat({ view }: { view: RoomView }) {
         )}
       </Section>
 
-      {e.active && (
+      {e.active && e.phase === 'running' && (
         <Section title={cur ? (myTurn ? T('⚔️ ¡Tu turno!', '⚔️ Your turn!') : T(`Turno de ${cur.name}`, `${cur.name}’s turn`)) : T('Turno', 'Turn')}>
           {myPc && !myTurn && <p className="small muted">{T('No es tu turno: anota aquí solo reacciones o daño que recibas.', 'Not your turn: only log reactions or damage you take here.')}</p>}
           {myPc && <ActionButtons view={view} actorId={myPc.id} />}
@@ -432,7 +482,7 @@ export function PartyTab() {
                       {m.summary.conditions.length > 0 && <> · <span className="warn">{m.summary.conditions.join(', ')}</span></>}
                     </span>
                   ) : <span className="small muted">{T('Sin ficha', 'No sheet')}</span>}
-                  <span className="tiny muted">{m.name}</span>
+                  {m.summary && m.summary.name !== m.name && <span className="tiny muted">{m.name}</span>}
                 </div>
               ))}
               {view.members.filter((m) => m.role === 'player').length === 0 && <p className="muted">{T(`Aún no hay jugadores. Código: ${view.code}`, `No players yet. Code: ${view.code}`)}</p>}

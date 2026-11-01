@@ -35,8 +35,9 @@ describe('partida compartida', () => {
     s.run(s.dm, { t: 'start' });
     s.run(s.dm, { t: 'add', combatants: [{ name: 'Goblin', kind: 'monster', hpMax: 10, ac: 15, notes: 'huye a 3 PG' }, { name: 'Asesino', kind: 'monster', hpMax: 40, hidden: true }] });
     const gob = s.room.encounter.order.find((c) => c.name === 'Goblin')!;
+    s.run(s.dm, { t: 'begin' });
     const pv = viewFor(s.room, s.p1)!;
-    expect(pv.encounter.order.map((c) => c.name)).toEqual(['Thalia', 'Brakka', 'Goblin']);
+    expect(pv.encounter.order.map((c) => c.name).sort()).toEqual(['Brakka', 'Goblin', 'Thalia']);
     const g = pv.encounter.order.find((c) => c.name === 'Goblin')!;
     expect(g.hp).toBeNull();
     expect(g.ac).toBeNull();
@@ -59,6 +60,7 @@ describe('partida compartida', () => {
     const s = setup();
     s.run(s.dm, { t: 'start' });
     s.run(s.dm, { t: 'add', combatants: [{ name: 'Sombra', kind: 'monster', hpMax: 20, hidden: true }] });
+    s.run(s.dm, { t: 'begin' });
     const brakka = s.room.encounter.order.find((c) => c.name === 'Brakka')!;
     const sombra = s.room.encounter.order.find((c) => c.name === 'Sombra')!;
     const thalia = s.room.encounter.order.find((c) => c.name === 'Thalia')!;
@@ -75,6 +77,7 @@ describe('partida compartida', () => {
     s.run(s.p1, { t: 'setInitiative', id: ids.Thalia, value: 18 });
     s.run(s.p2, { t: 'setInitiative', id: ids.Brakka, value: 12 });
     expect(s.room.encounter.order.map((c) => c.name)).toEqual(['Thalia', 'Brakka', 'Orco']);
+    s.run(s.dm, { t: 'begin' });
     // Turno de Thalia: pega al orco
     s.run(s.p1, { t: 'act', actorId: ids.Thalia, kind: 'hit', targetId: ids.Orco, amount: 7 });
     expect(() => s.run(s.p2, { t: 'nextTurn' })).toThrow('not-allowed');
@@ -104,13 +107,55 @@ describe('partida compartida', () => {
   it('los monstruos derrotados se saltan y se anota la caída', () => {
     const s = setup();
     s.run(s.dm, { t: 'start' });
-    s.run(s.dm, { t: 'add', combatants: [{ name: 'Rata', kind: 'monster', hpMax: 3 }] });
+    s.run(s.dm, { t: 'add', combatants: [{ name: 'Rata', kind: 'monster', hpMax: 3, initiative: 1 }] });
     const ids = Object.fromEntries(s.room.encounter.order.map((c) => [c.name, c.id]));
+    s.run(s.dm, { t: 'setInitiative', id: ids.Thalia, value: 15 });
+    s.run(s.dm, { t: 'setInitiative', id: ids.Brakka, value: 10 });
+    s.run(s.dm, { t: 'begin' });
     s.run(s.p1, { t: 'act', actorId: ids.Thalia, kind: 'hit', targetId: ids.Rata, amount: 5 });
     expect(s.room.log.some((e) => e.kind === 'down' && e.target === 'Rata')).toBe(true);
+    // Orden: Thalia, Brakka y la rata; la rata derrotada se salta
     s.run(s.dm, { t: 'nextTurn' });
     s.run(s.dm, { t: 'nextTurn' });
     expect(s.room.encounter.order[s.room.encounter.turn].name).toBe('Thalia');
     expect(s.room.encounter.round).toBe(2);
+  });
+
+  it('preparación: cada uno pone su iniciativa y marca Listo; empieza cuando están todos', () => {
+    const s = setup();
+    for (const m of s.room.members) m.online = true;
+    s.run(s.dm, { t: 'start' });
+    expect(viewFor(s.room, s.p1)!.encounter.phase).toBe('setup');
+    const ids = Object.fromEntries(s.room.encounter.order.map((c) => [c.name, c.id]));
+    // Sin iniciativa no puede marcar listo, y no se puede actuar todavía
+    expect(apply(s.room, s.p1, { t: 'ready', value: true }).error).toBe('need-initiative');
+    expect(apply(s.room, s.p1, { t: 'act', actorId: ids.Thalia, kind: 'other', text: 'x' }).error).toBe('not-running');
+    s.run(s.p1, { t: 'setInitiative', id: ids.Thalia, value: 12 });
+    s.run(s.p1, { t: 'ready', value: true });
+    s.run(s.p1, { t: 'ready', value: false });
+    s.run(s.p1, { t: 'ready', value: true });
+    s.run(s.p2, { t: 'setInitiative', id: ids.Brakka, value: 17 });
+    s.run(s.p2, { t: 'ready', value: true });
+    expect(s.room.encounter.phase).toBe('setup');
+    expect(viewFor(s.room, s.dm)!.encounter.needed.sort()).toEqual([s.dm, s.p1, s.p2].sort());
+    s.run(s.dm, { t: 'ready', value: true });
+    expect(s.room.encounter.phase).toBe('running');
+    expect(s.room.encounter.order.map((c) => c.name)).toEqual(['Brakka', 'Thalia']);
+    expect(s.room.log.some((e) => e.kind === 'begin')).toBe(true);
+  });
+
+  it('el DM guarda personajes en su lista y los mete en el combate; los jugadores no la ven', () => {
+    const s = setup();
+    s.run(s.dm, { t: 'rosterSave', entry: { id: '', name: 'Capitán Vex', kind: 'monster', level: 'VD 2', hpMax: 52, ac: 15, initBonus: 3, notes: 'traiciona al grupo' } });
+    const entry = s.room.roster[0];
+    expect(viewFor(s.room, s.p1)!.roster).toEqual([]);
+    expect(viewFor(s.room, s.dm)!.roster[0].name).toBe('Capitán Vex');
+    expect(apply(s.room, s.p1, { t: 'rosterSave', entry }).error).toBe('not-allowed');
+    s.run(s.dm, { t: 'start' });
+    s.run(s.dm, { t: 'rosterToCombat', id: entry.id, count: 2, hidden: true });
+    const vex = s.room.encounter.order.filter((c) => c.name.startsWith('Capitán Vex'));
+    expect(vex.map((c) => c.name)).toEqual(['Capitán Vex 1', 'Capitán Vex 2']);
+    expect(vex.every((c) => c.hidden && c.hpMax === 52 && c.initiative! >= 4 && c.initiative! <= 23)).toBe(true);
+    expect(JSON.stringify(viewFor(s.room, s.p1))).not.toContain('Vex');
   });
 });

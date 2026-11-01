@@ -19,6 +19,7 @@ import { imageFileToBase64 } from '../importer';
 import { ExplainModal, longPress } from './InfoBubble';
 import { FlagsPanel } from './Flags';
 import { LevelUpPage } from './LevelUp';
+import { useFx } from './Transition';
 import { findSpell, spellComponents } from '../rules/spells';
 import { RECHARGE_LABEL, rechargeOf } from '../rules/progression';
 import type { Recharge } from '../types';
@@ -153,7 +154,7 @@ export function SheetTab() {
   return (
     <div className="tab sheet-tab">
       <div className="sheet-toolbar">
-        <button className="btn small primary lvlup-btn" disabled={c.level >= 20} onClick={() => setLevelUp(true)}>⬆️ {T('Subir de nivel', 'Level up')}</button>
+        <button className="btn small primary lvlup-btn" disabled={c.level >= 20} onClick={() => { useFx.getState().play('levelup', undefined, T(`Nivel ${c.level} → ${c.level + 1}`, `Level ${c.level} → ${c.level + 1}`)); setLevelUp(true); }}>⬆️ {T('Subir de nivel', 'Level up')}</button>
         <button className="btn small" onClick={() => setImporting(true)}>📥 {T('Importar ficha', 'Import sheet')}</button>
         <button className="btn small" onClick={() => setEditing(true)}>⚙️ {T('Más opciones', 'More options')}</button>
       </div>
