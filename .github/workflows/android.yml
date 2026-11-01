@@ -43,3 +43,45 @@ jobs:
         with:
           name: di-en-di-apk
           path: "android/app/build/outputs/apk/debug/Di en Di.apk"
+
+  servidor-windows:
+    # Servidor de partida para el PC del DM: un .exe con la app web dentro
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm run server:build
+
+      - name: Empaquetar .exe
+        run: npx --yes @yao-pkg/pkg@6 server/build/server.cjs --targets node22-win-x64 --output "server/build/Di en Di - Servidor.exe" --config server/pkg.json
+
+      - name: Probar que el .exe arranca y sirve la app
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "server/build/Di en Di - Servidor.exe" -ArgumentList "--no-open","--port","3123","--data","$env:RUNNER_TEMP/partida.json" -PassThru
+          Start-Sleep -Seconds 4
+          $info = Invoke-RestMethod http://localhost:3123/api/info
+          if ($info.app -ne 'di-en-di') { throw "El servidor no responde" }
+          $html = (Invoke-WebRequest http://localhost:3123/ -UseBasicParsing).Content
+          if ($html -notmatch 'id="root"') { throw "No sirve la app web" }
+          Write-Host "Servidor OK, código $($info.code)"
+          Stop-Process -Id $p.Id
+
+      - name: Preparar descarga
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item "server/build/Di en Di - Servidor.exe" out/
+          Copy-Item server/LEEME.txt out/
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: di-en-di-servidor-windows
+          path: out/

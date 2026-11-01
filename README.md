@@ -35,6 +35,24 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
 - **PG temporales** sumados a tu vida (p. ej. «51/45 (45 + 6 temp.)»), y al tocar un conjuro o un rasgo ves qué hace, con un botón para editarlo.
 - **Copia de seguridad** (Ajustes → Copia de seguridad): exporta todas tus fichas con su progreso y su diario (notas, carpetas y crónicas), o solo la ficha actual, a un archivo `.json`. En Android se guarda en *Documentos/DiEnDi* y se abre el menú Compartir para mandarlo a Drive, al correo, etc. Para recuperarlo, «Restaurar copia» deja **añadirlo a tus fichas** (las que ya existen se actualizan) o **reemplazarlo todo**. Sirve para no perder datos al reinstalar o para pasar tus personajes a otro móvil.
 
+## Partida compartida (modo party)
+
+El DM ejecuta un pequeño servidor en su PC con Windows y todos jugáis el mismo combate desde la app (o el navegador):
+
+- **Party**: cada jugador comparte un resumen de su ficha (vida, CA, percepción pasiva, condiciones); la ficha completa sigue en su móvil.
+- **Combate por turnos compartido**: orden de iniciativa, turno actual y vida en tiempo real. Cada jugador anota en su turno el daño que hace, curaciones, daño recibido u otras acciones. Si a ti te pegan, se aplica en tu ficha con tus resistencias y PG temporales.
+- **Vida de los monstruos**: los jugadores ven «?» y su estado (**Ileso**, **Herido**, **Ensangrentado** —por debajo de la mitad—, **Derrotado**); el DM ve siempre la vida exacta y puede mostrarla si quiere.
+- **Deshacer último turno**: revierte los daños y curaciones del turno (también en las fichas de los jugadores). Puede hacerlo el DM o el jugador cuyo turno se deshace.
+- **Registro del combate** con todo lo ocurrido (lo deshecho aparece tachado), que se puede guardar en el diario.
+- **Pantalla del DM**: monstruos del SRD 5.2 con buscador, grupos (p. ej. 4 goblins) con PG medios o tirados e iniciativa automática, **monstruos ocultos** que los jugadores no reciben hasta que el DM los revela, PNJ aliados, notas privadas, editar vida/CA/iniciativa y actuar por los monstruos en su turno. Lo oculto no se envía nunca a los móviles de los jugadores.
+
+**Montarlo** (instrucciones completas en `server/LEEME.txt`):
+1. Descarga el artefacto `di-en-di-servidor-windows` de GitHub Actions y abre `Di en Di - Servidor.exe`. Se abre la pantalla del DM en el navegador y la ventana muestra el código de la partida.
+2. En la misma Wi-Fi, los jugadores ponen en la pestaña **Partida** la dirección `http://192.168.x.x:3000` y el código.
+3. A distancia, sin Cloudflare: instala [Tailscale](https://tailscale.com/download/windows) en el PC y ejecuta `tailscale funnel 3000`; comparte la dirección `https://….ts.net`. Los jugadores no instalan nada.
+
+Para desarrollo: `npm run server` arranca el servidor con la app compilada.
+
 ## Inteligencia artificial (opcional)
 
 En **Ajustes** puedes poner una clave de API de Anthropic (console.anthropic.com). Con ella:
@@ -91,6 +109,8 @@ El icono (un goblin en pixel art que mira a cámara y lanza dados) se genera con
 - `src/importer.ts`: importación de fichas (pdf.js para PDF, mammoth para Word).
 - `src/offline/`: importación sin IA: `pdfForm.ts` (formularios PDF por posición), `textParse.ts` (texto libre), `ocr.ts` (OCR con Tesseract.js). El script `scripts/copy-ocr-assets.mjs` copia el motor y los idiomas a `public/ocr` al compilar, para que funcione sin internet.
 - `src/backup.ts`: copias de seguridad (exportar a archivo, leer y fusionar).
+- `src/party/`: partida compartida: protocolo, lógica de la sala (`room.ts`, también la usa el servidor), cliente WebSocket y monstruos del SRD.
+- `server/index.ts`: servidor de partida (Node + WebSocket) que se empaqueta como `.exe` para Windows.
 - `src/ai.ts`: integración opcional con Claude.
 - `src/speech.ts`: reconocimiento de voz (plugin nativo / Web Speech API).
 - `src/components/`: pantallas.

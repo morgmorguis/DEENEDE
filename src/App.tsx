@@ -11,9 +11,11 @@ import { Toast } from './components/common';
 import { armorClass } from './rules/calc';
 import { classById } from './rules/srd';
 import { InfoBubble } from './components/InfoBubble';
+import { PartyTab } from './components/Party';
+import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
 
-type Tab = 'sheet' | 'combat' | 'assistant' | 'rules' | 'settings';
+type Tab = 'sheet' | 'combat' | 'party' | 'assistant' | 'rules' | 'settings';
 
 export default function App() {
   const c = useChar();
@@ -21,7 +23,11 @@ export default function App() {
   const theme = useStore((s) => s.settings.theme);
   // El idioma vive en un módulo: lo fijamos antes de pintar los hijos
   setLang(lang);
-  const [tab, setTab] = useState<Tab>('sheet');
+  // Al abrir un enlace de la partida (?join= / ?dm=) se va directo a «Partida»
+  const [tab, setTab] = useState<Tab>(() => (/[?&](join|dm)=/.test(window.location.search) ? 'party' : 'sheet'));
+  useEffect(() => { resumeParty(); }, []);
+  const partyOnline = useParty((s) => s.status === 'online');
+  const sharedCombat = useParty((s) => !!s.view?.encounter.active);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim();
@@ -35,6 +41,7 @@ export default function App() {
   const tabs: { id: Tab; icon: string; label: string }[] = [
     { id: 'sheet', icon: '🧙', label: T('Hoja', 'Sheet') },
     { id: 'combat', icon: '⚔️', label: T('Combate', 'Combat') },
+    { id: 'party', icon: partyOnline ? (sharedCombat ? '🔴' : '🟢') : '🎲', label: T('Partida', 'Game') },
     { id: 'assistant', icon: '💬', label: T('Asistente', 'Assistant') },
     { id: 'rules', icon: '📚', label: T('Reglas', 'Rules') },
     { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
@@ -69,6 +76,7 @@ export default function App() {
       <main className="content">
         {tab === 'sheet' && <SheetTab />}
         {tab === 'combat' && <CombatTab />}
+        {tab === 'party' && <PartyTab />}
         {tab === 'assistant' && <AssistantTab />}
         {tab === 'rules' && <RulesTab />}
         {tab === 'settings' && <SettingsTab />}

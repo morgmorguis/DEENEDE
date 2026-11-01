@@ -1,0 +1,27 @@
+DI EN DI - SERVIDOR DE PARTIDA (Windows)
+========================================
+
+1. Haz doble clic en «Di en Di - Servidor.exe».
+   - Si Windows SmartScreen avisa: «Más información» → «Ejecutar de todas formas».
+   - Si el Firewall de Windows pregunta, permite el acceso en redes PRIVADAS.
+2. Se abre tu pantalla de DM en el navegador. La ventana negra muestra:
+   - el CÓDIGO de la partida (para los jugadores),
+   - la dirección para jugadores en tu misma Wi-Fi (http://192.168.x.x:3000).
+   No cierres la ventana negra mientras jugáis.
+3. La partida se guarda en «di-en-di-partida.json», junto al .exe.
+   Si lo borras, se crea una partida nueva con otro código.
+
+JUGAR A DISTANCIA (sin Cloudflare): Tailscale Funnel
+----------------------------------------------------
+1. Instala Tailscale en este PC: https://tailscale.com/download/windows
+   e inicia sesión (es gratis).
+2. En la consola de administración de Tailscale activa «HTTPS Certificates»
+   y «Funnel» (te lo pide la primera vez).
+3. Con el servidor abierto, en otra ventana (PowerShell o Símbolo del sistema):
+       tailscale funnel 3000
+4. Te mostrará una dirección https://tu-pc.tuXXXX.ts.net . Pásala a los
+   jugadores junto con el código. Ellos no instalan nada: en la app,
+   pestaña «Partida» → dirección + código → Unirse.
+   Para pararlo: Ctrl+C en esa ventana (o «tailscale funnel reset»).
+
+Opciones: «Di en Di - Servidor.exe --port 4000» usa otro puerto.
