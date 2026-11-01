@@ -113,7 +113,10 @@ describe('partida compartida', () => {
     s.run(s.dm, { t: 'setInitiative', id: ids.Brakka, value: 10 });
     s.run(s.dm, { t: 'begin' });
     s.run(s.p1, { t: 'act', actorId: ids.Thalia, kind: 'hit', targetId: ids.Rata, amount: 5 });
-    expect(s.room.log.some((e) => e.kind === 'down' && e.target === 'Rata')).toBe(true);
+    const down = s.room.log.find((e) => e.kind === 'down' && e.target === 'Rata')!;
+    // El golpe final lo dio Thalia: cuenta para el kill count de su jugadora
+    expect(down.actor).toBe('Thalia');
+    expect(down.ownerId).toBe(s.p1);
     // Orden: Thalia, Brakka y la rata; la rata derrotada se salta
     s.run(s.dm, { t: 'nextTurn' });
     s.run(s.dm, { t: 'nextTurn' });

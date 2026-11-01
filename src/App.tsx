@@ -16,6 +16,7 @@ import { DmRosterTab } from './components/DmRoster';
 import { TransitionFx, useFx } from './components/Transition';
 import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
+import { applyScene } from './scenes';
 
 type Tab = 'sheet' | 'combat' | 'party' | 'roster' | 'assistant' | 'rules' | 'settings';
 
@@ -54,6 +55,7 @@ export default function App() {
   }, [dmMode, tab]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    applyScene(theme);
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim();
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg || '#1b1512');
   }, [theme]);
@@ -125,7 +127,7 @@ export default function App() {
       <InfoBubble />
       <TransitionFx />
 
-      <nav className="bottomnav" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+      <nav className="bottomnav" style={{ ['--nav-cols' as string]: tabs.length }}>
         {tabs.map((t) => (
           <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
             <span className="nav-icon">{t.icon}</span>

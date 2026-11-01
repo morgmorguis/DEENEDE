@@ -131,6 +131,8 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
             {error && <p className="error">⚠️ {error}</p>}
           </div>
 
+          <KillCount />
+
           <div className="folders">
             <button className={`folder-chip ${folderId === null ? 'on' : ''}`} onClick={() => setFolderId(null)}>🗂️ {T('Todas', 'All')} <small>{c.notes.length}</small></button>
             {c.noteFolders.map((f) => (
@@ -197,6 +199,50 @@ function NoteItem({ note, folders }: { note: Note; folders: NoteFolder[] }) {
         <button className="btn small" onClick={() => setEditing(!editing)}>{editing ? T('Listo', 'Done') : T('Editar', 'Edit')}</button>
         <button className="btn small" onClick={() => void navigator.clipboard?.writeText(`${note.title}\n\n${note.body}`)}>{T('Copiar', 'Copy')}</button>
         <button className="btn small danger" onClick={() => { if (confirm(T('¿Borrar esta nota?', 'Delete this note?'))) deleteNote(note.id); }}>{T('Borrar', 'Delete')}</button>
+      </div>
+    </details>
+  );
+}
+
+/** «Goblin guerrero 2» → «Goblin guerrero» para agrupar */
+const baseName = (n: string) => n.replace(/\s+\d+$/, '').trim() || n;
+
+function KillCount() {
+  const c = useChar();
+  const addKill = useStore((s) => s.addKill);
+  const removeKill = useStore((s) => s.removeKill);
+  const [name, setName] = useState('');
+  const [open, setOpen] = useState(false);
+  const groups = new Map<string, number>();
+  for (const k of c.kills) groups.set(baseName(k.name), (groups.get(baseName(k.name)) ?? 0) + 1);
+  const sorted = [...groups.entries()].sort((a, b) => b[1] - a[1]);
+  const sourceLabel = (s: string) => (s === 'party' ? T('partida', 'game') : s === 'local' ? T('combate', 'combat') : T('a mano', 'manual'));
+  return (
+    <details className="killcount" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary>
+        <span className="grow">☠️ {T('Kill count', 'Kill count')}</span>
+        <b className="kill-total">{c.kills.length}</b>
+      </summary>
+      <p className="hint">{T(`Enemigos a los que ${c.name} ha dado el golpe final. Se apunta solo en el combate (también en la partida compartida, y se quita si se deshace el turno). Solo cuentan tus bajas.`, `Enemies ${c.name} landed the final blow on. Tracked automatically in combat (including the shared game, and removed if the turn is undone). Only your kills count.`)}</p>
+      {sorted.length > 0 && (
+        <div className="kill-groups">
+          {sorted.map(([n, count]) => <span key={n} className="kill-chip">💀 {n} <b>×{count}</b></span>)}
+        </div>
+      )}
+      {c.kills.length > 0 && (
+        <ul className="kill-list">
+          {[...c.kills].reverse().map((k) => (
+            <li key={k.id}>
+              <span className="grow">{k.name}</span>
+              <span className="muted small">{new Date(k.at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })} · {sourceLabel(k.source)}</span>
+              <button className="icon-btn" aria-label={T(`Quitar ${k.name}`, `Remove ${k.name}`)} onClick={() => { if (confirm(T(`¿Quitar «${k.name}» del kill count?`, `Remove “${k.name}” from the kill count?`))) removeKill(k.id); }}>✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="row">
+        <input className="grow" value={name} placeholder={T('Añadir a mano: «Jefe orco»', 'Add manually: “Orc chief”')} onChange={(e) => setName(e.target.value)} />
+        <button className="btn" disabled={!name.trim()} onClick={() => { addKill(name); setName(''); }}>＋</button>
       </div>
     </details>
   );

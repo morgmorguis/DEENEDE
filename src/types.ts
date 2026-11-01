@@ -213,6 +213,19 @@ export interface Character {
   combat: CombatState;
   /** Ids de avisos de la ficha que el jugador ha decidido ignorar */
   ignoredFlags: string[];
+  /** Enemigos a los que este personaje ha dado el golpe final */
+  kills: Kill[];
+}
+
+export interface Kill {
+  id: string;
+  /** Nombre del enemigo («Goblin guerrero 2») */
+  name: string;
+  at: number;
+  /** party: combate compartido · local: combate de la app · manual: añadido a mano */
+  source: 'party' | 'local' | 'manual';
+  /** Id del evento del combate compartido (para no contarlo dos veces y quitarlo al deshacer) */
+  ref?: string;
 }
 
 export interface LogEntry {

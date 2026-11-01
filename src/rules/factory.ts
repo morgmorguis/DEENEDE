@@ -76,6 +76,7 @@ export function blankCharacter(): Character {
     noteFolders: defaultFolders(),
     combat: { active: false, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0, order: [], turn: 0 },
     ignoredFlags: [],
+    kills: [],
   };
 }
 
@@ -96,6 +97,7 @@ export function normalizeCharacter(raw: Partial<Character> & Record<string, unkn
   c.combat = { ...base.combat, ...(raw.combat ?? {}) };
   c.deathSaves = { ...base.deathSaves, ...(raw.deathSaves ?? {}) };
   c.ignoredFlags = Array.isArray(raw.ignoredFlags) ? raw.ignoredFlags : [];
+  c.kills = Array.isArray(raw.kills) ? raw.kills : [];
   c.attunement = [0, 1, 2].map((i) => raw.attunement?.[i] ?? '');
   if (!c.classId && c.className) c.classId = classById(c.className)?.id ?? '';
   c.resources = (c.resources ?? []).map((r: Resource) => ({ ...r, key: r.key ?? LEGACY_RESOURCE_KEYS[r.name.toLowerCase()] }));

@@ -240,7 +240,8 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
           effects.push({ to: target.ownerId, ops: [cmd.kind === 'heal' ? { op: 'heal', amount, from: actor.name } : { op: 'damage', amount, from: actor.name }] });
         }
         pushLog(r, { kind: cmd.kind, actorId: actor.id, actor: actor.name, targetId: target.id, target: target.name, amount, roll: cmd.roll ?? null, after: describeHp(target) });
-        if (wasUp && target.hp === 0) pushLog(r, { kind: 'down', targetId: target.id, target: target.name });
+        // Quién dio el golpe final (solo cuenta como baja si no es un personaje jugador)
+        if (wasUp && target.hp === 0) pushLog(r, { kind: 'down', targetId: target.id, target: target.name, ...(cmd.kind === 'hit' ? { actorId: actor.id, actor: actor.name, ownerId: actor.kind === 'pc' ? actor.ownerId : undefined } : {}) });
       }
       r.acted = true;
       return { room: r, effects };

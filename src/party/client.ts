@@ -106,6 +106,29 @@ export const useParty = create<PartyState>((set, get) => {
     out({ t: 'cmd', cmd: { t: 'summary', summary: sum } });
   };
 
+  /** Kill count: las bajas en las que tu personaje dio el golpe final (y se quitan si se deshace el turno) */
+  const reconcileKills = (view: RoomView) => {
+    if (view.you.role !== 'player') return;
+    const c = sharedChar();
+    if (!c) return;
+    const downs = view.log.filter((ev) => ev.kind === 'down' && ev.ownerId === view.you.id);
+    const undone = new Set(downs.filter((d) => d.undone).map((d) => d.id));
+    const have = new Set(c.kills.map((k) => k.ref).filter(Boolean));
+    const add = downs.filter((d) => !d.undone && !have.has(d.id));
+    const drop = c.kills.some((k) => k.ref && undone.has(k.ref));
+    if (!add.length && !drop) return;
+    const st = useStore.getState();
+    st.replace({
+      ...c,
+      kills: [
+        ...c.kills.filter((k) => !(k.ref && undone.has(k.ref))),
+        ...add.map((d) => ({ id: `k-${d.id}`, name: d.target ?? '?', at: d.at, source: 'party' as const, ref: d.id })),
+      ],
+    });
+    const fresh = add.filter((d) => Date.now() - d.at < 60000);
+    if (fresh.length) st.showToast(T(`☠️ ¡Golpe final! +${fresh.length} en tu kill count`, `☠️ Final blow! +${fresh.length} to your kill count`), fresh.map((d) => d.target ?? ''));
+  };
+
   const applySheet = (msg: Extract<ServerMessage, { t: 'sheet' }>) => {
     const st = useStore.getState();
     const c = sharedChar();
@@ -148,6 +171,7 @@ export const useParty = create<PartyState>((set, get) => {
         unsubSheet = useStore.subscribe(() => { if (t) clearTimeout(t); t = window.setTimeout(() => pushSummary(), 300); });
       } else if (msg.t === 'state') {
         set({ view: msg.view });
+        reconcileKills(msg.view);
       } else if (msg.t === 'sheet') {
         applySheet(msg);
       } else if (msg.t === 'error') {

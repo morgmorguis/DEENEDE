@@ -65,6 +65,9 @@ interface State {
   removeEntry: (id: string) => void;
   sortByInitiative: () => void;
   /** Acción de un participante en su turno: ha pegado a alguien, ha curado o ha recibido daño (sin dados) */
+  /** Kill count: añadir a mano o quitar una baja */
+  addKill: (name: string) => void;
+  removeKill: (id: string) => void;
   combatAction: (a: { actorId: string; kind: 'hit' | 'heal' | 'hurt'; targetId: string; amount: number; roll?: number | null }) => void;
 }
 
@@ -244,6 +247,7 @@ export const useStore = create<State>()(
           return;
         }
         let status = '';
+        let killed = '';
         get().update((x) => {
           const e = x.combat.order.find((y) => y.id === targetId);
           if (!e) return;
@@ -257,15 +261,24 @@ export const useStore = create<State>()(
             dmg = Math.max(0, dmg - n);
           }
           if (e.hpMax != null) dmg = Math.min(dmg, e.hpMax);
+          const wasUp = e.hpMax == null || (e.damage ?? 0) < e.hpMax;
           e.damage = dmg;
           e.temp = temp;
+          // Golpe final de tu personaje a un enemigo: cuenta para tu kill count
+          if (kind === 'hit' && actorId === SELF_ID && e.kind === 'enemy' && e.hpMax != null && wasUp && dmg >= e.hpMax) {
+            x.kills.push({ id: uid(), name: e.name, at: Date.now(), source: 'local' });
+            killed = e.name;
+          }
           status = e.hpMax != null
             ? (e.hpMax - dmg <= 0 ? T(`💀 ${e.name} cae (0/${e.hpMax})`, `💀 ${e.name} is down (0/${e.hpMax})`) : `❤️ ${e.name}: ${e.hpMax - dmg}/${e.hpMax}`)
             : T(`❤️ ${e.name}: ? (daño recibido ${dmg})`, `❤️ ${e.name}: ? (damage taken ${dmg})`);
         });
+        if (killed) status += T(` · ☠️ +1 en tu kill count`, ` · ☠️ +1 to your kill count`);
         get().pushLog({ role: 'app', text, details: [status] });
         get().showToast(text, [status]);
       },
+      addKill: (name) => get().update((c) => { c.kills.push({ id: uid(), name: name.trim(), at: Date.now(), source: 'manual' }); }),
+      removeKill: (id) => get().update((c) => { c.kills = c.kills.filter((k) => k.id !== id); }),
       setSettings: (p) => set((s) => {
         const settings = { ...s.settings, ...p };
         setLang(settings.lang);

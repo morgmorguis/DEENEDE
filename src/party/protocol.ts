@@ -95,6 +95,8 @@ export interface LogEvent {
   undone?: boolean;
   /** Vida que le queda al objetivo después (solo la ve el DM si es un monstruo) */
   after?: string;
+  /** En «cae»: jugador dueño del personaje que dio el golpe final (para su kill count) */
+  ownerId?: string;
 }
 
 /** Estado visible de la vida: lo que ven los jugadores de los monstruos */
