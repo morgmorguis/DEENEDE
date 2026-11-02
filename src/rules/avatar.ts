@@ -1,6 +1,6 @@
-// Retrato de cuerpo entero al estilo de las ilustraciones de fantasía de los 70: tinta marrón, colores
-// planos con una sombra, cielos por bandas y soles a rayas. Se dibuja en SVG por piezas (cuerpo, cara,
-// pelo, barba, ropaje de la clase, arma y fondo) y luego se pasa a imagen con un ligero toque pixel.
+// Personaje de cuerpo entero al estilo de la fantasía oscura de los 90: línea fina oscura, volumen con
+// luz lateral, textura pintada y grano, delante de uno de los pósteres de fondo. Se dibuja en SVG por
+// piezas (cuerpo, cara, pelo, barba, ropaje de la clase y arma); el retrato de la hoja es solo el busto.
 import type { Physical } from '../types';
 import { T, type Tr } from '../i18n';
 
@@ -30,7 +30,7 @@ export interface AvatarLook {
   halo: boolean;
   /** Tamaño de la especie (los pequeños se ven más bajos) */
   height: number;
-  /** Toque pixel: 0 ninguno, 1 leve, 2 marcado */
+  /** (Antiguo toque pixel; ya no se usa) */
   pixel: number;
 }
 
@@ -235,15 +235,17 @@ export const OUTFITS: Record<string, OutfitDef[]> = {
 export const outfitsFor = (classId: string) => OUTFITS[classId] ?? OUTFITS.guerrero;
 export const CLASS_IDS = Object.keys(OUTFITS);
 
+/** Fondos: los mismos pósteres que la app (public/posters) */
+export const BACKDROP_IDS = ['ocaso', 'bosque', 'cumbres', 'abismo', 'mar', 'mazmorra', 'ciudadela', 'cripta'] as const;
 export const BACKDROPS: Tr[] = [
-  r('Atardecer', 'Sunset'), r('Castillo', 'Castle'), r('Bosque', 'Forest'), r('Lunas gemelas', 'Twin moons'),
-  r('Mar', 'Sea'), r('Mazmorra', 'Dungeon'), r('Desierto', 'Desert'), r('Cosmos', 'Cosmos'),
+  r('Ocaso de sangre', 'Blood dusk'), r('Ruinas del bosque', 'Forest ruins'), r('Puerta de los reyes enanos', 'Dwarf kings’ gate'), r('Abismo estelar', 'Starry abyss'),
+  r('Mar del kraken', 'Kraken sea'), r('Mazmorra', 'Dungeon'), r('Ciudadela del desierto', 'Desert citadel'), r('Cripta', 'Crypt'),
 ];
 
 // ---------------------------------------------------------------------------------------------
 // Utilidades de dibujo
 // ---------------------------------------------------------------------------------------------
-const INK = '#2a170e';
+const INK = '#120a08';
 const CX = 100;
 const SH = 95; // hombros
 const WAIST = 145;
@@ -258,15 +260,17 @@ export function shade(hex: string, f: number) {
   const ch = (v: number) => Math.max(0, Math.min(255, Math.round(f < 0 ? v * (1 + f) : v + (255 - v) * f)));
   return `#${((ch(n >> 16) << 16) | (ch((n >> 8) & 255) << 8) | ch(n & 255)).toString(16).padStart(6, '0')}`;
 }
-const P = (d: string, fill: string, w = 1.8, extra = '') => `<path d="${d}" fill="${fill}" stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" ${extra}/>`;
+const P = (d: string, fill: string, w = 1.8, extra = '') => `<path d="${d}" fill="${fill}" stroke="${INK}" stroke-width="${(w * 0.6).toFixed(2)}" stroke-opacity=".85" stroke-linejoin="round" stroke-linecap="round" ${extra}/>`;
 const L = (d: string, w = 1.4, col = INK, extra = '') => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${extra}/>`;
-const limb = (d: string, w: number, col: string) => `${L(d, w + 3.6)}${L(d, w, col)}`;
-const circ = (x: number, y: number, rr: number, fill: string, w = 1.6) => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${fill}" stroke="${INK}" stroke-width="${w}"/>`;
+const limb = (d: string, w: number, col: string) => `${L(d, w + 2.2, INK, 'stroke-opacity=".85"')}${L(d, w, col)}`;
+const circ = (x: number, y: number, rr: number, fill: string, w = 1.6) => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${fill}" stroke="${INK}" stroke-width="${(w * 0.6).toFixed(2)}"/>`;
 let clipN = 0;
 /** Sombra en la mitad derecha de una forma (luz desde la izquierda) */
 const shadowR = (d: string, from = CX + 2, op = 0.2) => {
+  // Degradado suave de luz (izquierda) a sombra (derecha), recortado a la forma
   const id = `c${clipN++}`;
-  return `<clipPath id="${id}"><path d="${d}"/></clipPath><rect x="${from}" y="0" width="200" height="330" fill="#1a0c06" opacity="${op}" clip-path="url(#${id})"/>`;
+  const o = Math.min(0.7, op * 2.4);
+  return `<clipPath id="${id}"><path d="${d}"/></clipPath><linearGradient id="${id}g" gradientUnits="userSpaceOnUse" x1="${from - 34}" y1="0" x2="${from + 30}" y2="0"><stop offset="0" stop-color="#ffe8c8" stop-opacity=".16"/><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#0a0406" stop-opacity="${o.toFixed(2)}"/></linearGradient><rect x="0" y="0" width="200" height="330" fill="url(#${id}g)" clip-path="url(#${id})"/>`;
 };
 const lerp = (a: [number, number], b: [number, number], t: number): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
@@ -308,88 +312,6 @@ const legPath = (g: Geo, i: 0 | 1, from = 0, to = 1) => {
 };
 
 // ---------------------------------------------------------------------------------------------
-// Fondos (estilo 70: bandas de color, soles a rayas, siluetas)
-// ---------------------------------------------------------------------------------------------
-function bands(colors: string[], y0 = 0, y1 = 300) {
-  const h = (y1 - y0) / colors.length;
-  return colors.map((c, i) => `<rect x="0" y="${(y0 + i * h).toFixed(1)}" width="200" height="${(h + 0.6).toFixed(1)}" fill="${c}"/>`).join('');
-}
-/** Sol a rayas, el clásico de los 70 */
-function stripedSun(x: number, y: number, rr: number, col: string, gap: string[]) {
-  const id = `s${clipN++}`;
-  let s = `<clipPath id="${id}"><circle cx="${x}" cy="${y}" r="${rr}"/></clipPath><circle cx="${x}" cy="${y}" r="${rr}" fill="${col}"/>`;
-  gap.forEach((g, i) => { const yy = y + rr * 0.15 + i * rr * 0.2; s += `<rect x="${x - rr}" y="${yy}" width="${rr * 2}" height="${1.5 + i * 1.3}" fill="${g}" clip-path="url(#${id})"/>`; });
-  return s;
-}
-function mountains(y: number, amp: number, col: string, seed: number, snow?: string) {
-  let d = `M0,330 L0,${y}`;
-  let snowD = '';
-  for (let x = 0; x <= 200; x += 20) {
-    const k = Math.sin(x * 0.07 + seed) * 0.6 + Math.sin(x * 0.17 + seed * 2) * 0.4;
-    const peakY = y - amp * (0.5 + 0.5 * k);
-    d += ` L${x + 10},${peakY.toFixed(1)} L${x + 20},${(y - amp * 0.2 * (1 + Math.sin(x + seed))).toFixed(1)}`;
-    if (snow && k > 0.2) snowD += `M${x + 4},${(peakY + amp * 0.25).toFixed(1)} L${x + 10},${peakY.toFixed(1)} L${x + 16},${(peakY + amp * 0.25).toFixed(1)} L${x + 12},${(peakY + amp * 0.2).toFixed(1)} L${x + 10},${(peakY + amp * 0.27).toFixed(1)} L${x + 8},${(peakY + amp * 0.2).toFixed(1)} Z `;
-  }
-  d += ' L200,330 Z';
-  return `<path d="${d}" fill="${col}"/>${snow && snowD ? `<path d="${snowD}" fill="${snow}"/>` : ''}`;
-}
-function stars(n: number, seed: number, col = '#f6ecd0', maxY = 160) {
-  let s = ''; let k = seed;
-  const rnd = () => { k = (k * 16807) % 2147483647; return k / 2147483647; };
-  for (let i = 0; i < n; i++) s += `<circle cx="${(rnd() * 200).toFixed(1)}" cy="${(rnd() * maxY).toFixed(1)}" r="${(0.4 + rnd() * 0.9).toFixed(2)}" fill="${col}"/>`;
-  return s;
-}
-function backdropSvg(i: number): string {
-  switch (i) {
-    case 1: // Castillo bajo la luna
-      return bands(['#0f2430', '#16323d', '#1f4549', '#2c5b55', '#46766a', '#7aa088', '#b8c79e'], 0, 260) + stars(30, 3, '#e9e4c4', 120)
-        + `<circle cx="140" cy="70" r="30" fill="#f2e3b3"/><circle cx="130" cy="62" r="5" fill="#e0cc96"/><circle cx="150" cy="80" r="7" fill="#e0cc96"/>`
-        + mountains(215, 30, '#24453f', 1.2)
-        + `<path d="M20,215 L20,150 L28,150 L28,140 L32,140 L32,150 L36,150 L36,120 L40,112 L44,120 L44,150 L52,150 L52,132 L60,132 L60,150 L66,150 L66,215 Z" fill="#132726"/><rect x="38" y="128" width="3" height="5" fill="#f2c14e"/><rect x="55" y="140" width="2.5" height="4" fill="#f2c14e"/><path d="M40,112 L40,102 L46,105 L40,107" fill="#c94f2c"/>`
-        + mountains(250, 22, '#173029', 4.1) + `<rect x="0" y="255" width="200" height="75" fill="#10221d"/>`;
-    case 2: // Bosque con rayos de luz
-      return bands(['#20301a', '#2c3f1e', '#3d5224', '#566a2c', '#7d8a3a', '#b0a44f', '#d8c56a'], 0, 280)
-        + `<path d="M120,0 L160,0 L90,300 L60,300 Z" fill="#f4e7a6" opacity=".18"/><path d="M60,0 L80,0 L30,300 L10,300 Z" fill="#f4e7a6" opacity=".12"/>`
-        + [10, 46, 150, 184].map((x, j) => `<rect x="${x}" y="0" width="${14 - j}" height="300" fill="${j % 2 ? '#2a2414' : '#1e1a10'}"/><ellipse cx="${x + 6}" cy="${20 + j * 9}" rx="${30 - j * 2}" ry="${26 - j}" fill="${j % 2 ? '#2f4a1c' : '#25391a'}"/>`).join('')
-        + `<path d="M0,268 Q30,250 60,264 Q100,248 140,262 Q170,250 200,262 L200,330 L0,330 Z" fill="#1b2a12"/>`
-        + [20, 70, 120, 170].map((x) => `<path d="M${x},270 q4,-12 9,-16 M${x + 4},270 q-2,-14 -8,-18 M${x + 8},270 q6,-10 12,-12" stroke="#3f5a22" stroke-width="2" fill="none"/>`).join('');
-    case 3: // Lunas gemelas
-      return bands(['#160c2e', '#2a1243', '#43185a', '#6b2468', '#9a3870', '#c95a6e', '#e88a64', '#f3b871'], 0, 250) + stars(40, 7, '#fde8c8', 140)
-        + `<circle cx="58" cy="78" r="34" fill="#f3c6a0"/><path d="M40,70 q10,-6 20,0 M50,92 q12,-4 18,2" stroke="#e0a986" stroke-width="3" fill="none"/><circle cx="150" cy="52" r="14" fill="#a9e0d4"/>`
-        + `<path d="M0,250 L10,180 L18,250 L30,205 L40,250 L150,250 L160,170 L166,140 L172,175 L180,250 L200,250 L200,330 L0,330 Z" fill="#2a1238"/><path d="M60,262 Q100,240 140,262 L200,262 L200,330 L0,330 L0,262 Z" fill="#1b0b26"/>`;
-    case 4: // Mar al atardecer con barco
-      return bands(['#183242', '#244a5a', '#3e6670', '#a8784e', '#d9944c', '#f2b85c', '#f7d37f'], 0, 190)
-        + stripedSun(100, 186, 40, '#fbe2a0', ['#f2b85c', '#d9944c', '#a8784e', '#3e6670'])
-        + `<rect x="0" y="186" width="200" height="144" fill="#1f4552"/>` + [200, 214, 230, 248, 268].map((y, j) => `<path d="M${10 + j * 7},${y} q8,-3 16,0 M${90 - j * 4},${y + 4} q10,-3 20,0 M${150 + j * 3},${y + 2} q8,-3 16,0" stroke="#5e8c94" stroke-width="1.6" fill="none"/>`).join('')
-        + `<rect x="80" y="190" width="40" height="3" fill="#fbe2a0" opacity=".6"/><rect x="88" y="198" width="24" height="2" fill="#fbe2a0" opacity=".4"/>`
-        + `<path d="M140,186 L170,186 L166,193 L144,193 Z M154,186 L154,160 M154,162 L166,176 L154,178 Z M153,164 L144,178 L153,180 Z" fill="#1a1a1f" stroke="#1a1a1f" stroke-width="1"/>`;
-    case 5: // Mazmorra con antorchas
-      return `<rect x="0" y="0" width="200" height="330" fill="#2f2826"/>`
-        + Array.from({ length: 16 }, (_, row) => Array.from({ length: 6 }, (__, col) => `<rect x="${col * 36 - (row % 2) * 18 + 1}" y="${row * 18 + 1}" width="34" height="16" rx="2" fill="${(row + col) % 3 ? '#3b3330' : '#453b36'}"/>`).join('')).join('')
-        + `<path d="M50,330 L50,120 Q100,60 150,120 L150,330 Z" fill="#120e0d"/><path d="M50,120 Q100,60 150,120" stroke="#5a4e46" stroke-width="6" fill="none"/>`
-        + [24, 176].map((x) => `<radialGradient id="tg${x}"><stop offset="0" stop-color="#ffb347" stop-opacity=".55"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient><circle cx="${x}" cy="120" r="45" fill="url(#tg${x})"/><rect x="${x - 2}" y="122" width="4" height="22" fill="#3a2414"/><path d="M${x},104 q-7,10 -3,18 q3,3 6,0 q4,-8 -3,-18" fill="#f7a234"/><path d="M${x},112 q-3,5 -1,9 q2,1 3,0 q1,-4 -2,-9" fill="#ffe08a"/>`).join('')
-        + `<rect x="0" y="270" width="200" height="60" fill="#221c1a"/>`;
-    case 6: // Desierto
-      return bands(['#f6e1a6', '#f2cc85', '#eeb466', '#e59a52', '#d88246'], 0, 220)
-        + `<circle cx="150" cy="60" r="22" fill="#fff4d2"/>`
-        + `<path d="M30,220 L58,160 L86,220 Z" fill="#b8693a"/><path d="M58,160 L86,220 L66,220 Z" fill="#8e4f2c"/><path d="M110,220 L124,192 L138,220 Z" fill="#a85f34"/>`
-        + `<path d="M0,215 Q50,195 100,214 Q150,232 200,208 L200,330 L0,330 Z" fill="#d08a48"/><path d="M0,250 Q60,228 120,250 Q170,268 200,246 L200,330 L0,330 Z" fill="#b36a36"/>`
-        + `<rect x="160" y="226" width="6" height="30" fill="#e6c48a"/><rect x="172" y="232" width="6" height="24" fill="#e6c48a"/><rect x="157" y="222" width="24" height="5" fill="#e6c48a"/>`;
-    case 7: // Cosmos
-      return `<rect x="0" y="0" width="200" height="330" fill="#0b0a24"/>`
-        + `<radialGradient id="nb1"><stop offset="0" stop-color="#b04a9a" stop-opacity=".7"/><stop offset="1" stop-color="#b04a9a" stop-opacity="0"/></radialGradient><radialGradient id="nb2"><stop offset="0" stop-color="#3fa7a0" stop-opacity=".55"/><stop offset="1" stop-color="#3fa7a0" stop-opacity="0"/></radialGradient>`
-        + `<ellipse cx="60" cy="90" rx="90" ry="60" fill="url(#nb1)"/><ellipse cx="150" cy="190" rx="80" ry="70" fill="url(#nb2)"/>` + stars(70, 11, '#fff8e6', 330)
-        + `<circle cx="150" cy="70" r="22" fill="#e48a4c"/><path d="M150,48 a22,22 0 0,1 0,44" fill="#b8613a"/><ellipse cx="150" cy="70" rx="38" ry="7" fill="none" stroke="#f3c88a" stroke-width="2.5"/>`
-        + `<path d="M0,275 Q100,255 200,275 L200,330 L0,330 Z" fill="#1d1638"/>`;
-    default: // Atardecer con sol a rayas y montañas
-      return bands(['#2b1b3d', '#43203f', '#6a2a45', '#93363f', '#bd4c35', '#de6f33', '#f0983d', '#f6c768'], 0, 230)
-        + stars(14, 5, '#fbe7c6', 60)
-        + stripedSun(100, 150, 50, '#f9d77e', ['#f0983d', '#de6f33', '#bd4c35', '#93363f', '#6a2a45'])
-        + mountains(200, 50, '#5c2a3c', 0.6) + mountains(230, 34, '#3e1d2e', 2.4) + `<rect x="0" y="252" width="200" height="78" fill="#26121d"/>`;
-  }
-}
-
-// ---------------------------------------------------------------------------------------------
 // Personaje
 // ---------------------------------------------------------------------------------------------
 const HEAD = 'M85,60 C85,46 92,43 100,43 C108,43 115,46 115,60 C115,72 108,81 100,81 C92,81 85,72 85,60 Z';
@@ -416,6 +338,10 @@ function headSvg(lk: AvatarLook): { back: string; head: string } {
   // Cabeza
   const jaw = lk.snout ? SNOUT : JAWS[f.jaw];
   s += P(jaw, skin, 2) + shadowR(jaw, 106, 0.12);
+  // Volumen de la cara: luz arriba a la izquierda, sombra abajo a la derecha y cuencas de los ojos
+  const fid = `f${clipN++}`;
+  s += `<clipPath id="${fid}"><path d="${jaw}"/></clipPath><radialGradient id="${fid}r" cx="36%" cy="32%" r="75%"><stop offset="0" stop-color="#fff2dc" stop-opacity=".26"/><stop offset=".5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#0a0406" stop-opacity=".55"/></radialGradient><rect x="80" y="38" width="42" height="48" fill="url(#${fid}r)" clip-path="url(#${fid})"/>`;
+  s += `<g clip-path="url(#${fid})" opacity=".32"><ellipse cx="93" cy="60.5" rx="6.4" ry="4.4" fill="#1a0a08"/><ellipse cx="107" cy="60.5" rx="6.4" ry="4.4" fill="#1a0a08"/><path d="M101.5,63 L103.5,70 L100,71 Z" fill="#1a0a08"/><ellipse cx="100" cy="80" rx="11" ry="3" fill="#1a0a08"/></g>`;
   // Halo detrás
   if (lk.halo) back += `<ellipse cx="100" cy="40" rx="24" ry="7" fill="none" stroke="#fff3b0" stroke-width="5" opacity=".45"/><ellipse cx="100" cy="40" rx="24" ry="7" fill="none" stroke="#f6d36a" stroke-width="2"/>`;
   // Ojos
@@ -685,8 +611,11 @@ function outfitSvg(def: OutfitDef, g: Geo, lk: AvatarLook): { back: string; legs
   return { back, legs, torso, armsBack: '', over, arms };
 }
 
-/** SVG completo del retrato (200×330) */
-export function portraitSvg(lk: AvatarLook, name = ''): string {
+/** Escala de la figura según complexión y especie (crece desde los pies) */
+const figScale = (lk: AvatarLook) => Math.min(1.1, BODIES[lk.body % BODIES.length].h * lk.height);
+
+/** SVG de la figura sola, con fondo transparente (200×330) */
+export function portraitSvg(lk: AvatarLook): string {
   clipN = 0;
   const b = BODIES[lk.body % BODIES.length];
   const g = geo(b);
@@ -699,65 +628,89 @@ export function portraitSvg(lk: AvatarLook, name = ''): string {
   const p1 = propSvg(def.props[0] ?? 'none', g, 0, lk);
   const p2 = def.props[1] ? propSvg(def.props[1], g, 1, lk) : { back: '', front: '' };
   const neckW = 5 + b.arm * 0.32;
-  const neck = P(`M${CX - neckW},${74} L${CX + neckW},${74} L${CX + neckW + 1},${SH} L${CX - neckW - 1},${SH} Z`, shade(lk.skin, -0.12), 1.6) + `<path d="M${CX - neckW},78 Q${CX},84 ${CX + neckW},78 L${CX + neckW},74 L${CX - neckW},74 Z" fill="#1a0c06" opacity=".25"/>`;
-  const scale = Math.min(1.1, b.h * lk.height);
+  const neck = P(`M${CX - neckW},${74} L${CX + neckW},${74} L${CX + neckW + 1},${SH} L${CX - neckW - 1},${SH} Z`, shade(lk.skin, -0.12), 1.6) + `<path d="M${CX - neckW},78 Q${CX},84 ${CX + neckW},78 L${CX + neckW},74 L${CX - neckW},74 Z" fill="#1a0c06" opacity=".3"/>`;
+  const scale = figScale(lk);
   const figure = `<g transform="translate(100 ${FOOT}) scale(${scale.toFixed(3)}) translate(-100 -${FOOT})">`
-    + `<ellipse cx="100" cy="${FOOT + 2}" rx="${b.hw + 22}" ry="5" fill="#000" opacity=".3"/>`
-    + fit.back + hd.back + hr.back + ht.back + fit.legs + fit.arms[0] + fit.arms[1] + fit.torso + fit.over + neck + hd.head + beardSvg(lk) + hr.front + ht.front + p1.front + p2.front
+    + `<ellipse cx="100" cy="${FOOT + 2}" rx="${b.hw + 26}" ry="6" fill="#000" opacity=".55" filter="url(#sh)"/>`
+    + `<g filter="url(#paint)">` + fit.back + hd.back + hr.back + ht.back + fit.legs + fit.arms[0] + fit.arms[1] + fit.torso + fit.over + neck + hd.head + beardSvg(lk) + hr.front + ht.front + p1.front + p2.front + `</g>`
     + `</g>`;
-  const title = name ? `<text x="100" y="319" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-style="italic" font-weight="700" fill="#f4dfae" letter-spacing="1">${name.replace(/[<&>"]/g, '').slice(0, 26)}</text>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 330" width="200" height="330">
 <defs><pattern id="chainP" width="5" height="4" patternUnits="userSpaceOnUse"><path d="M0,4 Q2.5,0 5,4" fill="none" stroke="#5f5c56" stroke-width=".9"/></pattern>
-<clipPath id="frame"><rect x="9" y="9" width="182" height="288" rx="7"/></clipPath>
-<pattern id="grain" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#000" opacity=".05"/><rect x="2" y="1" width="1" height="1" fill="#fff" opacity=".035"/></pattern></defs>
-<rect width="200" height="330" rx="10" fill="#3b2213"/><rect x="3" y="3" width="194" height="324" rx="8" fill="none" stroke="#c99a4a" stroke-width="2"/>
-<g clip-path="url(#frame)">${backdropSvg(lk.backdrop)}${figure}<rect x="9" y="9" width="182" height="288" fill="url(#grain)"/></g>
-<rect x="9" y="9" width="182" height="288" rx="7" fill="none" stroke="#c99a4a" stroke-width="2.4"/><rect x="12" y="12" width="176" height="282" rx="5" fill="none" stroke="#2a170e" stroke-width="1"/>
-<path d="M30,302 L170,302 L178,312 L170,323 L30,323 L22,312 Z" fill="#5a3218" stroke="#c99a4a" stroke-width="1.6"/>${title}
+<filter id="sh" x="-30%" y="-200%" width="160%" height="500%"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="paint" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.35 0.9" numOctaves="2" seed="7" result="n"/>
+<feDiffuseLighting in="n" surfaceScale=".35" lighting-color="#ffffff" result="l"><feDistantLight azimuth="220" elevation="65"/></feDiffuseLighting>
+<feComposite in="l" in2="SourceGraphic" operator="arithmetic" k1=".34" k2="0" k3=".7" k4="0" result="t"/>
+<feComposite in="t" in2="SourceAlpha" operator="in"/></filter></defs>
+${figure}
 </svg>`;
 }
 
-/** Dibuja el retrato en un lienzo. Con toque pixel se dibuja pequeño y se amplía sin suavizar. */
-export function renderPortrait(lk: AvatarLook, name: string, out: HTMLCanvasElement, displayScale = 2): Promise<void> {
-  const svg = portraitSvg(lk, name);
-  const img = new Image();
-  const factor = lk.pixel === 2 ? 0.55 : lk.pixel === 1 ? 1 : displayScale;
-  return new Promise((resolve, reject) => {
-    img.onload = () => {
-      const w = Math.round(200 * factor); const h = Math.round(330 * factor);
-      const small = document.createElement('canvas');
-      small.width = w; small.height = h;
-      const sctx = small.getContext('2d')!;
-      sctx.imageSmoothingEnabled = true;
-      sctx.drawImage(img, 0, 0, w, h);
-      out.width = 200 * displayScale; out.height = 330 * displayScale;
-      const ctx = out.getContext('2d')!;
-      ctx.imageSmoothingEnabled = lk.pixel === 0;
-      ctx.drawImage(small, 0, 0, out.width, out.height);
-      resolve();
-    };
-    img.onerror = reject;
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  });
+const imgCache = new Map<string, Promise<HTMLImageElement>>();
+function loadImg(src: string): Promise<HTMLImageElement> {
+  if (!imgCache.has(src)) imgCache.set(src, new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }));
+  return imgCache.get(src)!;
+}
+const posterSrc = (lk: AvatarLook) => new URL(`posters/${BACKDROP_IDS[lk.backdrop % BACKDROP_IDS.length]}.jpg`, document.baseURI).href;
+
+/** Pinta fondo + figura con luz lateral, viñeta y grano en un lienzo de 200·k × 330·k */
+export async function renderPortrait(lk: AvatarLook, out: HTMLCanvasElement, k = 2): Promise<void> {
+  const W = Math.round(200 * k); const H = Math.round(330 * k);
+  const [bg, fig] = await Promise.all([
+    loadImg(posterSrc(lk)).catch(() => null),
+    loadImg(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(portraitSvg(lk))}`),
+  ]);
+  out.width = W; out.height = H;
+  const ctx = out.getContext('2d')!;
+  ctx.fillStyle = '#0c0808'; ctx.fillRect(0, 0, W, H);
+  // Fondo: el póster recortado al centro, algo desenfocado y oscurecido para que destaque la figura
+  if (bg) {
+    const s = Math.max(W / bg.width, H / bg.height);
+    const bw = bg.width * s; const bh = bg.height * s;
+    ctx.filter = 'blur(1.2px) brightness(.72) saturate(.9)';
+    ctx.drawImage(bg, (W - bw) / 2, (H - bh) * 0.35, bw, bh);
+    ctx.filter = 'none';
+  }
+  // Figura con luz cálida a la izquierda y sombra a la derecha
+  const f = document.createElement('canvas'); f.width = W; f.height = H;
+  const fc = f.getContext('2d')!;
+  fc.drawImage(fig, 0, 0, W, H);
+  fc.globalCompositeOperation = 'source-atop';
+  const side = fc.createLinearGradient(W * 0.2, 0, W * 0.8, 0);
+  side.addColorStop(0, 'rgba(255,196,140,.22)'); side.addColorStop(0.5, 'rgba(0,0,0,0)'); side.addColorStop(1, 'rgba(10,4,12,.42)');
+  fc.fillStyle = side; fc.fillRect(0, 0, W, H);
+  const low = fc.createLinearGradient(0, H * 0.45, 0, H);
+  low.addColorStop(0, 'rgba(0,0,0,0)'); low.addColorStop(1, 'rgba(0,0,0,.45)');
+  fc.fillStyle = low; fc.fillRect(0, 0, W, H);
+  // Silueta de luz (contraluz) detrás de la figura
+  ctx.save(); ctx.filter = `blur(${Math.round(3 * k)}px)`; ctx.globalAlpha = 0.35; ctx.drawImage(f, -1.5 * k, 0); ctx.restore();
+  ctx.drawImage(f, 0, 0);
+  // Viñeta, tono y grano
+  const v = ctx.createRadialGradient(W / 2, H * 0.42, Math.min(W, H) * 0.3, W / 2, H * 0.5, Math.max(W, H) * 0.75);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.7)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = 'rgba(120,60,140,.25)'; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
+  const img = ctx.getImageData(0, 0, W, H); const d = img.data;
+  let seed = 1234567;
+  for (let i = 0; i < d.length; i += 4) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; const n = ((seed >> 8) % 41) - 20; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  ctx.putImageData(img, 0, 0);
 }
 
-/** Imagen del retrato para la hoja y miniatura de la cara para la barra superior */
-export async function portraitDataUrl(lk: AvatarLook, name: string): Promise<{ full: string; thumb: string }> {
+/** Retrato para la hoja (solo el busto) y miniatura de la cara para la barra superior */
+export async function portraitDataUrl(lk: AvatarLook): Promise<{ full: string; thumb: string }> {
+  const k = 4;
   const c = document.createElement('canvas');
-  // Sin toque pixel: imagen grande y suave; con toque pixel: tamaño natural, la hoja lo amplía sin suavizar
-  const k = lk.pixel === 0 ? 2 : lk.pixel === 2 ? 0.55 : 1;
-  await renderPortrait(lk, name, c, k);
-  const full = lk.pixel === 0 ? c.toDataURL('image/jpeg', 0.9) : c.toDataURL('image/png');
-  // Miniatura: un cuadrado alrededor de la cabeza (la figura se escala desde los pies)
-  const scale = Math.min(1.1, BODIES[lk.body % BODIES.length].h * lk.height);
-  const headY = FOOT - (FOOT - 58) * scale;
-  const size = 64 * scale;
-  const t = document.createElement('canvas');
-  t.width = 96; t.height = 96;
-  const ctx = t.getContext('2d')!;
-  ctx.imageSmoothingEnabled = lk.pixel === 0;
-  ctx.drawImage(c, (100 - size / 2) * k, (headY - size / 2) * k, size * k, size * k, 0, 0, 96, 96);
-  return { full, thumb: t.toDataURL('image/png') };
+  await renderPortrait(lk, c, k);
+  const sc = figScale(lk);
+  const headY = FOOT - (FOOT - 62) * sc;
+  // Busto: de encima de la cabeza a media altura del pecho, en proporción 4:5
+  const top = headY - 40 * sc; const h = 112 * sc; const w = h * 0.8;
+  const bust = document.createElement('canvas'); bust.width = 480; bust.height = 600;
+  bust.getContext('2d')!.drawImage(c, (100 - w / 2) * k, top * k, w * k, h * k, 0, 0, 480, 600);
+  const t = document.createElement('canvas'); t.width = 96; t.height = 96;
+  const size = 62 * sc;
+  t.getContext('2d')!.drawImage(c, (100 - size / 2) * k, (headY - size * 0.55) * k, size * k, size * k, 0, 0, 96, 96);
+  return { full: bust.toDataURL('image/jpeg', 0.88), thumb: t.toDataURL('image/jpeg', 0.85) };
 }
 
 /** Aspecto inicial según especie y clase */
@@ -772,19 +725,19 @@ export function defaultLook(speciesId: string | undefined, lineageId: string | u
   const base: AvatarLook = {
     v: 2, face: 0, body: 1, hair: 3, beard: 0, outfitClass: cls, outfit: 0, noHat: false, backdrop: 0,
     skin: SKINS[1], hairColor: HAIR_COLORS[2], eyes: EYE_COLORS[0], main: CLOTH_COLORS[pm], second: CLOTH_COLORS[ps], accent: CLOTH_COLORS[pa],
-    ears: 'round', horns: false, tusks: false, snout: false, halo: false, height: 1, pixel: 1,
+    ears: 'round', horns: false, tusks: false, snout: false, halo: false, height: 1, pixel: 0,
   };
   const dragon: Record<string, string> = { black: '#3a3a3a', blue: '#4f74a8', brass: '#c9a24a', bronze: '#a8743a', copper: '#b8673a', gold: '#d9b44a', green: '#5f8a4a', red: '#a8402e', silver: '#b8bcc4', white: '#e6e4dc' };
   switch (speciesId) {
     case 'elfo': return { ...base, ears: 'pointy', body: 0, face: 0, hair: 2, hairColor: lineageId === 'drow' ? HAIR_COLORS[6] : HAIR_COLORS[4], skin: lineageId === 'drow' ? '#5b4a6e' : SKINS[0], backdrop: 2 };
-    case 'enano': return { ...base, body: 4, face: 1, beard: 5, hair: 1, hairColor: HAIR_COLORS[5], skin: SKINS[2], height: 0.9, backdrop: 5 };
+    case 'enano': return { ...base, body: 4, face: 1, beard: 5, hair: 1, hairColor: HAIR_COLORS[5], skin: SKINS[2], height: 0.9, backdrop: 2 };
     case 'orco': return { ...base, body: 2, face: 6, tusks: true, skin: SKINS[7], hair: 6, hairColor: HAIR_COLORS[0] };
-    case 'tiefling': return { ...base, horns: true, skin: SKINS[9], hair: 2, hairColor: HAIR_COLORS[0], eyes: EYE_COLORS[4], backdrop: 3 };
+    case 'tiefling': return { ...base, horns: true, skin: SKINS[9], hair: 2, hairColor: HAIR_COLORS[0], eyes: EYE_COLORS[4], backdrop: 7 };
     case 'draconido': return { ...base, snout: true, horns: true, hair: 0, body: 2, skin: dragon[lineageId ?? 'red'] ?? dragon.red, eyes: EYE_COLORS[4] };
-    case 'goliat': return { ...base, body: 9, face: 1, hair: 0, skin: SKINS[13], backdrop: 1 };
+    case 'goliat': return { ...base, body: 9, face: 1, hair: 0, skin: SKINS[13], backdrop: 2 };
     case 'gnomo': return { ...base, ears: 'pointy', body: 7, face: 2, hair: 8, hairColor: HAIR_COLORS[5], skin: SKINS[0], height: 0.86, backdrop: 2 };
-    case 'mediano': return { ...base, body: 7, face: 9, hair: 8, hairColor: HAIR_COLORS[3], height: 0.86, backdrop: 4 };
-    case 'aasimar': return { ...base, halo: true, face: 7, hair: 2, hairColor: HAIR_COLORS[6], skin: SKINS[0], eyes: EYE_COLORS[4], backdrop: 7 };
+    case 'mediano': return { ...base, body: 7, face: 9, hair: 8, hairColor: HAIR_COLORS[3], height: 0.86, backdrop: 6 };
+    case 'aasimar': return { ...base, halo: true, face: 7, hair: 2, hairColor: HAIR_COLORS[6], skin: SKINS[0], eyes: EYE_COLORS[4], backdrop: 3 };
     default: return base;
   }
 }

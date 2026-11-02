@@ -3,6 +3,24 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.16.0 · 3 nov 2026 — Pósteres de fantasía oscura, retrato de busto y límite de conjuros
+
+**Conjuros**
+- **Límite de trucos y conjuros preparados** según las tablas de clase de 2024 (también multiclase, caballero arcano y embaucador arcano, y opciones que dan trucos extra como Taumaturgo o Guerrero bendito). Debajo de la tabla: «Trucos 3/3 · Preparados 4/6». En «Disponibles» no se puede pasar del máximo y la hoja avisa si ya tenías de más. Los de la especie y los marcados como «siempre preparado» no cuentan.
+- **Icono de usos** en cada conjuro: ♾️ a voluntad, ✨ espacios que te quedan de su nivel con 🌙 (descanso largo) o ⛺ (descanso corto, brujo), 1×🌙 para los de la especie; en rojo si no te quedan espacios.
+
+**Hoja**
+- Los textos largos (atributos de especie, dotes, equipo, historia, idiomas…) tienen un botón **⤢** para abrirlos **a pantalla completa**.
+- En móviles estrechos se oculta la columna «Tiempo» de los conjuros para que el nombre se lea entero.
+
+**Fondos**
+- Adiós al pixel: cada paleta tiene ahora un **póster de fantasía oscura de los 90** pintado de antemano (sin títulos): ocaso de sangre con la torre del nigromante, ruinas del bosque con un druida, la puerta de los reyes enanos y el abismo estelar con su catedral. Hay cuatro más (mar del kraken, mazmorra, ciudadela del desierto y cripta) para el retrato.
+
+**Personaje**
+- Nuevo estilo de **fantasía oscura**: línea fina, luz lateral cálida, sombras profundas, textura pintada y grano, con uno de los pósteres de fondo.
+- **El retrato de la hoja es solo el busto** (cabeza, hombros y pecho); en el editor se sigue viendo el cuerpo entero.
+- Se quita el «toque pixel».
+
 ## 0.15.0 · 3 nov 2026 — Retrato de cuerpo entero estilo años 70 y conjuros futuros
 
 **Editor de aspecto**

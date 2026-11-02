@@ -8,6 +8,7 @@ import { findSpell } from '../rules/spells';
 import { uid } from '../rules/factory';
 import { L, T } from '../i18n';
 import { Modal } from './common';
+import { speciesSpellNames, spellCounts, spellLimits } from '../rules/spellLimits';
 
 const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 const RECHARGE: Record<string, string> = { short: '⛺', long: '🌙', slot: '✨', atwill: '♾️' };
@@ -28,6 +29,10 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
   const k = fold(q);
 
   if (kind === 'spell') {
+    const lim = spellLimits(c);
+    const cnt = spellCounts(c);
+    const speciesNames = speciesSpellNames(c);
+    const full = (lv: number, en: string) => !speciesNames.has(en) && (lv === 0 ? cnt.cantrips >= lim.cantrips : cnt.prepared >= lim.prepared);
     const levels = [...new Set(spells.map((x) => x.spell.level))].sort((a, b) => a - b);
     const list = spells.filter((x) => (level === 'all' || x.spell.level === level) && (!k || [x.spell.name.es, x.spell.name.en].some((n) => fold(n).includes(k))));
     const add = (en: string) => {
@@ -37,6 +42,11 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
     return (
       <Modal title={T('Conjuros disponibles', 'Available spells')} onClose={onClose}>
         <p className="small muted">{T('Los de la lista de tus clases que puedes lanzar a tu nivel, más los que te da tu especie (aunque los hayas quitado de la hoja). Toca uno para leerlo y «+ Añadir» para ponerlo en la hoja.', 'Spells from your classes’ lists you can cast at your level, plus those your species grants. Tap one to read it and “+ Add” to put it on your sheet.')}</p>
+        <div className="spell-counter">
+          <span className={cnt.cantrips >= lim.cantrips ? 'full' : ''}>{T('Trucos', 'Cantrips')} <b>{cnt.cantrips}/{lim.cantrips}</b></span>
+          <span className={cnt.prepared >= lim.prepared ? 'full' : ''}>{T('Preparados', 'Prepared')} <b>{cnt.prepared}/{lim.prepared}</b></span>
+          {lim.parts.length > 1 && <span className="muted">{lim.parts.join(' · ')}</span>}
+        </div>
         <input className="avail-search" value={q} placeholder={T('Filtrar por nombre…', 'Filter by name…')} onChange={(e) => setQ(e.target.value)} />
         <label className="check avail-future"><input type="checkbox" checked={future} onChange={(e) => { setFuture(e.target.checked); setLevel('all'); }} /> {T('Ver también los que conseguirás al subir de nivel', 'Also show the ones you’ll get when you level up')}</label>
         {levels.length > 1 && (
@@ -56,7 +66,7 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
                   <span className="muted small">{spell.level ? T(`Nivel ${spell.level}`, `Level ${spell.level}`) : T('Truco', 'Cantrip')} · {L(spell.time)} · {L(spell.range)} · {spell.components}{spell.concentration ? ' · C' : ''}{spell.ritual ? ' · R' : ''} · <i>{why}</i></span>
                   {isOpen && <span className="avail-text">{L(spell.text)}</span>}
                 </button>
-                {unlock ? <span className="avail-lock">🔒 {T(`${why} nivel ${unlock}`, `${why} level ${unlock}`)}</span> : have ? <span className="avail-have">✓ {T('Ya lo tienes', 'Already known')}</span> : <button className="btn small primary" onClick={() => add(spell.name.en)}>+ {T('Añadir', 'Add')}</button>}
+                {unlock ? <span className="avail-lock">🔒 {T(`${why} nivel ${unlock}`, `${why} level ${unlock}`)}</span> : have ? <span className="avail-have">✓ {T('Ya lo tienes', 'Already known')}</span> : full(spell.level, spell.name.en) ? <span className="avail-lock" title={T('Has llegado al máximo; quita otro para añadir este', 'You’re at the limit; remove another to add this one')}>{spell.level === 0 ? T('Máx. trucos', 'Max cantrips') : T('Máx. preparados', 'Max prepared')}</span> : <button className="btn small primary" onClick={() => add(spell.name.en)}>+ {T('Añadir', 'Add')}</button>}
               </div>
             );
           })}

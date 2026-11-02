@@ -129,7 +129,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.15</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.16</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -210,7 +210,14 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
           <p>Un mago de nivel 1 que escribe «fire» o «fue» ve <i>Descarga de fuego</i>, pero no <i>Bola de fuego</i> hasta que pueda lanzarla. Un guerrero no ve conjuros de mago. Al elegir una sugerencia se rellenan el nivel, el tiempo, el alcance, los componentes y si requiere concentración; en los rasgos, su texto y cómo se recuperan.</p>
           <p><b>Sin escribir nada:</b> el botón <b>📖 Disponibles</b> de «Trucos y conjuros preparados» te enseña <b>todos los conjuros que puedes tener</b> según tus clases, nivel, subclase y especie, con filtro por nivel (Trucos, Nivel 1, Nivel 2…). Toca uno para leer qué hace y <b>+ Añadir</b> para ponerlo en la hoja; salen también los que hayas quitado. Marca <b>«Ver también los que conseguirás al subir de nivel»</b> y aparecen los de niveles más altos con un 🔒 y el nivel al que los desbloqueas (por ejemplo, Bola de fuego: «Mago nivel 5»); la lista crece sola al subir de nivel. En «Rasgos de clase» hay el mismo botón con los rasgos de tu clase, las opciones que puedes elegir, los rasgos de tu especie y las dotes.</p>
           <figure><img class="shot" src="img/28-disponibles.jpg" alt="Conjuros disponibles de un mago de nivel 3 con los de nivel 3 bloqueados hasta Mago nivel 5" width="700" height="1334" loading="lazy" style="width: min(100%, 340px)"><figcaption>Los de nivel 3, bloqueados hasta mago nivel 5.</figcaption></figure>
+          <h3>Cuántos puedes tener y cuántas veces lanzarlos</h3>
+          <p>Debajo de la tabla verás <b>Trucos 3/3 · Preparados 4/6</b>: los que llevas frente a los que permite tu clase a tu nivel según las tablas de 2024 (un mago de nivel 1 tiene 3 trucos y 4 preparados; uno de nivel 10, 5 y 15). En <b>Disponibles</b> no puedes pasarte: los que sobran salen como «Máx. trucos». Si ya tenías de más, la hoja te avisa en rojo. Los conjuros de tu especie y los que marques como <b>siempre preparado</b> (dominio, juramento, patrón…) no cuentan.</p>
+          <p>Cada conjuro lleva un <b>icono de usos</b>: <b>♾️</b> truco a voluntad; <b>✨2/3🌙</b> espacios de su nivel que te quedan, que vuelven con un descanso largo; <b>✨1/2⛺</b> espacios de pacto del brujo, que vuelven con un descanso corto; <b>1×🌙</b> conjuro de tu especie, una vez gratis por descanso largo. Si no te quedan espacios, el icono sale en rojo; toca o mantén el dedo encima para leer el detalle.</p>
+          <figure><img class="shot" src="img/30-conjuros-usos.jpg" alt="Tabla de conjuros de un mago con iconos ♾️ en los trucos y ✨4/4🌙 en Armadura de mago, y el contador Trucos 3/3 Preparados 1/6" width="692" height="812" loading="lazy" style="width: min(100%, 360px)"></figure>
           <p>Si lo que buscas no está en la base de la app (tiene unos 85 conjuros habituales), escríbelo a mano igualmente.</p>
+          <h3>Textos largos en grande</h3>
+          <p>Los recuadros de texto de la hoja (atributos de especie, dotes, equipo, historia, idiomas…) tienen un botón <b>⤢</b> en la esquina que los abre a pantalla completa para leer y escribir cómodamente. <b>✓ Listo</b> vuelve a la hoja.</p>
+          <figure><img class="shot" src="img/29-texto-grande.jpg" alt="Atributos de especie abiertos a pantalla completa con el botón Listo" width="700" height="1515" loading="lazy" style="width: min(100%, 300px)"></figure>
           <h3>Borrar con la papelera</h3>
           <p>Cada rasgo, arma y conjuro tiene una papelera 🗑 a la derecha. Antes de borrar, la app pregunta <b>«¿Seguro que quieres borrar…?»</b>: pulsa <b>Borrar</b> para confirmarlo o <b>Cancelar</b> si te has equivocado. Lo mismo pasa con la munición y los consumibles.</p>
           <h3>Componentes y recargas</h3>
@@ -246,24 +253,22 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <div class="chapter-head"><span class="chapter-num">Capítulo 05</span><h2>Aspecto y retrato</h2></div>
       <div class="split">
         <div>
-          <p>La pestaña <b>🎨 Aspecto</b> es el editor de personaje. Arriba ves un <b>retrato de cuerpo entero al estilo de las ilustraciones de fantasía de los 70</b>, con un ligero toque pixel, que se redibuja mientras eliges:</p>
+          <p>La pestaña <b>🎨 Aspecto</b> es el editor de personaje. Arriba lo ves <b>de cuerpo entero</b>, al estilo de la fantasía oscura de los 90: luz lateral cálida, sombras profundas, grano y uno de los pósteres de la app como fondo. Se redibuja mientras eliges:</p>
           <ul class="list">
             <li><b>Cara</b>: 10 rostros (noble, curtido, joven, severo, anciano sabio, pícaro, feroz, sereno, marcado, bonachón), color de ojos y rasgos de especie: orejas puntiagudas, cuernos, colmillos, cabeza de dragón y aureola.</li>
-            <li><b>Cuerpo</b>: 10 complexiones (esbelto, atlético, musculoso, corpulento, fornido y bajo, alto y enjuto…) y el color de piel o escamas.</li>
+            <li><b>Cuerpo</b>: 10 complexiones y el color de piel o escamas.</li>
             <li><b>Pelo</b>: 10 peinados, 6 barbas y su color.</li>
-            <li><b>Ropaje</b>: <b>10 por clase</b> (el bárbaro tiene pieles del norte, jefe de clan, gladiador…; el mago, mago de la torre, archimago, nigromante…), cada uno con su arma y su tocado. Tres colores: principal, capa y pantalón, y detalles. Puedes mirar los ropajes de otras clases o quitar el tocado.</li>
-            <li><b>Fondo</b>: atardecer, castillo, bosque, lunas gemelas, mar, mazmorra, desierto o cosmos.</li>
-            <li><b>Toque pixel</b>: ninguno, leve o marcado.</li>
+            <li><b>Ropaje</b>: <b>10 por clase</b>, cada uno con su arma y su tocado, en tres colores (principal, capa y pantalón, detalles). Puedes mirar los de otras clases o quitar el tocado.</li>
+            <li><b>Fondo</b>: los ocho pósteres (ocaso de sangre, ruinas del bosque, puerta de los reyes enanos, abismo estelar, mar del kraken, mazmorra, ciudadela del desierto y cripta).</li>
           </ul>
-          <p>Cada parte se cambia con las flechas ◀ ▶ o tocando su nombre. Los colores tienen muestras y una última casilla 🌈 para elegir cualquier otro. Empieza según tu especie y tu clase; <b>🎲 Aleatorio</b> propone uno nuevo y <b>↺ Según especie y clase</b> vuelve al inicial.</p>
-          <p>Pulsa <b>🖼️ Usar como retrato</b> y la ilustración pasa a la hoja, en el recuadro <b>Aspecto</b>, y su cara aparece arriba junto al nombre. Más abajo apuntas edad, altura, peso, ojos, pelo, piel y una descripción. Si prefieres una foto o un dibujo tuyo, puedes seguir subiendo una imagen.</p>
+          <p>Cada parte se cambia con las flechas ◀ ▶ o tocando su nombre; los colores tienen muestras y una casilla 🌈 para cualquier otro. <b>🎲 Aleatorio</b> propone uno nuevo y <b>↺ Según especie y clase</b> vuelve al inicial.</p>
+          <p>Al pulsar <b>🖼️ Usar como retrato</b>, la hoja recibe <b>solo el busto</b> (cabeza, hombros y pecho) y la barra de arriba, la cara. Más abajo apuntas edad, altura, peso, ojos, pelo, piel y una descripción. Si prefieres una foto o un dibujo tuyo, puedes seguir subiendo una imagen.</p>
         </div>
-        <figure><img class="shot" src="img/25-aspecto.jpg" alt="Editor de aspecto con el retrato de cuerpo entero de Brakka delante de un castillo" width="700" height="1515" loading="lazy" style="width: min(100%, 360px)"><figcaption>El retrato mientras lo editas.</figcaption></figure>
+        <figure><img class="shot" src="img/25-aspecto.jpg" alt="Editor de aspecto con el personaje de cuerpo entero delante del póster" width="700" height="1515" loading="lazy" style="width: min(100%, 360px)"><figcaption>El personaje de cuerpo entero.</figcaption></figure>
       </div>
-      <figure><img class="shot" src="img/25b-retratos.jpg" alt="Doce retratos: humano guerrero, elfo explorador, enano clérigo, orco bárbaro, tiefling brujo, dracónido paladín, goliat monje, gnomo mago, mediano pícaro, aasimar bardo, humano druida y humana hechicera" width="1240" height="720" loading="lazy"><figcaption>Un retrato por especie y clase, cada uno con su ropaje y su fondo.</figcaption></figure>
       <div class="pair">
-        <figure><img class="shot" src="img/25c-ropaje.jpg" alt="Lista de los 10 ropajes del bárbaro con sus tres colores" width="700" height="1515" loading="lazy"><figcaption>Ropajes de la clase y sus colores.</figcaption></figure>
-        <figure><img class="shot" src="img/26-retrato-hoja.jpg" alt="Recuadro Aspecto de la hoja con el retrato" width="692" height="1178" loading="lazy"><figcaption>El retrato en la hoja.</figcaption></figure>
+        <figure><img class="shot" src="img/25b-retratos.jpg" alt="Ocho retratos de busto con distintos rostros, peinados, ropajes y fondos" width="990" height="900" loading="lazy"><figcaption>Retratos de busto hechos con 🎲 Aleatorio.</figcaption></figure>
+        <figure><img class="shot" src="img/26-retrato-hoja.jpg" alt="Recuadro Aspecto de la hoja con el busto del personaje" width="692" height="1076" loading="lazy"><figcaption>El busto en la hoja.</figcaption></figure>
       </div>
     </section>
 
@@ -421,19 +426,20 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
     <!-- 13 -->
     <section class="chapter" id="estilo">
       <div class="chapter-head"><span class="chapter-num">Capítulo 15</span><h2>Colores, idioma y ajustes</h2></div>
-      <p>En <b>Ajustes</b> eliges entre cuatro paletas, cada una con su paisaje de fondo al estilo de las portadas de fantasía de los 70: cielo por bandas de color, soles y lunas a rayas y nubes alargadas:</p>
+      <p>En <b>Ajustes</b> eliges entre cuatro paletas. Cada una pone de fondo un <b>póster de fantasía oscura</b> al estilo de los 90, sin títulos:</p>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Paleta</th><th>Paisaje</th></tr></thead>
+          <thead><tr><th>Paleta</th><th>Póster</th></tr></thead>
           <tbody>
-            <tr><td>Básico</td><td>Atardecer con sol a rayas, castillo de agujas en la colina, cipreses y un dragón a lo lejos</td></tr>
-            <tr><td>Verdoso</td><td>Bosque encantado al anochecer: árboles con copa de seta, torre del mago, setas que brillan y luciérnagas</td></tr>
-            <tr><td>Grises</td><td>Cordillera nevada de picos afilados con aurora, una ciudadela en la montaña y pinos con nieve</td></tr>
-            <tr><td>Azules</td><td>Mar nocturno con luna a rayas reflejada, isla con faro, velero y una estrella fugaz</td></tr>
+            <tr><td>Básico</td><td>Ocaso de sangre: la torre del nigromante sobre un risco, árboles muertos, cuervos y un dragón</td></tr>
+            <tr><td>Verdoso</td><td>Ruinas del bosque: un arco antiguo cubierto de musgo con runas y un druida con el báculo encendido</td></tr>
+            <tr><td>Grises</td><td>La puerta de los reyes enanos tallada en la montaña nevada, con braseros y un dragón bajo la luna</td></tr>
+            <tr><td>Azules</td><td>Abismo estelar: una catedral de dos torres sobre un cañón, bajo una nebulosa</td></tr>
           </tbody>
         </table>
       </div>
-      <figure><img class="shot" src="img/22-paisajes.jpg" alt="Los cuatro paisajes pixel: otoño, bosque, montañas nevadas y lago" width="1200" height="698" loading="lazy"></figure>
+      <p>Hay cuatro pósteres más (mar del kraken, mazmorra, ciudadela del desierto y cripta) que puedes usar de fondo en el retrato.</p>
+      <figure><img class="shot" src="img/22-paisajes.jpg" alt="Los ocho pósteres: ocaso, bosque, cumbres, abismo, mar, mazmorra, ciudadela y cripta" width="1200" height="600" loading="lazy"></figure>
       <p>También en Ajustes: <b>idioma</b> (español o inglés, toda la app), <b>tirar dados al tocar una estadística</b> (desactivado por defecto), <b>anotar tiradas a mano en combate</b>, traducir la ficha, el idioma del dictado y la clave opcional de Claude.</p>
       <figure><img class="shot" src="img/13-colores.jpg" alt="Selector de colores: Básico, Verdoso, Grises y Azules" width="700" height="233" loading="lazy" style="width: min(100%, 420px)"></figure>
       <h3>El manual dentro de la app</h3>

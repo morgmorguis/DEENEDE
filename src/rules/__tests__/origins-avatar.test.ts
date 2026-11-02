@@ -32,10 +32,9 @@ describe('retrato de cuerpo entero', () => {
   it('dibuja todas las combinaciones sin errores y con los colores elegidos', () => {
     for (const cls of Object.keys(OUTFITS)) for (let i = 0; i < 10; i++) {
       const lk = { ...defaultLook('humano', undefined, cls), outfit: i, face: i, body: i, hair: i, beard: i % 6, backdrop: i % 8, main: '#123456' };
-      const svg = portraitSvg(lk, 'Brakka');
+      const svg = portraitSvg(lk);
       expect(svg.startsWith('<svg')).toBe(true);
       expect(svg).not.toMatch(/NaN|undefined/);
-      expect(svg).toContain('Brakka');
     }
     expect(portraitSvg({ ...defaultLook('humano', undefined, 'mago'), main: '#123456' })).toContain('#123456');
   });
@@ -86,5 +85,33 @@ describe('conjuros futuros', () => {
     expect(lv2.length).toBeGreaterThan(0);
     expect(lv2.every((x) => x.unlock === 5)).toBe(true);
     expect(spellSuggestions(p, '', 0, true, true).some((x) => x.spell.level >= 6)).toBe(false);
+  });
+});
+
+import { spellCounts, spellLimits, spellUse } from '../spellLimits';
+
+describe('límite de conjuros y usos', () => {
+  const mk = (classId: string, level: number, species = 'Humano') => createCharacter({ name: 'X', classId, level, species, background: 'Sabio', abilities: { str: 10, dex: 14, con: 14, int: 16, wis: 14, cha: 14 }, skills: [] });
+  it('tablas 2024: mago 1 → 3 trucos y 4 preparados; mago 10 → 5 y 15; paladín 5 → 0 y 6; bárbaro → 0', () => {
+    expect(spellLimits(mk('mago', 1))).toMatchObject({ cantrips: 3, prepared: 4 });
+    expect(spellLimits(mk('mago', 10))).toMatchObject({ cantrips: 5, prepared: 15 });
+    expect(spellLimits(mk('paladin', 5))).toMatchObject({ cantrips: 0, prepared: 6 });
+    expect(spellLimits(mk('barbaro', 5)).caster).toBe(false);
+  });
+  it('los conjuros de la especie y los siempre preparados no cuentan', () => {
+    const c = mk('mago', 1, 'Alto elfo');
+    c.spells = [
+      { id: '1', name: 'Prestidigitación', level: 0, prepared: true, castingTime: '', range: '', concentration: false },
+      { id: '2', name: 'Descarga de fuego', level: 0, prepared: true, castingTime: '', range: '', concentration: false },
+      { id: '3', name: 'Escudo', level: 1, prepared: true, castingTime: '', range: '', concentration: false, alwaysPrepared: true },
+    ];
+    expect(spellCounts(c)).toEqual({ cantrips: 1, prepared: 0 });
+  });
+  it('icono de usos: truco a voluntad, espacios de nivel 1 con descanso largo', () => {
+    const c = mk('mago', 3);
+    expect(spellUse(c, { id: 'a', name: 'Descarga de fuego', level: 0, prepared: true, castingTime: '', range: '', concentration: false }).icon).toBe('♾️');
+    const u = spellUse(c, { id: 'b', name: 'Proyectil mágico', level: 1, prepared: true, castingTime: '', range: '', concentration: false });
+    expect(u.icon).toMatch(/✨\d\/\d🌙/);
+    expect(spellUse(mk('brujo', 3), { id: 'c', name: 'Hex', level: 1, prepared: true, castingTime: '', range: '', concentration: false }).icon).toMatch(/⛺/);
   });
 });

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useState, type ReactNode } from 'react';
 import { useChar, useStore } from '../store';
 import {
@@ -23,6 +24,7 @@ import { BackgroundField, ClassField, SpeciesField, SubclassField } from './Iden
 import { SuggestInput } from './Suggest';
 import { physicalLine } from '../rules/avatar';
 import { AvailablePicker } from './Available';
+import { spellCounts, spellLimits, spellUse } from '../rules/spellLimits';
 import { confirmDelete } from './Confirm';
 import { Consumables } from './Consumables';
 import { OriginPicker } from './OriginPicker';
@@ -53,8 +55,22 @@ function Field({ label, value, onChange, placeholder, list }: { label: string; v
   );
 }
 
-function Area({ value, onChange, placeholder, rows = 4 }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
-  return <textarea className="p-area" rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />;
+/** Texto largo con botón para abrirlo en grande */
+function Area({ value, onChange, placeholder, rows = 4, title }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; title?: string }) {
+  const [big, setBig] = useState(false);
+  return (
+    <div className="p-area-wrap">
+      <textarea className="p-area" rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <button type="button" className="p-area-expand" onClick={() => setBig(true)} aria-label={T('Abrir en grande', 'Open large')} title={T('Abrir en grande', 'Open large')}>⤢</button>
+      {big && createPortal(
+        <div className="area-big" role="dialog" aria-label={title ?? T('Texto', 'Text')}>
+          <div className="area-big-head"><b>{title ?? T('Texto', 'Text')}</b><button className="btn small primary" onClick={() => setBig(false)}>✓ {T('Listo', 'Done')}</button></div>
+          <textarea autoFocus value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
 }
 
 function Diamond({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
@@ -63,6 +79,23 @@ function Diamond({ on, onClick, label }: { on: boolean; onClick: () => void; lab
 
 function ProfDot({ level, onClick, label }: { level: ProfLevel; onClick: () => void; label: string }) {
   return <button className={`p-dot ${level === 2 ? 'exp' : level === 1 ? 'on' : ''}`} onClick={onClick} aria-label={label} />;
+}
+
+/** Trucos y preparados que llevas frente a los que permite tu clase, con aviso si te pasas */
+function SpellCounter() {
+  const c = useChar();
+  const lim = spellLimits(c);
+  const n = spellCounts(c);
+  if (!lim.caster && !n.cantrips && !n.prepared) return null;
+  const overC = n.cantrips > lim.cantrips; const overP = n.prepared > lim.prepared;
+  return (
+    <div className="spell-counter">
+      <span className={overC ? 'over' : ''}>{T('Trucos', 'Cantrips')} <b>{n.cantrips}/{lim.cantrips}</b></span>
+      <span className={overP ? 'over' : ''}>{T('Preparados', 'Prepared')} <b>{n.prepared}/{lim.prepared}</b></span>
+      <span className="muted">♾️ {T('a voluntad', 'at will')} · ✨ {T('espacios', 'slots')} · 🌙 {T('descanso largo', 'long rest')} · ⛺ {T('corto', 'short')}</span>
+      {(overC || overP) && <p className="spell-over">⚠️ {lim.caster ? T(`Tu clase a este nivel permite ${lim.cantrips} trucos y ${lim.prepared} conjuros preparados (sin contar los de tu especie). Quita los que sobren.`, `At this level your class allows ${lim.cantrips} cantrips and ${lim.prepared} prepared spells (not counting species spells). Remove the extra ones.`) : T('Tu clase no lanza conjuros: solo puedes tener los que te dé tu especie o una dote.', 'Your class doesn’t cast spells: you can only have those from your species or a feat.')}</p>}
+    </div>
+  );
 }
 
 // ---------- Hoja ----------
@@ -315,8 +348,8 @@ export function SheetTab() {
             </Box>
 
             <div className="p-grid2">
-              <Box title={T('Atributos de especie', 'Species Traits')}><Area value={c.speciesTraits} onChange={(v) => set((x) => { x.speciesTraits = v; })} /></Box>
-              <Box title={T('Dotes', 'Feats')}><Area value={c.feats} onChange={(v) => set((x) => { x.feats = v; })} /></Box>
+              <Box title={T('Atributos de especie', 'Species Traits')}><Area title={T('Atributos de especie', 'Species Traits')} value={c.speciesTraits} onChange={(v) => set((x) => { x.speciesTraits = v; })} /></Box>
+              <Box title={T('Dotes', 'Feats')}><Area title={T('Dotes', 'Feats')} value={c.feats} onChange={(v) => set((x) => { x.feats = v; })} /></Box>
             </div>
 
             <Box title={T('Estado y recursos', 'Status & Resources')} className="p-status" right={<span className="p-title-actions"><button className="p-add" onClick={() => setCondOpen(true)}>{T('+ Condición', '+ Condition')}</button><button className="p-add" onClick={() => setEffOpen(true)}>{T('+ Efecto', '+ Effect')}</button></span>}>
@@ -388,9 +421,9 @@ export function SheetTab() {
             ))}
           </div>
           <span className="p-mini">{T('Armas', 'Weapons')}</span>
-          <Area rows={2} value={c.weaponProf} onChange={(v) => set((x) => { x.weaponProf = v; })} />
+          <Area title={T('Armas', 'Weapons')} rows={2} value={c.weaponProf} onChange={(v) => set((x) => { x.weaponProf = v; })} />
           <span className="p-mini">{T('Herramientas', 'Tools')}</span>
-          <Area rows={2} value={c.toolProf} onChange={(v) => set((x) => { x.toolProf = v; })} />
+          <Area title={T('Herramientas', 'Tools')} rows={2} value={c.toolProf} onChange={(v) => set((x) => { x.toolProf = v; })} />
         </Box>
       </div>
 
@@ -448,7 +481,7 @@ export function SheetTab() {
                 {[...c.spells].sort((a, b) => a.level - b.level).map((s) => (
                   <tr key={s.id} {...longPress({ type: 'spell', id: s.id })} onClick={() => (s.name ? setSpellInfo(s.id) : setSpellEdit(s.id))}>
                     <td>{s.level || T('T', 'C')}</td>
-                    <td><b>{s.name || '—'}</b>{s.notes ? <div className="p-notes">{s.notes}</div> : null}</td>
+                    <td><b>{s.name || '—'}</b>{s.name && (() => { const u = spellUse(c, s); return <span className={`spell-use ${u.warn ? 'warn' : ''}`} title={u.text} aria-label={u.text}>{u.icon}</span>; })()}{s.notes ? <div className="p-notes">{s.notes}</div> : null}</td>
                     <td>{s.castingTime}</td>
                     <td>{s.range}</td>
                     <td className="p-crm"><SpellComp sp={s} /></td>
@@ -458,6 +491,7 @@ export function SheetTab() {
                 {c.spells.length === 0 && <tr><td colSpan={6} className="p-empty">{T('Toca + para añadir un conjuro', 'Tap + to add a spell')}</td></tr>}
               </tbody>
             </table>
+            <SpellCounter />
           </Box>
 
           <div className="p-side">
@@ -474,15 +508,15 @@ export function SheetTab() {
                 </>
               )}
               {physicalLine(c.physical) && <p className="p-phys muted">{physicalLine(c.physical)}</p>}
-              <Area rows={3} value={c.appearance} onChange={(v) => set((x) => { x.appearance = v; })} />
+              <Area title={T('Aspecto', 'Appearance')} rows={3} value={c.appearance} onChange={(v) => set((x) => { x.appearance = v; })} />
             </Box>
             <Box title={T('Historia y personalidad', 'Backstory & Personality')}>
-              <Area rows={6} value={c.backstory} onChange={(v) => set((x) => { x.backstory = v; })} />
+              <Area title={T('Historia y personalidad', 'Backstory & Personality')} rows={6} value={c.backstory} onChange={(v) => set((x) => { x.backstory = v; })} />
               <Field label={T('Alineamiento', 'Alignment')} value={c.alignment} onChange={(v) => set((x) => { x.alignment = v; })} />
             </Box>
-            <Box title={T('Idiomas', 'Languages')}><Area rows={2} value={c.languages} onChange={(v) => set((x) => { x.languages = v; })} /></Box>
+            <Box title={T('Idiomas', 'Languages')}><Area title={T('Idiomas', 'Languages')} rows={2} value={c.languages} onChange={(v) => set((x) => { x.languages = v; })} /></Box>
             <Box title={T('Equipo', 'Equipment')}>
-              <Area rows={6} value={c.inventory} onChange={(v) => set((x) => { x.inventory = v; })} />
+              <Area title={T('Equipo', 'Equipment')} rows={6} value={c.inventory} onChange={(v) => set((x) => { x.inventory = v; })} />
               <Consumables mode="sheet" />
               <span className="p-mini">{T('Sintonización con objetos mágicos', 'Magic Item Attunement')}</span>
               {[0, 1, 2].map((i) => (
@@ -695,6 +729,7 @@ function SpellModal({ id, onClose }: { id: string; onClose: () => void }) {
       <div className="row wrap">
         <label className="check"><input type="checkbox" checked={sp.concentration} onChange={(e) => set((x) => { x.concentration = e.target.checked; })} /> {T('Concentración', 'Concentration')}</label>
         <label className="check"><input type="checkbox" checked={!!sp.ritual} onChange={(e) => set((x) => { x.ritual = e.target.checked; })} /> {T('Ritual', 'Ritual')}</label>
+        <label className="check" title={T('Conjuros de dominio, juramento, patrón… que un rasgo te da siempre preparados', 'Domain, oath, patron… spells a feature keeps always prepared')}><input type="checkbox" checked={!!sp.alwaysPrepared} onChange={(e) => set((x) => { x.alwaysPrepared = e.target.checked; })} /> {T('Siempre preparado (no cuenta)', 'Always prepared (doesn’t count)')}</label>
         {(['V', 'S', 'M'] as const).map((k) => {
           const comp = spellComponents(sp);
           const on = comp.includes(k);

@@ -1,5 +1,5 @@
 // Editor de personaje: cara, cuerpo, pelo, ropaje de su clase y fondo, cada uno con sus colores.
-// Dibuja un retrato de cuerpo entero estilo fantasía de los 70 que se pone en la hoja con un toque.
+// Dibuja al personaje de cuerpo entero estilo fantasía oscura de los 90; en la hoja se pone el busto.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useChar, useStore } from '../store';
 import type { Physical } from '../types';
@@ -68,15 +68,15 @@ export function AvatarTab() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (canvas.current) renderPortrait(look, c.name, canvas.current, 2).catch(() => undefined);
-  }, [look, c.name]);
+    if (canvas.current) renderPortrait(look, canvas.current, 2).catch(() => undefined);
+  }, [look]);
 
   const setLook = (patch: Partial<AvatarLook>) => update((ch) => { ch.look = { ...(ch.look?.v === 2 ? ch.look : look), ...patch }; });
   const setPhys = (k: keyof Physical, v: string) => update((ch) => { ch.physical = { ...(ch.physical ?? EMPTY_PHYS), [k]: v }; });
   const applyPortrait = async () => {
     setBusy(true);
     try {
-      const { full, thumb } = await portraitDataUrl(look, c.name);
+      const { full, thumb } = await portraitDataUrl(look);
       update((ch) => { ch.portrait = full; ch.portraitThumb = thumb; ch.look = look; });
       showToast(T('Retrato puesto en la hoja', 'Portrait set on the sheet'), [T('Lo verás arriba y en el recuadro «Aspecto».', 'You’ll see it at the top and in the “Appearance” box.')]);
     } finally { setBusy(false); }
@@ -87,7 +87,7 @@ export function AvatarTab() {
   return (
     <div className="avatar-tab">
       <div className="card av-head">
-        <canvas ref={canvas} className={`av-canvas ${look.pixel ? 'pixel' : ''}`} aria-label={T('Retrato del personaje', 'Character portrait')} />
+        <canvas ref={canvas} className="av-canvas" aria-label={T('Retrato del personaje', 'Character portrait')} />
         <div className="av-actions">
           <h2>{c.name || T('Tu personaje', 'Your character')}</h2>
           <p className="muted small">{[c.species, c.className].filter(Boolean).join(' · ') || T('Elige especie y clase en la hoja', 'Pick species and class on the sheet')}</p>
@@ -96,12 +96,7 @@ export function AvatarTab() {
             <button className="btn small" onClick={() => update((ch) => { ch.look = randomLook(look); })}>🎲 {T('Aleatorio', 'Random')}</button>
             <button className="btn small" onClick={() => update((ch) => { ch.look = defaultLook(speciesId, lineageId, classId); })}>↺ {T('Según especie y clase', 'From species & class')}</button>
           </div>
-          <div className="av-row">
-            <span className="av-label">{T('Toque pixel', 'Pixel touch')}</span>
-            <div className="av-chips">
-              {[T('Ninguno', 'None'), T('Leve', 'Light'), T('Marcado', 'Strong')].map((nm, i) => <button key={i} className={`chip toggle ${look.pixel === i ? 'on' : ''}`} onClick={() => setLook({ pixel: i })}>{nm}</button>)}
-            </div>
-          </div>
+          <p className="hint">{T('En la hoja se pone solo el busto; aquí ves el cuerpo entero.', 'The sheet gets only the bust; here you see the full body.')}</p>
         </div>
       </div>
 

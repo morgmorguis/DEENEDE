@@ -784,18 +784,16 @@ p { margin: 6px 0; line-height: 1.45; }
    Estilo retro: D&D noventero con detalles pixel (todas las pantallas)
    ===================================================================== */
 /* Paisaje pixel de la paleta (lo genera src/scenes.ts): capas, destellos, trama y cielo */
-body {
-  background-color: var(--bg);
-  background-image:
-    var(--scene-layers, none),
-    var(--scene-moon, none),
-    var(--scene-sparkles, none),
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4' shape-rendering='crispEdges'><rect x='0' y='0' width='1' height='1' fill='%23000' fill-opacity='.12'/><rect x='2' y='2' width='1' height='1' fill='%23000' fill-opacity='.12'/></svg>"),
-    var(--scene-sky, linear-gradient(180deg, var(--bg2), var(--bg)));
-  background-repeat: repeat-x, no-repeat, repeat-x, repeat, no-repeat;
-  background-position: center bottom, right 14% top 16%, center top, 0 0, 0 0;
-  background-size: auto clamp(220px, 46vh, 560px), clamp(70px, 10vw, 150px) auto, clamp(640px, 100vw, 1280px) auto, 4px 4px, 100% 100%;
-  background-attachment: fixed;
+html { background-color: var(--bg); }
+body { background: transparent; }
+/* Póster de fantasía oscura de la paleta, fijo detrás de todo (lo elige src/scenes.ts) */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--poster, none) center 40% / cover no-repeat, var(--bg);
+}
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, .25), rgba(0, 0, 0, .05) 30%, rgba(0, 0, 0, .35));
 }
 .app { background: transparent; }
 .content { position: relative; }
@@ -989,3 +987,24 @@ td.p-trash-cell { width: 28px; text-align: right; padding: 0; }
 .avail-future { margin: 0 0 8px; font-size: .85rem; }
 .avail-item.locked { opacity: .7; border-style: dashed; }
 .avail-lock { font-size: .78rem; color: var(--muted); white-space: nowrap; padding-top: 4px; text-align: right; }
+
+/* Texto largo de la hoja: botón para abrirlo en grande */
+.p-area-wrap { position: relative; }
+.p-area-expand { position: absolute; top: 2px; right: 2px; width: 26px; height: 26px; border: 1px solid var(--rule, #c9bfae); border-radius: 4px; background: rgba(255, 255, 255, .85); color: var(--ink, #222); font-size: 15px; line-height: 1; cursor: pointer; opacity: .75; padding: 0; }
+.p-area-expand:hover, .p-area-expand:focus-visible { opacity: 1; }
+.area-big { position: fixed; inset: 0; z-index: 260; background: var(--bg); display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 12px); gap: 10px; }
+.area-big-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 1.05rem; color: var(--gold2); }
+.area-big textarea { flex: 1; width: 100%; resize: none; font-size: 1.05rem; line-height: 1.55; padding: 14px; border-radius: 6px; background: var(--card); color: var(--text); border: 1px solid var(--line); }
+
+/* Conjuros: usos y límite */
+.spell-use { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 8px; font-size: 11px; line-height: 17px; background: rgba(0, 0, 0, .07); white-space: nowrap; vertical-align: 1px; }
+.spell-use.warn { background: rgba(196, 72, 59, .16); color: #a63a2e; }
+.spell-counter { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 12px; padding: 6px 2px 2px; }
+.spell-counter .over b, .spell-counter .full b { color: #a63a2e; }
+.spell-over { flex-basis: 100%; margin: 4px 0 0; color: #a63a2e; font-size: 12.5px; }
+.modal .spell-counter { font-size: 13px; padding: 4px 0 6px; }
+.modal .spell-counter .full b { color: var(--gold2); }
+@media (max-width: 480px) {
+  .p-spells .p-table th:nth-child(3), .p-spells .p-table td:nth-child(3) { display: none; }
+}
+.p-spells .p-table td:nth-child(2) b { overflow-wrap: normal; word-break: normal; hyphens: auto; }
