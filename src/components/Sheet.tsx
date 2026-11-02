@@ -22,6 +22,7 @@ import { LevelUpPage } from './LevelUp';
 import { BackgroundField, ClassField, SpeciesField, SubclassField } from './Identity';
 import { SuggestInput } from './Suggest';
 import { physicalLine } from '../rules/avatar';
+import { AvailablePicker } from './Available';
 import { confirmDelete } from './Confirm';
 import { Consumables } from './Consumables';
 import { OriginPicker } from './OriginPicker';
@@ -86,6 +87,7 @@ export function SheetTab() {
   const [spellInfo, setSpellInfo] = useState<string | null>(null);
   const [featInfo, setFeatInfo] = useState<string | null>(null);
   const [featEdit, setFeatEdit] = useState<string | null>(null);
+  const [browse, setBrowse] = useState<'spell' | 'feature' | null>(null);
 
   if (editing) return <Editor onDone={() => setEditing(false)} />;
 
@@ -299,7 +301,7 @@ export function SheetTab() {
               </table>
             </Box>
 
-            <Box title={T('Rasgos de clase', 'Class Features')} right={<button className="p-add" onClick={() => { const id = uid(); set((x) => { x.features.push({ id, name: '', text: '' }); }); setFeatEdit(id); }}>+</button>}>
+            <Box title={T('Rasgos de clase', 'Class Features')} right={<span className="p-title-actions"><button className="p-add" onClick={() => setBrowse('feature')}>📖 {T('Disponibles', 'Available')}</button><button className="p-add" aria-label={T('Añadir rasgo a mano', 'Add feature by hand')} onClick={() => { const id = uid(); set((x) => { x.features.push({ id, name: '', text: '' }); }); setFeatEdit(id); }}>+</button></span>}>
               {c.features.length === 0 && <p className="p-empty">{T('Sin rasgos.', 'No features.')}</p>}
               {c.features.map((f) => (
                 <div key={f.id} className="p-feature-row">
@@ -437,7 +439,7 @@ export function SheetTab() {
         </div>
 
         <div className="p-page2-body">
-          <Box title={T('Trucos y conjuros preparados', 'Cantrips & Prepared Spells')} className="p-spells" right={<button className="p-add" onClick={() => { const id = uid(); set((x) => { x.spells.push({ id, name: '', level: 0, prepared: true, castingTime: T('Acción', 'Action'), range: '', concentration: false }); }); setSpellEdit(id); }}>+</button>}>
+          <Box title={T('Trucos y conjuros preparados', 'Cantrips & Prepared Spells')} className="p-spells" right={<span className="p-title-actions"><button className="p-add" onClick={() => setBrowse('spell')}>📖 {T('Disponibles', 'Available')}</button><button className="p-add" aria-label={T('Añadir conjuro a mano', 'Add spell by hand')} onClick={() => { const id = uid(); set((x) => { x.spells.push({ id, name: '', level: 0, prepared: true, castingTime: T('Acción', 'Action'), range: '', concentration: false }); }); setSpellEdit(id); }}>+</button></span>}>
             <table className="p-table">
               <thead>
                 <tr><th>{T('Nv', 'Lvl')}</th><th>{T('Nombre', 'Name')}</th><th>{T('Tiempo', 'Time')}</th><th>{T('Alcance', 'Range')}</th><th title={T('Componentes: V verbal, S somático, M material · C concentración · R ritual', 'Components: V verbal, S somatic, M material · C concentration · R ritual')}>{T('Comp.', 'Comp.')}</th><th aria-label={T('Borrar', 'Delete')}></th></tr>
@@ -515,6 +517,7 @@ export function SheetTab() {
       {spellInfo && <ExplainModal target={{ type: 'spell', id: spellInfo }} onClose={() => setSpellInfo(null)} onEdit={() => { setSpellEdit(spellInfo); setSpellInfo(null); }} />}
       {featInfo && <ExplainModal target={{ type: 'feature', id: featInfo }} onClose={() => setFeatInfo(null)} onEdit={() => { setFeatEdit(featInfo); setFeatInfo(null); }} />}
       {featEdit && <FeatureModal id={featEdit} onClose={() => setFeatEdit(null)} />}
+      {browse && <AvailablePicker kind={browse} onClose={() => setBrowse(null)} />}
       {importing && <ImportModal onClose={() => setImporting(false)} />}
       {condOpen && (
         <Modal title={T('Añadir condición', 'Add condition')} onClose={() => setCondOpen(false)}>

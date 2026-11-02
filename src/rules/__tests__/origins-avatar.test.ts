@@ -43,3 +43,20 @@ describe('retrato pixel', () => {
     }
   });
 });
+
+import { createCharacter } from '../factory';
+import { spellSuggestions, featureSuggestions } from '../suggest';
+
+describe('lista de disponibles', () => {
+  it('sin escribir nada muestra todos los conjuros que puede tener, ordenados por nivel', () => {
+    const w = createCharacter({ name: 'X', classId: 'mago', level: 3, species: 'Humano', background: 'Sabio', abilities: { str: 8, dex: 14, con: 14, int: 16, wis: 12, cha: 10 }, skills: [] });
+    const all = spellSuggestions({ ...w, spells: [] }, '', 0, true);
+    const names = all.map((x) => x.spell.name.en);
+    expect(names).toContain('Fire Bolt');
+    expect(names).toContain('Misty Step');
+    expect(names).not.toContain('Fireball');
+    expect(names).not.toContain('Cure Wounds');
+    expect(all.map((x) => x.spell.level)).toEqual([...all.map((x) => x.spell.level)].sort((a, b) => a - b));
+    expect(featureSuggestions(w, '', 0, true).length).toBeGreaterThan(0);
+  });
+});

@@ -22,8 +22,8 @@ const THIRD = /arcane trickster|eldritch knight|embaucador arcano|caballero arca
 export interface SpellSuggestion { spell: SpellInfo; why: string }
 
 /** Conjuros que el personaje podría tener: de la lista de sus clases y de nivel que pueda lanzar */
-export function spellSuggestions(c: Character, query: string, limit = 8): SpellSuggestion[] {
-  if (fold(query).length < 2) return [];
+export function spellSuggestions(c: Character, query: string, limit = 8, browse = false): SpellSuggestion[] {
+  if (!browse && fold(query).length < 2) return [];
   const entries = classLevels(c);
   const { slots, pact } = spellSlotsFor(c);
   const maxLevel = Math.max(slots.length, pact?.level ?? 0, c.slots.reduce((m, s, i) => (s.max > 0 ? i + 1 : m), 0), c.pactSlots?.max ? c.pactSlots.level : 0);
@@ -41,14 +41,15 @@ export function spellSuggestions(c: Character, query: string, limit = 8): SpellS
     if (sp.level > 0 && sp.level > maxLevel) continue;
     out.push({ spell: sp, why: from.name });
   }
+  if (browse) return out.sort((a, b) => a.spell.level - b.spell.level || L(a.spell.name).localeCompare(L(b.spell.name)));
   return out.sort((a, b) => score(query, [a.spell.name.es, a.spell.name.en]) - score(query, [b.spell.name.es, b.spell.name.en]) || a.spell.level - b.spell.level).slice(0, limit);
 }
 
 export interface FeatureSuggestion { name: string; text: string; recharge?: Recharge; why: string }
 
 /** Rasgos que el personaje podría tener: de sus clases hasta su nivel, subclase, especie, linaje y dotes */
-export function featureSuggestions(c: Character, query: string, limit = 8): FeatureSuggestion[] {
-  if (fold(query).length < 2) return [];
+export function featureSuggestions(c: Character, query: string, limit = 8, browse = false): FeatureSuggestion[] {
+  if (!browse && fold(query).length < 2) return [];
   const have = new Set(c.features.map((f) => fold(f.name)));
   const pool: FeatureSuggestion[] = [];
   const add = (name: Tr, text: Tr, why: string, prefix?: Tr) => {
@@ -78,5 +79,6 @@ export function featureSuggestions(c: Character, query: string, limit = 8): Feat
   const sp = species ?? SPECIES_INFO.find((x) => x.id === c.lineage);
   if (sp) for (const t of [...sp.traits, ...(lineage?.traits ?? [])]) add(t.name, t.text, L(sp.name));
   if (c.level >= 4) for (const o of FEATS) add(o.name, o.text, T('Dote', 'Feat'));
+  if (browse) return pool;
   return pool.sort((a, b) => score(query, [a.name]) - score(query, [b.name])).slice(0, limit);
 }

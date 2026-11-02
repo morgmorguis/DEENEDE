@@ -3,6 +3,11 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.14.2 · 2 nov 2026 — Conjuros y rasgos disponibles sin escribir
+
+- Botón **📖 Disponibles** en «Trucos y conjuros preparados»: lista todos los conjuros que puedes tener según tus clases (y multiclase), tu nivel, tu subclase y tu especie o linaje, con filtro por nivel y por nombre. Toca uno para leerlo y **+ Añadir** para ponerlo en la hoja; los que ya tienes salen marcados.
+- El mismo botón en «Rasgos de clase»: rasgos de tus clases hasta tu nivel, opciones a elegir (estilos de combate, invocaciones, metamagia…), subclases, rasgos de especie y dotes, agrupados por origen.
+
 ## 0.14.1 · 2 nov 2026 — Actualizar sin desinstalar
 
 - Los APK se firman ahora siempre con la misma clave: a partir de esta versión, las siguientes se **instalan encima** sin desinstalar y sin perder los datos (esta todavía necesita desinstalar la anterior una última vez).
