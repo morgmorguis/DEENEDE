@@ -4,6 +4,8 @@
 
 Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2), en español e inglés.
 
+📖 **Guía ilustrada**: [`docs/guia/index.html`](docs/guia/index.html) (ábrela en el navegador) · 📝 **Novedades**: [`CHANGELOG.md`](CHANGELOG.md)
+
 ## Qué hace
 
 - **Hoja de personaje con el diseño de la hoja oficial 2024** (dos páginas, editable directamente): cabecera con nivel/PX, CA con escudo, PG, dados de golpe y salvaciones contra la muerte; características con sus salvaciones y habilidades debajo; armas y trucos de daño; rasgos de clase, atributos de especie y dotes; entrenamiento con equipo; aptitud mágica, espacios de conjuro y tabla de conjuros (C/R/M); aspecto con **imagen del personaje**, historia, alineamiento, idiomas, equipo, sintonización y monedas.

@@ -1,0 +1,429 @@
+<title>Guía de Di en Di</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,600;0,700;1,400&family=Alegreya+SC:wght@500;700&family=Press+Start+2P&display=swap">
+<style>
+/* Maquetación: cabecera tipo portada de manual de los 90, índice fijo a la izquierda en pantallas
+   anchas y capítulos con capturas de la app en marcos de móvil. Oscuro primero (como la app) y
+   variante clara de pergamino. */
+:root {
+  --bg: #15110f;
+  --panel: #211a15;
+  --panel-2: #2b221b;
+  --rule: #3f3229;
+  --text: #efe3cc;
+  --muted: #a99679;
+  --gold: #d6a645;
+  --gold-hi: #f3d27a;
+  --red: #c4483b;
+  --blue: #6b9bd1;
+  --shadow: rgba(0, 0, 0, .5);
+  --f-display: 'Press Start 2P', 'Courier New', monospace;
+  --f-head: 'Alegreya SC', 'Alegreya', Georgia, serif;
+  --f-body: 'Alegreya', Georgia, 'Times New Roman', serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f2e7cf; --panel: #fbf4e4; --panel-2: #efe2c6; --rule: #d6c19b; --text: #2a1e13; --muted: #6e5a40;
+    --gold: #8a5a12; --gold-hi: #6a4208; --red: #a63a2e; --blue: #2f5f96; --shadow: rgba(80, 55, 20, .25); color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f2e7cf; --panel: #fbf4e4; --panel-2: #efe2c6; --rule: #d6c19b; --text: #2a1e13; --muted: #6e5a40;
+  --gold: #8a5a12; --gold-hi: #6a4208; --red: #a63a2e; --blue: #2f5f96; --shadow: rgba(80, 55, 20, .25); color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font: 18px/1.6 var(--f-body);
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--gold) 9%, transparent) 1px, transparent 0);
+  background-size: 6px 6px;
+}
+a { color: var(--gold-hi); }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+img { max-width: 100%; height: auto; display: block; }
+
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* ---------- Portada ---------- */
+.cover { border-bottom: 4px double var(--gold); background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 70%, transparent), transparent); }
+.cover-inner { max-width: 1180px; margin: 0 auto; padding-block: 48px 36px; display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center; }
+.cover-icon { width: 120px; image-rendering: pixelated; border: 3px solid var(--gold); box-shadow: 6px 6px 0 var(--shadow); }
+.eyebrow { font: 10px/1.8 var(--f-display); letter-spacing: .08em; color: var(--gold); margin: 0 0 10px; }
+h1 { font: 700 clamp(30px, 6vw, 56px)/1.05 var(--f-head); margin: 0; text-wrap: balance; color: var(--gold-hi); }
+.lede { margin: 12px 0 0; max-width: 62ch; color: var(--muted); font-size: 19px; }
+.cover-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding: 0; list-style: none; }
+.cover-facts li { font-size: 14px; border: 1px solid var(--rule); background: var(--panel); padding: 3px 10px; }
+
+/* ---------- Índice + capítulos ---------- */
+.layout { max-width: 1180px; margin: 0 auto; padding-block: 32px 80px; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 48px; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; background: var(--panel); border: 2px solid var(--rule); box-shadow: 5px 5px 0 var(--shadow); padding: 18px 16px; }
+.toc h2 { font: 700 15px/1.6 var(--f-head); color: var(--gold); margin: 0 0 10px; letter-spacing: .14em; }
+.toc ol { margin: 0; padding: 0; list-style: none; counter-reset: toc; display: grid; gap: 2px; }
+.toc li { counter-increment: toc; }
+.toc a { display: grid; grid-template-columns: 2.2em 1fr; padding: 4px 6px; text-decoration: none; color: var(--text); font-size: 16px; line-height: 1.35; border-left: 3px solid transparent; }
+.toc a::before { content: counter(toc, decimal-leading-zero); font: 9px/2 var(--f-display); color: var(--muted); }
+.toc a:hover, .toc a.on { background: var(--panel-2); border-left-color: var(--gold); }
+.toc .sub { padding-left: 2.2em; font-size: 14px; color: var(--muted); }
+
+main { min-width: 0; display: grid; gap: 64px; }
+.chapter { scroll-margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+figure, .pair > *, .trio > * { min-width: 0; }
+code { overflow-wrap: anywhere; }
+.chapter-head { display: grid; gap: 6px; border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+.chapter-num { font: 700 14px/1.4 var(--f-head); color: var(--gold); letter-spacing: .14em; }
+h2 { font: 700 clamp(26px, 4vw, 36px)/1.15 var(--f-head); margin: 0; text-wrap: balance; }
+h3 { font: 700 21px/1.3 var(--f-head); margin: 10px 0 0; color: var(--gold-hi); }
+p { margin: 0; max-width: 68ch; }
+ul.list, ol.steps { margin: 0; padding-left: 1.3em; max-width: 68ch; display: grid; gap: 6px; }
+ol.steps li::marker { font-family: var(--f-display); font-size: 11px; color: var(--gold); }
+b { color: var(--gold-hi); font-weight: 700; }
+
+/* Texto + capturas */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 28px; align-items: start; }
+.split.wide { grid-template-columns: minmax(0, 1fr); }
+.split > div { min-width: 0; display: grid; gap: 12px; }
+figure { margin: 0; display: grid; gap: 8px; }
+figcaption { font-size: 14px; color: var(--muted); font-style: italic; }
+.phone { border: 3px solid #0d0a08; border-radius: 22px; overflow: hidden; box-shadow: 0 0 0 2px var(--rule), 8px 8px 0 var(--shadow); background: #0d0a08; }
+.shot { border: 2px solid var(--rule); box-shadow: 6px 6px 0 var(--shadow); }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+
+.tip { border: 1px solid var(--rule); border-left: 5px solid var(--gold); background: var(--panel); padding: 12px 16px; max-width: 72ch; display: grid; gap: 4px; }
+.tip.warn { border-left-color: var(--red); }
+.tip-label { font: 9px/1.8 var(--f-display); color: var(--gold); letter-spacing: .06em; }
+.tip.warn .tip-label { color: var(--red); }
+kbd, code { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: .85em; background: var(--panel-2); border: 1px solid var(--rule); padding: 1px 6px; }
+.badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 1px 8px; border: 1px solid var(--rule); background: var(--panel-2); white-space: nowrap; }
+.badge.blood { color: var(--red); border-color: var(--red); }
+
+table { border-collapse: collapse; width: 100%; font-size: 16px; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 700 15px var(--f-head); color: var(--gold); }
+
+.top { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); font: 9px var(--f-display); text-decoration: none; background: var(--gold); color: var(--bg); padding: 10px 12px; box-shadow: 4px 4px 0 var(--shadow); }
+
+@media (max-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .toc { position: static; max-height: none; }
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .split > figure, .split > .pair { max-width: 380px; }
+}
+@media (max-width: 560px) {
+  body { font-size: 17px; }
+  .cover-inner { grid-template-columns: 1fr; padding-block: 28px 24px; }
+  .cover-icon { width: 84px; }
+  .trio { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+
+<header class="cover wrap">
+  <div class="cover-inner">
+    <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
+    <div>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.13</p>
+      <h1>Guía de Di en Di</h1>
+      <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
+      <ul class="cover-facts">
+        <li>Android · Windows · navegador</li>
+        <li>Español / English</li>
+        <li>Funciona sin internet</li>
+        <li>Reglas SRD 5.2 (2024)</li>
+      </ul>
+    </div>
+  </div>
+</header>
+
+<div class="layout wrap">
+  <nav class="toc" aria-label="Índice">
+    <h2>Índice</h2>
+    <ol>
+      <li><a href="#empezar">Empezar</a></li>
+      <li><a href="#hoja">La hoja de personaje</a></li>
+      <li><a href="#escribir">Rellenar la hoja a mano</a></li>
+      <li><a href="#info">Saber qué hace cada cosa</a></li>
+      <li><a href="#avisos">Avisos de la ficha</a></li>
+      <li><a href="#nivel">Subir de nivel</a></li>
+      <li><a href="#combate">Combate en solitario</a></li>
+      <li><a href="#municion">Munición y consumibles</a></li>
+      <li><a href="#asistente">El asistente</a></li>
+      <li><a href="#diario">Diario, voz y kill count</a></li>
+      <li><a href="#importar">Importar una ficha</a></li>
+      <li><a href="#partida">Partida compartida</a></li>
+      <li><a class="sub" href="#partida-montar">Montar el servidor</a></li>
+      <li><a class="sub" href="#partida-jugar">Jugar como jugador</a></li>
+      <li><a class="sub" href="#partida-dm">Pantalla del DM</a></li>
+      <li><a class="sub" href="#partida-tele">Vista para la tele</a></li>
+      <li><a href="#estilo">Colores, idioma y ajustes</a></li>
+      <li><a href="#copia">Copia de seguridad</a></li>
+      <li><a href="#dudas">Dudas frecuentes</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <!-- 1 -->
+    <section class="chapter" id="empezar">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 01</span><h2>Empezar</h2></div>
+      <p>Di en Di es una hoja de personaje de D&amp;D 2024 que se mantiene viva durante la partida: calcula el daño que recibes, recuerda tus condiciones, lleva tus recursos y te explica cada regla cuando la necesitas. Al abrirla por primera vez verás a <b>Brakka Pielpétrea</b>, una bárbara goliat de ejemplo para probarlo todo.</p>
+      <h3>Instalarla</h3>
+      <ol class="steps">
+        <li><b>Móvil o tablet Android:</b> descarga el APK desde GitHub → <i>Actions</i> → la última ejecución → artefacto <code>di-en-di-apk</code>. Descomprime el zip y abre <code>Di en Di.apk</code>.</li>
+        <li><b>Windows:</b> descarga el artefacto <code>di-en-di-windows</code> y abre <code>Di en Di.exe</code>. Se abre la app en su propia ventana; deja abierta la ventanita negra mientras juegas.</li>
+        <li>Para crear tu personaje ve a <b>Ajustes → Personajes → + Nuevo</b>, o importa tu hoja (capítulo 11).</li>
+      </ol>
+      <div class="tip warn"><span class="tip-label">ANTES DE ACTUALIZAR</span><p>Los APK de prueba se firman cada vez con una clave distinta, así que para instalar una versión nueva hay que desinstalar la anterior y se borran los datos. Haz antes <b>Ajustes → Copia de seguridad → Exportar todo</b>.</p></div>
+    </section>
+
+    <!-- 2 -->
+    <section class="chapter" id="hoja">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 02</span><h2>La hoja de personaje</h2></div>
+      <div class="split">
+        <div>
+          <p>La pestaña <b>Hoja</b> tiene el diseño de la hoja oficial de 2024 y todo se edita tocando encima: nombre, características, competencias (el círculo junto a cada habilidad: vacío, competente, pericia), PG, dados de golpe, salvaciones contra la muerte, armas, rasgos, conjuros, equipo, monedas y retrato.</p>
+          <p>Arriba, la barra de vida muestra tus <b>PG actuales y temporales sumados</b>, por ejemplo <span class="badge">51/45 (45 + 6 temp.)</span>. Tócala para recibir daño, curarte o ganar temporales: la app aplica resistencias, inmunidades, temporales y la tirada de concentración.</p>
+          <h3>Clase, subclase y multiclase</h3>
+          <p>La clase se elige en un selector. Al cambiarla se ponen su dado de golpe, salvaciones, competencias, recursos, espacios de conjuro y rasgos; lo que hayas añadido a mano se conserva. La subclase muestra solo las de tu clase. Con <b>＋ Multiclase</b> añades otras clases con su nivel: los espacios se calculan con la tabla de multiclase y los dados de golpe se ven mezclados (<span class="badge">3d12 + 2d6</span>).</p>
+          <h3>Especie y linaje</h3>
+          <p>Elige la especie y, si la tiene, su linaje: alto elfo, drow o elfo de los bosques; dracónido de cada color; gnomo de los bosques o de las rocas; la ascendencia gigante del goliat; el legado infernal del tiefling. Se aplican solos la velocidad, el tamaño, las resistencias (un dracónido rojo resiste el fuego), los rasgos y los trucos.</p>
+        </div>
+        <figure><img class="phone" src="img/01-hoja.jpg" alt="Hoja de personaje en el móvil con la barra de vida y la cabecera" width="700" height="1515" loading="lazy"><figcaption>La hoja en el móvil.</figcaption></figure>
+      </div>
+      <figure><img class="shot" src="img/02-identidad.jpg" alt="Selectores de clase, subclase, especie y ascendencia: Bárbaro, Senda del Berserker, Dracónido, Rojo" width="692" height="440" loading="lazy" style="width: min(100%, 520px)"><figcaption>Selectores de clase, subclase, especie y ascendencia.</figcaption></figure>
+    </section>
+
+    <!-- 3 -->
+    <section class="chapter" id="escribir">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 03</span><h2>Rellenar la hoja a mano</h2></div>
+      <div class="split">
+        <div>
+          <p>Al escribir un conjuro o un rasgo aparece <b>texto predictivo</b> solo con lo que tu personaje puede tener ahora: lo de la lista de sus clases, de un nivel que pueda lanzar, de su subclase, de su especie y de las dotes disponibles.</p>
+          <p>Un mago de nivel 1 que escribe «fire» o «fue» ve <i>Descarga de fuego</i>, pero no <i>Bola de fuego</i> hasta que pueda lanzarla. Un guerrero no ve conjuros de mago. Al elegir una sugerencia se rellenan el nivel, el tiempo, el alcance, los componentes y si requiere concentración; en los rasgos, su texto y cómo se recuperan.</p>
+          <p>Si lo que buscas no está en la base de la app (tiene unos 85 conjuros habituales), escríbelo a mano igualmente.</p>
+          <h3>Componentes y recargas</h3>
+          <p>Los conjuros muestran sus componentes como en el manual: <span class="badge">V</span> verbal (tienes que poder hablar), <span class="badge">S</span> somático, <span class="badge">M</span> material, más C de concentración y R de ritual. Los rasgos llevan su recarga: ⛺ descanso corto, 🌙 descanso largo, ✨ espacio de conjuro o ♾️ a voluntad.</p>
+        </div>
+        <figure><img class="shot" src="img/05-predictivo.jpg" alt="Al escribir «fue» aparece la sugerencia Descarga de fuego, truco de mago" width="642" height="456" loading="lazy"><figcaption>Sugerencias mientras escribes.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="chapter" id="info">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 04</span><h2>Saber qué hace cada cosa</h2></div>
+      <div class="split">
+        <div>
+          <p><b>Mantén pulsada 1,5 segundos</b> cualquier habilidad, salvación, característica, arma, conjuro, rasgo, recurso o condición. Aparece una burbuja con lo que hace y con lo que te limita <i>ahora mismo</i>: ventaja o desventaja por tus condiciones, los espacios que te quedan, la concentración que perderías, que en Furia no puedes lanzar conjuros…</p>
+          <p>Con un <b>toque corto</b> en un conjuro o rasgo se abre su descripción completa con un botón para editarlo. En las características y habilidades, el toque muestra cómo se calcula tu bonificador; tirar el dado al tocar es opcional (capítulo 13).</p>
+          <p>La pestaña <b>Reglas</b> tiene buscador de condiciones, habilidades, acciones, reglas clave, maestrías de armas y efectos.</p>
+        </div>
+        <figure><img class="phone" src="img/03-burbuja.jpg" alt="Burbuja de información sobre Atletismo encima de la hoja" width="700" height="1515" loading="lazy"><figcaption>La burbuja de Atletismo.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section class="chapter" id="avisos">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 05</span><h2>Avisos de la ficha</h2></div>
+      <p>Encima de la hoja, un panel avisa de lo que falta o no cuadra con las reglas 2024: falta la clase, la especie o el trasfondo; salvaciones que no son las de tu clase; PG imposibles; puntuaciones de más de 20; conjuros de nivel demasiado alto; competencias de armas, armaduras o herramientas que tu clase te da y no están marcadas; armas marciales sin competencia; PX suficientes para subir de nivel.</p>
+      <p>Cada aviso explica el motivo. Muchos tienen <b>🔧 Corregir</b>, que lo arregla solo, y todos se pueden <b>Ignorar</b> para que no vuelvan a salir (y restaurar después).</p>
+      <figure><img class="shot" src="img/04-avisos.jpg" alt="Panel de avisos con «Falta el trasfondo» y el botón Ignorar" width="700" height="195" loading="lazy" style="width: min(100%, 460px)"></figure>
+    </section>
+
+    <!-- 6 -->
+    <section class="chapter" id="nivel">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 06</span><h2>Subir de nivel</h2></div>
+      <div class="split">
+        <div>
+          <p>Pulsa <b>⬆️ Subir de nivel</b> en la hoja. Tras la transición «¡SUBES DE NIVEL!» se abre una pantalla con todo lo que corresponde a tu clase en el siguiente nivel según las reglas 2024:</p>
+          <ul class="list">
+            <li><b>¿En qué clase subes?</b> Tu clase, otra de tu multiclase o una nueva (avisa si no tienes 13 en la característica que pide).</li>
+            <li><b>Puntos de golpe:</b> media fija o tirada (la escribes o la tira la app).</li>
+            <li><b>Lo que ganas:</b> los rasgos nuevos, explicados.</li>
+            <li><b>Lo que eliges:</b> subclase, mejora de característica o dote, don épico, estilo de combate, pericias, metamagia, invocaciones, opciones de clase y conjuros nuevos de tu lista.</li>
+          </ul>
+          <p>Abajo, el <b>resumen</b> enseña cómo quedará la ficha (PG 35 → 45, características, competencia, espacios, recursos) y qué rasgos y conjuros se añaden con su recarga. Al pulsar <b>LVL UP</b> se actualiza todo.</p>
+        </div>
+        <figure><img class="phone" src="img/06-subir-nivel.jpg" alt="Pantalla de subir de nivel con la mejora de características" width="700" height="1515" loading="lazy"><figcaption>Elegir una mejora de característica.</figcaption></figure>
+      </div>
+      <figure><img class="shot" src="img/07-resumen-nivel.jpg" alt="Resumen: nivel 3 → 4, PG 35 → 45, dados de golpe 3d12 → 4d12, FUE 17 → 18" width="700" height="415" loading="lazy" style="width: min(100%, 460px)"><figcaption>El resumen antes de confirmar.</figcaption></figure>
+    </section>
+
+    <!-- 7 -->
+    <section class="chapter" id="combate">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 07</span><h2>Combate en solitario</h2></div>
+      <div class="split">
+        <div>
+          <p>La pestaña <b>Combate</b> sirve para llevar tu turno aunque no uséis la partida compartida. Al pulsar <b>¡Empezar combate!</b> salta la transición y la app te pregunta tu iniciativa (la escribes o la tira por ti; nunca sola).</p>
+          <ul class="list">
+            <li><b>Orden de iniciativa</b> en burbujas: añade compañeros y enemigos y arrástralos para reordenar. Los enemigos empiezan con vida «?» y se va sumando el daño que reciben.</li>
+            <li><b>Tu turno:</b> anota «He pegado», «He curado» u «Otra acción»; en el turno de los demás, si han pegado, curado o recibido daño. Sin dados (en Ajustes puedes escribir la tirada).</li>
+            <li>Casillas de <b>acción, acción adicional y reacción</b>, movimiento restante, conjuros con sus espacios, recursos, efectos con duración y una chuleta de las acciones 2024.</li>
+          </ul>
+        </div>
+        <figure><img class="phone" src="img/09-fx-combate.jpg" alt="Transición a pantalla completa con el texto ¡COMBATE! en pixel" width="700" height="1515" loading="lazy"><figcaption>«¡COMBATE!»</figcaption></figure>
+      </div>
+      <figure><img class="shot" src="img/10-iniciativa.jpg" alt="Orden de iniciativa en burbujas: Brakka 17, Thalia 14, Goblin 1 12 con vida ? (−6), Goblin 2 12" width="700" height="819" loading="lazy" style="width: min(100%, 420px)"><figcaption>Orden de iniciativa con la vida de cada uno.</figcaption></figure>
+    </section>
+
+    <!-- 8 -->
+    <section class="chapter" id="municion">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 08</span><h2>Munición y consumibles</h2></div>
+      <p>En la hoja, debajo del <b>Equipo</b>, apunta tu munición y consumibles con su cantidad. Si tu equipo dice «carcaj con 20 flechas, 2 pociones de curación», la app te ofrece añadirlos directamente.</p>
+      <p>En combate (también en la partida compartida) pulsa <b>✓ Usar 1</b> cada vez que gastes uno. Al terminar el combate se aplican las reglas 2024: recuperas <b>la mitad de la munición gastada</b> (redondeando abajo), recoges las armas arrojadizas y los consumibles quedan gastados.</p>
+      <div class="pair">
+        <figure><img class="shot" src="img/08-municion.jpg" alt="Lista de la hoja: flechas 20, jabalinas 4, pociones de curación 2" width="656" height="308" loading="lazy"><figcaption>En la hoja.</figcaption></figure>
+        <figure><img class="shot" src="img/11-municion-combate.jpg" alt="En combate: Flechas × 18, usadas en este combate: 2, con botones Usar 1" width="700" height="524" loading="lazy"><figcaption>En combate.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section class="chapter" id="asistente">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 09</span><h2>El asistente</h2></div>
+      <p>En la pestaña <b>Asistente</b> escribe o dicta lo que pasa en la mesa y la app lo aplica a tu ficha con las reglas: «un goblin me ha hecho 7 de daño cortante», «me curo 2d4+2», «me lanzan Bendición», «gasto un espacio de nivel 2», «descanso largo». Explica cada paso del cálculo y se puede deshacer.</p>
+      <p>Funciona sin internet. Si añades una clave de Claude en Ajustes, entiende también frases más libres.</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="chapter" id="diario">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 10</span><h2>Diario, voz y kill count</h2></div>
+      <div class="split">
+        <div>
+          <p>El botón 📜 abre el <b>diario</b> desde cualquier pantalla. Tiene carpetas (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees) y notas rápidas.</p>
+          <p><b>Grabar sesión:</b> deja el móvil en la mesa y la app transcribe lo que se dice. Al parar, puedes corregir la transcripción y guardarla tal cual o, con una clave de Claude, convertirla en una crónica escrita como un relato.</p>
+          <p><b>Kill count:</b> los enemigos a los que tu personaje da el golpe final se apuntan solos, en el combate de la app y en la partida compartida. Si el DM deshace ese turno, la baja se quita. Solo cuentan tus bajas; también puedes añadirlas a mano.</p>
+        </div>
+        <figure><img class="phone" src="img/12-diario.jpg" alt="Diario con el apartado Kill count abierto, el grabador y las carpetas" width="700" height="1515" loading="lazy"><figcaption>Diario con el kill count.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="chapter" id="importar">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 11</span><h2>Importar una ficha</h2></div>
+      <div class="split">
+        <div>
+          <p>En la hoja, <b>📥 Importar ficha</b> lee tu hoja de papel o digital sin escribirla a mano:</p>
+          <ul class="list">
+            <li><b>PDF rellenable</b> de la hoja oficial 2024: se lee casi perfecto.</li>
+            <li><b>Word</b> o texto pegado («FUE 15, CA 14, Clase: Pícaro»).</li>
+            <li><b>Fotos</b> o PDF escaneados con OCR dentro del móvil; revisa después las competencias.</li>
+          </ul>
+          <p>Todo se hace <b>sin conexión y gratis</b>. Con una clave de Claude, las fotos se leen mejor. Los términos se traducen al idioma de la app (equipo, idiomas, conjuros, rasgos) y siempre ves una vista previa con los avisos antes de crear el personaje o reemplazar el actual.</p>
+        </div>
+        <figure><img class="phone" src="img/15-importar.jpg" alt="Ventana Importar ficha con los botones Foto, PDF y Word y el modo Sin conexión" width="700" height="1515" loading="lazy"></figure>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section class="chapter" id="partida">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 12</span><h2>Partida compartida</h2></div>
+      <p>El DM ejecuta un pequeño servidor en su PC y todos jugáis el mismo combate desde la app o el navegador. Las fichas siguen en cada móvil; a la partida solo se envía un resumen (vida, CA, percepción pasiva, condiciones, concentración).</p>
+
+      <h3 id="partida-montar">Montar el servidor (DM, Windows)</h3>
+      <ol class="steps">
+        <li>Abre <code>Di en Di - Servidor.exe</code> (del artefacto <code>di-en-di-windows</code>). Si Windows avisa: «Más información» → «Ejecutar de todas formas»; si el firewall pregunta, permite las redes privadas.</li>
+        <li>Se abre tu pantalla de DM en el navegador. La ventana negra muestra el <b>código de la partida</b>, la <b>clave del DM</b> y la dirección para la Wi-Fi de casa (<code>http://192.168.x.x:3000</code>).</li>
+        <li><b>A distancia</b> (sin Cloudflare, que en España se bloquea durante el fútbol): instala <a href="https://tailscale.com/download/windows">Tailscale</a>, ejecuta <code>tailscale funnel 3000</code> y comparte la dirección <code>https://….ts.net</code>. Los jugadores no instalan nada.</li>
+        <li>Para dirigir desde el móvil o la tablet: pestaña <b>Partida</b> → dirección → «Soy el DM» → clave del DM.</li>
+      </ol>
+
+      <h3 id="partida-jugar">Jugar como jugador</h3>
+      <div class="split">
+        <div>
+          <p>En <b>Partida</b> escribe la dirección y el código y pulsa <b>Unirse</b>. Cuando el DM empieza un combate salta «¡COMBATE!» y llega la <b>preparación</b>: pones tu iniciativa y tu vida, ves las de tus aliados y pulsas <b>✅ ¡Listo!</b> (se puede quitar si te equivocas). Cuando todos y el DM están listos, empiezan los turnos con «¡A LUCHAR!».</p>
+          <p>En tu turno anota <b>Daño hecho</b>, <b>Curación</b>, <b>Daño recibido</b> u <b>Otra acción</b>. Con <b>Varios objetivos</b> aplicas daño en área: toca cada objetivo una vez para el daño entero y otra para «½» si superó la salvación.</p>
+          <p>De los monstruos ves «?» y su estado: <span class="badge">Ileso</span> <span class="badge">Herido</span> <span class="badge blood">🩸 Ensangrentado</span> <span class="badge">💀 Derrotado</span>. Si un monstruo te pega, el daño se aplica en tu ficha con tus resistencias y temporales.</p>
+          <p>Si alguien se equivoca, <b>Deshacer último turno</b> revierte sus daños y curaciones, también en las fichas. Lo puede hacer el DM o el jugador cuyo turno se deshace. Todo queda en el <b>registro del combate</b>, que puedes guardar en el diario.</p>
+        </div>
+        <div class="pair">
+          <figure><img class="phone" src="img/16-preparacion.jpg" alt="Preparación del combate: tus datos, botón Listo y la lista de la party" width="700" height="1515" loading="lazy"><figcaption>Preparación con «Listo».</figcaption></figure>
+          <figure><img class="phone" src="img/17-area.jpg" alt="Daño en área con tres goblins marcados, uno con «½ salvó»" width="700" height="1515" loading="lazy"><figcaption>Daño en área.</figcaption></figure>
+        </div>
+      </div>
+
+      <h3 id="partida-dm">Pantalla del DM</h3>
+      <p>Desde el PC o desde la tablet el DM ve la vida exacta, la CA y las notas de todo, y lo organiza sin que lo vean los jugadores:</p>
+      <ul class="list">
+        <li><b>Monstruos del SRD 5.2</b> con buscador; grupos («3 goblins») con PG medios o tirados e iniciativa automática.</li>
+        <li><b>Ocultos:</b> no llegan a los móviles de los jugadores hasta que los revelas.</li>
+        <li><b>Personajes</b> (pestaña propia en modo DM): aliados y enemigos de la campaña con nivel o VD, vida, CA, iniciativa y notas, listos para meterlos en el combate.</li>
+        <li><b>Condiciones con duración</b> por criatura, que bajan solas al acabar su turno; <b>contadores</b> como acciones legendarias (vuelven en su turno) y resistencias legendarias.</li>
+        <li><b>Dificultad del encuentro</b> con el presupuesto de PX de 2024, y quién se está concentrando o haciendo salvaciones contra la muerte.</li>
+      </ul>
+      <figure><img class="shot" src="img/19-dm.jpg" alt="Pantalla del DM en el PC: party, combatientes con vida exacta, CA, condiciones y dificultad" width="1200" height="806" loading="lazy"><figcaption>La pantalla del DM en el PC.</figcaption></figure>
+      <figure><img class="shot" src="img/21-personajes-dm.jpg" alt="Pestaña Personajes del DM en la tablet con Capitán Vex y Hermana Lira" width="1200" height="1610" loading="lazy" style="width: min(100%, 520px)"><figcaption>Personajes del DM en la tablet.</figcaption></figure>
+
+      <h3 id="partida-tele">Vista para la tele</h3>
+      <p>En la pantalla del DM, <b>📺 Vista para la tele</b> da un enlace (<code>…/?view=CÓDIGO</code>) para abrir en una tele, un portátil o una tablet en la mesa: el orden de turnos, los estados y lo último que ha pasado, en grande y sin nada oculto.</p>
+      <figure><img class="shot" src="img/20-tele.jpg" alt="Vista para la tele con el orden de turnos, estados de los goblins y el registro" width="1200" height="675" loading="lazy"></figure>
+    </section>
+
+    <!-- 13 -->
+    <section class="chapter" id="estilo">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 13</span><h2>Colores, idioma y ajustes</h2></div>
+      <p>En <b>Ajustes</b> eliges entre cuatro paletas, cada una con su paisaje pixel art de fondo:</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Paleta</th><th>Paisaje</th></tr></thead>
+          <tbody>
+            <tr><td>Básico</td><td>Bosque otoñal al atardecer con un castillo en la colina</td></tr>
+            <tr><td>Verdoso</td><td>Bosque encantado de noche con luciérnagas y setas</td></tr>
+            <tr><td>Grises</td><td>Montañas nevadas con pinos y luna</td></tr>
+            <tr><td>Azules</td><td>Lago nocturno con la luna reflejada</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figure><img class="shot" src="img/22-paisajes.jpg" alt="Los cuatro paisajes pixel: otoño, bosque, montañas nevadas y lago" width="1200" height="637" loading="lazy"></figure>
+      <p>También en Ajustes: <b>idioma</b> (español o inglés, toda la app), <b>tirar dados al tocar una estadística</b> (desactivado por defecto), <b>anotar tiradas a mano en combate</b>, traducir la ficha, el idioma del dictado y la clave opcional de Claude.</p>
+      <figure><img class="shot" src="img/13-colores.jpg" alt="Selector de colores: Básico, Verdoso, Grises y Azules" width="700" height="233" loading="lazy" style="width: min(100%, 420px)"></figure>
+    </section>
+
+    <!-- 14 -->
+    <section class="chapter" id="copia">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 14</span><h2>Copia de seguridad</h2></div>
+      <div class="split">
+        <div>
+          <p><b>Ajustes → Copia de seguridad</b> guarda tus fichas con todo su progreso y su diario en un archivo. En Android se guarda en <i>Documentos/DiEnDi</i> y se abre el menú Compartir para enviarlo a Drive o al correo.</p>
+          <p><b>Restaurar copia</b> permite añadir las fichas (las que ya tienes se actualizan) o reemplazarlo todo. Sirve para reinstalar sin perder nada o para pasar tus personajes a otro móvil o al PC.</p>
+        </div>
+        <figure><img class="shot" src="img/14-copia.jpg" alt="Apartado Copia de seguridad con Exportar todo, Solo Brakka y Restaurar copia" width="700" height="581" loading="lazy"></figure>
+      </div>
+    </section>
+
+    <!-- 15 -->
+    <section class="chapter" id="dudas">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 15</span><h2>Dudas frecuentes</h2></div>
+      <h3>Google Play Protect bloquea la instalación</h3>
+      <p>Es normal en un APK que no viene de la tienda. En el aviso pulsa «Más detalles» → «Instalar de todas formas».</p>
+      <h3>Un enemigo tiene la vida «?» y no sé si ha caído</h3>
+      <p>Toca su burbuja (en solitario) o su fila (el DM) y escribe sus PG máximos cuando los sepas; la app ya lleva la cuenta del daño recibido. Sin vida máxima no puede contar el golpe final para el kill count.</p>
+      <h3>Mi conjuro no aparece en las sugerencias</h3>
+      <p>La app tiene los conjuros más habituales del SRD 5.2. Escríbelo a mano y añade en notas lo que hace: al mantenerlo pulsado verás tus notas y sus límites.</p>
+      <h3>Los jugadores no pueden conectar</h3>
+      <p>Comprueba que la ventana del servidor sigue abierta, que estáis en la misma Wi-Fi (o que Tailscale Funnel está activo) y que la dirección incluye el puerto <code>:3000</code> en la red de casa.</p>
+    </section>
+  </main>
+</div>
+
+<a class="top" href="#empezar" aria-label="Volver al principio">▲ ARRIBA</a>
+
+<script>
+// Resalta en el índice el capítulo que se está leyendo
+(() => {
+  const links = [...document.querySelectorAll('.toc a')];
+  const byId = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
+  const targets = [...byId.keys()].map((id) => document.getElementById(id)).filter(Boolean);
+  if (!('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      links.forEach((a) => a.classList.remove('on'));
+      byId.get(e.target.id)?.classList.add('on');
+    }
+  }, { rootMargin: '-15% 0px -75% 0px' });
+  targets.forEach((t) => io.observe(t));
+})();
+</script>
