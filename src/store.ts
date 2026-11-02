@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Character, InitEntry, LogEntry, Note, NoteFolder } from './types';
 import { normalizeCharacter, sampleCharacter, uid } from './rules/factory';
+import { recoverAfterCombat } from './rules/consumables';
 import { SELF_ID, applyCommand, runQuickRoll, sortOrder, type ApplyResult, type Command } from './rules/engine';
 import { activeReminders } from './rules/calc';
 import { DEFAULT_MODEL } from './config';
@@ -65,6 +66,10 @@ interface State {
   removeEntry: (id: string) => void;
   sortByInitiative: () => void;
   /** Acción de un participante en su turno: ha pegado a alguien, ha curado o ha recibido daño (sin dados) */
+  /** Gasta (o devuelve) una unidad de munición o consumible */
+  useConsumable: (id: string, delta?: number) => void;
+  /** Al acabar un combate: recupera la mitad de la munición y recoge las armas arrojadizas */
+  recoverConsumables: () => void;
   /** Kill count: añadir a mano o quitar una baja */
   addKill: (name: string) => void;
   removeKill: (id: string) => void;
@@ -185,6 +190,7 @@ export const useStore = create<State>()(
       endCombat: () => {
         get().update((c) => { c.combat.active = false; c.combat.initiative = null; c.combat.turn = 0; });
         get().pushLog({ role: 'app', text: T('Fin del combate.', 'Combat over.') });
+        get().recoverConsumables();
       },
       endTurn: () => {
         const c = get().active();
@@ -276,6 +282,20 @@ export const useStore = create<State>()(
         if (killed) status += T(` · ☠️ +1 en tu kill count`, ` · ☠️ +1 to your kill count`);
         get().pushLog({ role: 'app', text, details: [status] });
         get().showToast(text, [status]);
+      },
+      useConsumable: (id, delta = 1) => get().update((c) => {
+        const x = c.consumables.find((y) => y.id === id);
+        if (!x) return;
+        if (delta > 0 && x.qty <= 0) return;
+        x.qty = Math.max(0, x.qty - delta);
+        x.used = Math.max(0, x.used + delta);
+      }),
+      recoverConsumables: () => {
+        const { char, lines } = recoverAfterCombat(get().active());
+        if (!lines.length) return;
+        get().replace(char);
+        get().pushLog({ role: 'app', text: T('Tras el combate', 'After combat'), details: lines });
+        get().showToast(T('🏹 Tras el combate', '🏹 After combat'), lines);
       },
       addKill: (name) => get().update((c) => { c.kills.push({ id: uid(), name: name.trim(), at: Date.now(), source: 'manual' }); }),
       removeKill: (id) => get().update((c) => { c.kills = c.kills.filter((k) => k.id !== id); }),

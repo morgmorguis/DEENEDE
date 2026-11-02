@@ -88,12 +88,12 @@ export function hpState(c: Pick<Combatant, 'hp' | 'hpMax'>): HpState {
 
 // ---------- Unirse ----------
 
-export function join(room: Room, name: string, token?: string, dmKey?: string): { room: Room; member: StoredMember } {
+export function join(room: Room, name: string, token?: string, dmKey?: string, viewer = false): { room: Room; member: StoredMember } {
   const r = clone(room);
   let m = token ? r.members.find((x) => x.token === token) : undefined;
-  const role: Role = dmKey && dmKey === r.dmKey ? 'dm' : m?.role ?? 'player';
+  const role: Role = dmKey && dmKey === r.dmKey ? 'dm' : viewer ? 'viewer' : m?.role === 'dm' ? 'player' : m?.role ?? 'player';
   if (!m) {
-    m = { id: rid(), token: rid(16), name: name.trim() || (role === 'dm' ? 'DM' : 'Jugador'), role, online: true };
+    m = { id: rid(), token: rid(16), name: name.trim() || (role === 'dm' ? 'DM' : role === 'viewer' ? 'Pantalla' : 'Jugador'), role, online: true };
     r.members.push(m);
   } else {
     m.online = true;
@@ -157,6 +157,9 @@ function newCombatant(p: Partial<Combatant>): Combatant {
     showHp: p.showHp ?? (p.kind !== 'monster'),
     notes: p.notes ?? '',
     monster: p.monster,
+    cr: p.cr,
+    conditions: p.conditions ?? [],
+    counters: p.counters ?? [],
   };
 }
 
@@ -184,6 +187,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
   const dm = me.role === 'dm';
   const e = r.encounter;
   const effects: Effect[] = [];
+  if (me.role === 'viewer') return { room, effects: [], error: 'not-allowed' };
   const deny = (): Result => ({ room, effects: [], error: 'not-allowed' });
   const ownsPc = (id: string) => e.order.some((c) => c.id === id && c.kind === 'pc' && c.ownerId === me.id);
   const running = e.active && phaseOf(e) === 'running';
@@ -264,8 +268,17 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
         const c = e.order[next];
         if (!(c.kind === 'monster' && c.hp === 0)) break;
       }
+      // Termina el turno del actual: bajan las duraciones de sus condiciones
+      if (cur) {
+        for (const cond of cur.conditions ?? []) if (cond.rounds != null) cond.rounds -= 1;
+        const gone = (cur.conditions ?? []).filter((x) => x.rounds != null && x.rounds <= 0);
+        cur.conditions = (cur.conditions ?? []).filter((x) => x.rounds == null || x.rounds > 0);
+        for (const g of gone) pushLog(r, { kind: 'other', actorId: cur.id, actor: cur.name, text: `⌛ ${g.name}` });
+      }
       e.turn = next;
       e.begun = true;
+      // Empieza el turno del siguiente: se reinician sus acciones legendarias
+      for (const ct of current(e).counters ?? []) if (ct.reset === 'turn') ct.used = 0;
       pushLog(r, { kind: 'turn', actorId: current(e).id, actor: current(e).name });
       r.acted = false;
       r.snapshots.push(snap(r));
@@ -331,6 +344,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
         const c = newCombatant({
           name: n > 1 ? `${entry.name} ${i}` : entry.name, kind: entry.kind, hpMax: entry.hpMax, hp: entry.hpMax, ac: entry.ac,
           initBonus: entry.initBonus, initiative: d20() + entry.initBonus, hidden: cmd.hidden, showHp: entry.kind === 'npc', notes: entry.notes, monster: entry.monster,
+          cr: entry.level.match(/(?:VD|CR)\s*([\d/]+)/i)?.[1],
         });
         e.order.push(c);
         pushLog(r, { kind: 'add', targetId: c.id, target: c.name });
@@ -424,7 +438,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
       const { notes: _notes, ...rest } = c;
       void _notes;
       const secret = c.kind !== 'pc' && !c.showHp;
-      return { ...rest, hp: secret ? null : c.hp, hpMax: secret ? null : c.hpMax, temp: secret ? 0 : c.temp, ac: c.kind === 'pc' ? c.ac : null, initBonus: undefined, monster: undefined, state };
+      return { ...rest, hp: secret ? null : c.hp, hpMax: secret ? null : c.hpMax, temp: secret ? 0 : c.temp, ac: c.kind === 'pc' ? c.ac : null, initBonus: undefined, monster: undefined, cr: undefined, counters: undefined, state };
     });
   const log = room.log
     .filter((ev) => dm || ((!ev.actorId || !hiddenIds.has(ev.actorId)) && (!ev.targetId || !hiddenIds.has(ev.targetId))))

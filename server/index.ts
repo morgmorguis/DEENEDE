@@ -98,7 +98,7 @@ wss.on('connection', (ws) => {
         send(ws, { t: 'error', message: 'bad-code' });
         return;
       }
-      const j = join(room, msg.name ?? '', msg.token, msg.dmKey);
+      const j = join(room, msg.name ?? '', msg.token, msg.dmKey, !!msg.viewer);
       room = j.room;
       clients.set(ws, j.member.id);
       send(ws, { t: 'welcome', id: j.member.id, token: j.member.token, role: j.member.role });

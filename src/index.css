@@ -847,3 +847,72 @@ body {
 .kill-chip { font-size: 13px; padding: 3px 8px; border-radius: 6px; background: var(--parch-btn); border: 1px solid var(--parch-btn-border); }
 .kill-list { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; max-height: 180px; overflow-y: auto; }
 .kill-list li { display: flex; align-items: center; gap: 8px; font-size: 14px; border-bottom: 1px dashed var(--parch-rule); padding-bottom: 3px; }
+
+/* ---------- Selectores de clase, subclase, especie y multiclase ---------- */
+.p-select select { appearance: none; -webkit-appearance: none; background: transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path d='M0 0h10L5 6z' fill='%235b554d'/></svg>") no-repeat right 4px center / 9px 6px; padding: 2px 18px 2px 0; color: var(--ink); font: inherit; font-weight: 600; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; min-height: 28px; cursor: pointer; }
+.p-select select option { color: #1e1b18; }
+.p-class, .p-species { display: grid; gap: 4px; min-width: 0; }
+.p-multi { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.p-multi-chip { font-size: 11px; font-weight: 700; color: var(--ink2); border: 1px solid var(--rule); border-radius: 4px; padding: 0 5px; }
+.mc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.mc-row input[type=number] { width: 64px; }
+.mc-row select { flex: 1; min-width: 120px; }
+.mc-warn { width: 100%; font-size: 12px; color: var(--red); }
+
+/* ---------- Texto predictivo ---------- */
+.suggest { position: relative; }
+.suggest-list { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; margin: 2px 0 0; padding: 4px; list-style: none; background: var(--card); border: 2px solid var(--gold); border-radius: 6px; box-shadow: 4px 4px 0 rgba(0, 0, 0, .45); max-height: 260px; overflow-y: auto; }
+.suggest-list button { all: unset; box-sizing: border-box; display: grid; gap: 2px; width: 100%; padding: 7px 9px; border-radius: 4px; cursor: pointer; color: var(--text); }
+.suggest-list button:hover, .suggest-list button.on { background: var(--card2); }
+.suggest-list small { color: var(--muted); }
+.suggest-list mark { background: color-mix(in srgb, var(--gold) 40%, transparent); color: inherit; border-radius: 2px; }
+
+/* ---------- Munición y consumibles ---------- */
+.cons-sheet { margin-top: 10px; display: grid; gap: 4px; }
+.cons-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.paper .cons-row { border-bottom-color: #d9d3c8; }
+.cons-row.empty { opacity: .55; }
+.cons-qty { width: 56px; text-align: center; }
+.cons-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cons-add input:first-child { flex: 1; min-width: 140px; }
+.cons-combat { display: grid; gap: 6px; }
+.cons-details summary { cursor: pointer; font-weight: 600; }
+
+/* ---------- Mejoras del DM: condiciones, contadores, dificultad, área ---------- */
+.cond-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); }
+.cond-chip.bad { border-color: var(--red); color: var(--red); }
+.cond-chip.conc { border-color: var(--blue); }
+.cond-chip.counter { border-style: dashed; color: var(--gold); }
+.po-extra { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+.counter-row { align-items: center; gap: 8px; padding: 4px 0; }
+.difficulty { display: grid; gap: 2px; margin-top: 10px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); border-left: 4px solid var(--hp-good); }
+.difficulty.moderate { border-left-color: var(--hp-mid); }
+.difficulty.high { border-left-color: var(--red); }
+.difficulty.deadly { border-left-color: #000; background: color-mix(in srgb, var(--red) 18%, transparent); }
+.area-tag { font-style: normal; font-size: 10px; font-weight: 800; padding: 0 5px; border-radius: 6px; background: var(--gold); color: var(--on-accent); }
+.area-tag.half { background: var(--blue); color: #fff; }
+.tv-link { margin-bottom: 10px; }
+.tv-link summary { cursor: pointer; font-weight: 600; }
+.tv-link code { font-size: 12px; overflow-wrap: anywhere; padding: 6px; background: var(--card2); border-radius: 4px; }
+
+/* ---------- Vista para la tele ---------- */
+.tv { min-height: 100vh; padding: 2vh 3vw; display: grid; gap: 2vh; align-content: start; }
+.tv-head { display: flex; align-items: center; gap: 2vw; flex-wrap: wrap; font-size: clamp(16px, 2.2vw, 30px); }
+.tv-head b { font-family: 'Press Start 2P', monospace; color: var(--gold); font-size: clamp(14px, 1.8vw, 26px); }
+.tv-head span:nth-child(2) { flex: 1; font-weight: 700; }
+.tv-order { list-style: none; margin: 0; padding: 0; display: grid; gap: 1vh; }
+.tv-order li { display: grid; grid-template-columns: 4em 1fr auto; align-items: center; gap: .3em 1em; padding: 1.2vh 1.5vw; font-size: clamp(16px, 2.4vw, 36px); background: var(--card); border: 2px solid var(--line); border-left: 8px solid var(--blue); border-radius: 6px; box-shadow: 4px 4px 0 rgba(0, 0, 0, .4); }
+.tv-order li.monster { border-left-color: var(--red); }
+.tv-order li.npc { border-left-color: var(--gold); }
+.tv-order li.active { border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold), 4px 4px 0 rgba(0, 0, 0, .4); }
+.tv-order li.down { opacity: .45; }
+.tv-init { font-family: 'Press Start 2P', monospace; color: var(--gold); text-align: center; }
+.tv-conds { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.tv-conds .cond-chip { font-size: clamp(11px, 1.2vw, 18px); }
+.tv .hp-state { font-size: clamp(12px, 1.6vw, 24px); }
+.tv-log { list-style: none; margin: 0; padding: 1vh 1.5vw; display: grid; gap: .6vh; font-size: clamp(13px, 1.6vw, 24px); background: rgba(0, 0, 0, .35); border-radius: 6px; }
+.tv-log li:first-child { color: var(--gold2); }
+.tv-hidden { font-style: italic; color: var(--muted); font-size: clamp(14px, 1.8vw, 26px); }
+.tv-party { display: grid; gap: 1vh; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.tv-wait { font-size: 24px; text-align: center; margin-top: 30vh; }
+.target-chip .area-tag { flex: none; white-space: nowrap; }

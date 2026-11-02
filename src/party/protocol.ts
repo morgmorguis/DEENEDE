@@ -1,6 +1,7 @@
 // Protocolo de la partida compartida (modo party): tipos que comparten la app y el servidor.
 
-export type Role = 'dm' | 'player';
+/** viewer: pantalla para la tele (solo mira, sin secretos) */
+export type Role = 'dm' | 'player' | 'viewer';
 export type CombatantKind = 'pc' | 'npc' | 'monster';
 
 /** Resumen de la ficha de un jugador que ve el resto de la party */
@@ -16,7 +17,17 @@ export interface PcSummary {
   speed: number;
   passive: number;
   conditions: string[];
+  /** Conjuro en el que se está concentrando */
+  concentration?: string | null;
+  /** A 0 PG: salvaciones contra la muerte */
+  deathSaves?: { success: number; fail: number } | null;
 }
+
+/** Condición o efecto con duración en rondas (null = hasta que se quite) */
+export interface TimedCondition { name: string; rounds: number | null }
+
+/** Contador del DM: acciones legendarias (se reinician en su turno), resistencias legendarias… */
+export interface Counter { id: string; label: string; max: number; used: number; reset: 'turn' | 'never' }
 
 export interface Member {
   id: string;
@@ -47,6 +58,10 @@ export interface Combatant {
   notes: string;
   /** Id del monstruo de la biblioteca */
   monster?: string;
+  /** Valor de desafío (para calcular la dificultad del encuentro) */
+  cr?: string;
+  conditions?: TimedCondition[];
+  counters?: Counter[];
 }
 
 /** setup: cada uno introduce sus datos y marca «Listo»; running: turnos en marcha */
@@ -150,7 +165,7 @@ export type Command =
   | { t: 'rosterToCombat'; id: string; count: number; hidden: boolean; rollHp?: boolean };
 
 export type ClientMessage =
-  | { t: 'hello'; code: string; name: string; token?: string; dmKey?: string }
+  | { t: 'hello'; code: string; name: string; token?: string; dmKey?: string; viewer?: boolean }
   | { t: 'cmd'; cmd: Command };
 
 /** Lo que el servidor pide aplicar en la ficha del jugador (daño con sus resistencias, curación o restaurar al deshacer) */

@@ -6,7 +6,10 @@ import { useParty } from '../party/client';
 import type { ActKind, CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
 import { MONSTERS, searchMonsters, type MonsterInfo } from '../party/monsters';
 import { rollExpr, fmt } from '../rules/calc';
-import { Modal, Section } from './common';
+import { Modal, Pips, Section } from './common';
+import { CONDITIONS } from '../rules/srd';
+import { encounterDifficulty } from '../party/difficulty';
+import { Consumables } from './Consumables';
 import { L, T, locale } from '../i18n';
 
 const STATE_LABEL: Record<HpState, [string, string, string]> = {
@@ -93,19 +96,30 @@ function ActModal({ view, actorId, kind, onClose }: { view: RoomView; actorId: s
   const [amount, setAmount] = useState('');
   const [roll, setRoll] = useState('');
   const [text, setText] = useState('');
+  // Daño en área: varios objetivos; cada uno puede recibir el daño entero o la mitad (salvación superada)
+  const [area, setArea] = useState(false);
+  const [multi, setMulti] = useState<Record<string, 'full' | 'half'>>({});
   const n = Math.floor(Number(amount));
   const needsTarget = kind === 'hit' || kind === 'heal';
-  const ok = kind === 'other' ? !!text.trim() : Number.isFinite(n) && n >= 0 && amount !== '' && (!needsTarget || !!target);
+  const ok = kind === 'other' ? !!text.trim() : Number.isFinite(n) && n >= 0 && amount !== '' && (!needsTarget || (area ? Object.keys(multi).length > 0 : !!target));
+  const cycle = (id: string) => setMulti((m) => {
+    const next = { ...m };
+    if (!m[id]) next[id] = 'full'; else if (m[id] === 'full' && kind === 'hit') next[id] = 'half'; else delete next[id];
+    return next;
+  });
   const title = kind === 'hit' ? T(`${actor.name} pega a…`, `${actor.name} hits…`) : kind === 'heal' ? T(`${actor.name} cura a…`, `${actor.name} heals…`) : kind === 'hurt' ? T(`${actor.name} recibe daño`, `${actor.name} takes damage`) : T(`¿Qué hace ${actor.name}?`, `What does ${actor.name} do?`);
   const chip = (c: CombatantView) => (
-    <button key={c.id} className={`target-chip ${c.kind === 'monster' ? 'enemy' : ''} ${target === c.id ? 'on' : ''}`} onClick={() => setTarget(c.id)}>
+    <button key={c.id} className={`target-chip ${c.kind === 'monster' ? 'enemy' : ''} ${(area ? !!multi[c.id] : target === c.id) ? 'on' : ''}`} onClick={() => (area ? cycle(c.id) : setTarget(c.id))}>
       {kindIcon(c)} {c.name} <small>{c.hp != null ? hpText(c) : <StateBadge state={c.state} />}</small>
+      {area && multi[c.id] && <i className={`area-tag ${multi[c.id]}`}>{multi[c.id] === 'half' ? T('½ salvó', '½ saved') : T('entero', 'full')}</i>}
     </button>
   );
   return (
     <Modal title={title} onClose={onClose}>
       {needsTarget && (
         <>
+          <label className="check"><input type="checkbox" checked={area} onChange={(e) => { setArea(e.target.checked); setMulti({}); }} /> 💥 {kind === 'heal' ? T('Varios objetivos', 'Several targets') : T('Varios objetivos (área: Bola de fuego, aliento…)', 'Several targets (area: Fireball, breath…)')}</label>
+          {area && kind === 'hit' && <p className="hint">{T('Toca un objetivo para añadirlo, otra vez para «mitad» (superó la salvación) y otra para quitarlo.', 'Tap a target to add it, again for “half” (made the save) and again to remove it.')}</p>}
           <div className="target-chips">{suggested.map(chip)}</div>
           {others.length > 0 && <details><summary className="small muted">{T('Otros', 'Others')}</summary><div className="target-chips">{others.map(chip)}</div></details>}
         </>
@@ -128,9 +142,14 @@ function ActModal({ view, actorId, kind, onClose }: { view: RoomView; actorId: s
         <label className="field">{T('Tirada (opcional)', 'Roll (optional)')}<input type="number" inputMode="numeric" value={roll} onChange={(e) => setRoll(e.target.value)} /></label>
       )}
       <button className="btn primary full" disabled={!ok} onClick={() => {
-        send({ t: 'act', actorId, kind, targetId: needsTarget ? target : undefined, amount: kind === 'other' ? undefined : n, roll: roll.trim() ? Number(roll) : null, text: kind === 'other' ? text.trim() : undefined });
+        const r = roll.trim() ? Number(roll) : null;
+        if (area && needsTarget) {
+          for (const [id, how] of Object.entries(multi)) send({ t: 'act', actorId, kind, targetId: id, amount: how === 'half' ? Math.floor(n / 2) : n, roll: r });
+        } else {
+          send({ t: 'act', actorId, kind, targetId: needsTarget ? target : undefined, amount: kind === 'other' ? undefined : n, roll: r, text: kind === 'other' ? text.trim() : undefined });
+        }
         onClose();
-      }}>{T('Anotar', 'Log it')}</button>
+      }}>{T('Anotar', 'Log it')}{area && Object.keys(multi).length > 1 ? ` (${Object.keys(multi).length})` : ''}</button>
     </Modal>
   );
 }
@@ -227,6 +246,7 @@ function MonsterPicker({ onClose }: { onClose: () => void }) {
         hidden,
         showHp: base.kind === 'npc',
         monster: base.monster,
+        cr: base.monster ? MONSTERS.find((x) => x.id === base.monster)?.cr : undefined,
       };
     });
     send({ t: 'add', combatants });
@@ -295,6 +315,13 @@ function DmCombatantModal({ c, onClose }: { c: CombatantView; onClose: () => voi
         <label className="field">{T('CA', 'AC')}<input type="number" value={f.ac} onChange={(e) => setF({ ...f, ac: e.target.value })} /></label>
         <label className="field">{T('Iniciativa', 'Initiative')}<input type="number" value={f.initiative} onChange={(e) => setF({ ...f, initiative: e.target.value })} /></label>
       </div>
+      <TimedConditions c={c} />
+      {c.kind !== 'pc' && <CountersEditor c={c} />}
+      {c.kind !== 'pc' && (
+        <label className="field">{T('Valor de desafío (VD)', 'Challenge Rating (CR)')}
+          <input value={c.cr ?? ''} placeholder="1/4, 2, 5…" onChange={(e) => send({ t: 'update', id: c.id, patch: { cr: e.target.value.trim() || undefined } })} />
+        </label>
+      )}
       {c.kind !== 'pc' && <label className="field">{T('Notas privadas del DM', 'Private DM notes')}<textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>}
       {c.kind === 'pc' && <p className="hint">{T('Si cambias la vida de un jugador, se actualiza también en su ficha.', 'If you change a player’s HP, their sheet is updated too.')}</p>}
       <div className="row">
@@ -302,6 +329,75 @@ function DmCombatantModal({ c, onClose }: { c: CombatantView; onClose: () => voi
         <button className="btn primary grow" onClick={save}>{T('Guardar', 'Save')}</button>
       </div>
     </Modal>
+  );
+}
+
+/** Condiciones con duración en rondas: bajan solas al terminar el turno de la criatura */
+function TimedConditions({ c }: { c: CombatantView }) {
+  const send = useParty((s) => s.send);
+  const [name, setName] = useState('');
+  const [rounds, setRounds] = useState('');
+  const list = c.conditions ?? [];
+  const setList = (conditions: NonNullable<CombatantView['conditions']>) => send({ t: 'update', id: c.id, patch: { conditions } });
+  return (
+    <div className="field">
+      <span>{T('Condiciones y efectos', 'Conditions & effects')}</span>
+      <div className="target-chips">
+        {list.map((x, i) => (
+          <span key={i} className="cond-chip">{x.name}{x.rounds != null ? ` · ${x.rounds}r` : ''} <button className="link" aria-label={T('Quitar', 'Remove')} onClick={() => setList(list.filter((_, j) => j !== i))}>✕</button></span>
+        ))}
+        {!list.length && <span className="muted small">{T('Ninguna', 'None')}</span>}
+      </div>
+      <div className="row wrap">
+        <input className="grow" list="dl-conds" value={name} placeholder={T('Derribado, Bendición…', 'Prone, Bless…')} onChange={(e) => setName(e.target.value)} />
+        <input style={{ width: 80 }} type="number" min={1} value={rounds} placeholder={T('rondas', 'rounds')} onChange={(e) => setRounds(e.target.value)} />
+        <button className="btn small" disabled={!name.trim()} onClick={() => { setList([...list, { name: name.trim(), rounds: rounds ? Math.max(1, Number(rounds)) : null }]); setName(''); setRounds(''); }}>＋</button>
+      </div>
+      <datalist id="dl-conds">{CONDITIONS.map((x) => <option key={x.id} value={L(x.name)} />)}</datalist>
+      <span className="hint">{T('Con rondas, la duración baja al terminar su turno y se quita sola. Las ven también los jugadores (si la criatura es visible).', 'With rounds, the duration goes down at the end of its turn and is removed automatically. Players see them too (if the creature is visible).')}</span>
+    </div>
+  );
+}
+
+/** Contadores del DM: acciones legendarias (vuelven al empezar su turno), resistencias legendarias… */
+function CountersEditor({ c }: { c: CombatantView }) {
+  const send = useParty((s) => s.send);
+  const list = c.counters ?? [];
+  const setList = (counters: NonNullable<CombatantView['counters']>) => send({ t: 'update', id: c.id, patch: { counters } });
+  const add = (label: string, max: number, reset: 'turn' | 'never') => setList([...list, { id: Math.random().toString(36).slice(2, 8), label, max, used: 0, reset }]);
+  return (
+    <div className="field">
+      <span>{T('Contadores (solo los ves tú)', 'Counters (only you see them)')}</span>
+      {list.map((ct) => (
+        <div key={ct.id} className="row counter-row">
+          <span className="grow">{ct.label} <span className="muted small">{ct.reset === 'turn' ? T('(vuelven en su turno)', '(refresh on its turn)') : ''}</span></span>
+          <Pips max={ct.max} used={ct.used} onChange={(u) => setList(list.map((x) => (x.id === ct.id ? { ...x, used: u } : x)))} />
+          <button className="link" aria-label={T('Quitar', 'Remove')} onClick={() => setList(list.filter((x) => x.id !== ct.id))}>✕</button>
+        </div>
+      ))}
+      <div className="row wrap">
+        <button className="btn small" onClick={() => add(T('Acciones legendarias', 'Legendary actions'), 3, 'turn')}>＋ {T('Acciones legendarias (3)', 'Legendary actions (3)')}</button>
+        <button className="btn small" onClick={() => add(T('Resistencias legendarias', 'Legendary resistances'), 3, 'never')}>＋ {T('Resistencias legendarias (3)', 'Legendary resistances (3)')}</button>
+        <button className="btn small" onClick={() => { const l = prompt(T('Nombre del contador', 'Counter name')); const m = Number(prompt(T('¿Cuántos usos?', 'How many uses?'), '1')); if (l?.trim() && m > 0) add(l.trim(), Math.min(10, m), 'never'); }}>＋ {T('Otro', 'Other')}</button>
+      </div>
+    </div>
+  );
+}
+
+/** Dificultad del encuentro según las reglas 2024 (solo el DM) */
+function DifficultyBar({ view }: { view: RoomView }) {
+  const pcs = view.members.filter((m) => m.role === 'player' && m.summary && view.encounter.order.some((c) => c.ownerId === m.id));
+  const monsters = view.encounter.order.filter((c) => c.kind === 'monster' && c.state !== 'down');
+  if (!pcs.length || !monsters.length) return null;
+  const crs = monsters.map((m) => m.cr ?? MONSTERS.find((x) => x.id === m.monster)?.cr);
+  const d = encounterDifficulty(pcs.map((m) => m.summary!.level), crs);
+  const label = { trivial: T('Trivial', 'Trivial'), low: T('Baja', 'Low'), moderate: T('Moderada', 'Moderate'), high: T('Alta', 'High'), deadly: T('¡Mortal!', 'Deadly!') }[d.level];
+  return (
+    <div className={`difficulty ${d.level}`}>
+      <b>⚖️ {T('Dificultad', 'Difficulty')}: {label}</b>
+      <span className="small">{d.xp} PX · {T('presupuesto', 'budget')} {T('baja', 'low')} {d.budget[0]} / {T('moderada', 'moderate')} {d.budget[1]} / {T('alta', 'high')} {d.budget[2]}</span>
+      {d.unknown > 0 && <span className="small muted">{T(`${d.unknown} criatura(s) sin VD: ponlo tocándolas.`, `${d.unknown} creature(s) without CR: set it by tapping them.`)}</span>}
+    </div>
   );
 }
 
@@ -408,11 +504,26 @@ function SharedCombat({ view }: { view: RoomView }) {
                       {c.kind !== 'pc' && <StateBadge state={c.state} />}
                       {dm && c.ac != null && <span className="muted small"> · {T('CA', 'AC')} {c.ac}</span>}
                     </span>
+                    {(() => {
+                      // Condiciones de la criatura, y de los jugadores las de su ficha, concentración y salvaciones de muerte
+                      const sum = c.kind === 'pc' ? view.members.find((m) => m.id === c.ownerId)?.summary : undefined;
+                      const conds = [...(c.conditions ?? []).map((x) => `${x.name}${x.rounds != null ? ` ${x.rounds}r` : ''}`), ...(sum?.conditions ?? [])];
+                      if (!conds.length && !sum?.concentration && !sum?.deathSaves && !(dm && c.counters?.length)) return null;
+                      return (
+                        <span className="po-extra">
+                          {sum?.deathSaves && <span className="cond-chip bad">💀 {sum.deathSaves.success}✓ {sum.deathSaves.fail}✗</span>}
+                          {sum?.concentration && <span className="cond-chip conc">🧠 {sum.concentration}</span>}
+                          {conds.map((x, i) => <span key={i} className="cond-chip">{x}</span>)}
+                          {dm && c.counters?.map((ct) => <span key={ct.id} className="cond-chip counter" title={ct.label}>{ct.label.split(' ')[0]} {ct.max - ct.used}/{ct.max}</span>)}
+                        </span>
+                      );
+                    })()}
                     {dm && c.notes && <span className="po-notes">📝 {c.notes}</span>}
                   </li>
                 );
               })}
             </ol>
+            {dm && <DifficultyBar view={view} />}
             {e.hiddenTurn && <p className="hint">{T('Está actuando algo que aún no veis…', 'Something you can’t see yet is acting…')}</p>}
             {dm && (
               <div className="row wrap mt">
@@ -429,6 +540,12 @@ function SharedCombat({ view }: { view: RoomView }) {
         <Section title={cur ? (myTurn ? T('⚔️ ¡Tu turno!', '⚔️ Your turn!') : T(`Turno de ${cur.name}`, `${cur.name}’s turn`)) : T('Turno', 'Turn')}>
           {myPc && !myTurn && <p className="small muted">{T('No es tu turno: anota aquí solo reacciones o daño que recibas.', 'Not your turn: only log reactions or damage you take here.')}</p>}
           {myPc && <ActionButtons view={view} actorId={myPc.id} />}
+          {myPc && (
+            <details className="mt cons-details">
+              <summary>🏹 {T('Munición y consumibles', 'Ammo & consumables')}</summary>
+              <Consumables mode="combat" />
+            </details>
+          )}
           {dm && actorForDm && (
             <>
               <p className="small muted">{T(`Anota lo que hace ${cur!.name}:`, `Log what ${cur!.name} does:`)}</p>
@@ -469,6 +586,7 @@ export function PartyTab() {
         <button className="btn small" onClick={() => { if (confirm(T('¿Salir de la partida?', 'Leave the game?'))) leave(); }}>{T('Salir', 'Leave')}</button>
       </div>
       {error && <p className="error">⚠️ {error}</p>}
+      {view && dm && <TvLink code={view.code} />}
       {view && (
         <>
           <Section title={T('Party', 'Party')}>
@@ -493,5 +611,70 @@ export function PartyTab() {
         </>
       )}
     </div>
+  );
+}
+
+/** Pantalla para la tele o un portátil en la mesa: orden de turnos, estados y lo último que ha pasado, sin secretos */
+export function TvView() {
+  const view = useParty((s) => s.view);
+  const status = useParty((s) => s.status);
+  const leave = useParty((s) => s.leave);
+  if (!view) return <div className="tv"><p className="tv-wait">🎲 {T('Conectando con la partida…', 'Connecting to the game…')}</p></div>;
+  const e = view.encounter;
+  const last = view.log.filter((ev) => !ev.undone && ev.kind !== 'turn').slice(-6).reverse();
+  return (
+    <div className="tv">
+      <header className="tv-head">
+        <b>🎲 Di en Di</b>
+        <span>{e.active ? (e.phase === 'setup' ? T('⚔️ Preparando el combate…', '⚔️ Getting ready…') : `${T('Ronda', 'Round')} ${e.round}`) : T('Fuera de combate', 'Out of combat')}</span>
+        <span className="muted small">{status === 'online' ? '🟢' : '🟡'} {view.code}</span>
+        <button className="btn small" onClick={leave}>✕</button>
+      </header>
+      {e.active ? (
+        <ol className="tv-order">
+          {e.order.map((c) => {
+            const sum = c.kind === 'pc' ? view.members.find((m) => m.id === c.ownerId)?.summary : undefined;
+            return (
+              <li key={c.id} className={`${c.kind} ${c.id === e.currentId ? 'active' : ''} ${c.state === 'down' ? 'down' : ''}`}>
+                <span className="tv-init">{c.initiative ?? '–'}</span>
+                <span className="tv-name">{kindIcon(c)} {c.name}</span>
+                <span className="tv-hp">{c.hp != null ? `❤️ ${hpText(c)}` : <StateBadge state={c.state} />}</span>
+                <span className="tv-conds">
+                  {sum?.concentration && <span className="cond-chip conc">🧠 {sum.concentration}</span>}
+                  {[...(c.conditions ?? []).map((x) => x.name), ...(sum?.conditions ?? [])].map((x, i) => <span key={i} className="cond-chip">{x}</span>)}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <div className="tv-party">
+          {view.members.filter((m) => m.role === 'player' && m.summary).map((m) => (
+            <div key={m.id} className="member"><b>{m.summary!.name}</b><span>{m.summary!.className} {m.summary!.level} · ❤️ {m.summary!.hp}/{m.summary!.hpMax} · {T('CA', 'AC')} {m.summary!.ac}</span></div>
+          ))}
+        </div>
+      )}
+      {e.hiddenTurn && <p className="tv-hidden">{T('Algo acecha en las sombras…', 'Something lurks in the shadows…')}</p>}
+      <ul className="tv-log">{last.map((ev) => <li key={ev.id}>{logLine(ev, false)}</li>)}</ul>
+    </div>
+  );
+}
+
+/** Enlace para abrir la vista de la tele en cualquier navegador de la red */
+function TvLink({ code }: { code: string }) {
+  const conn = useParty((s) => s.conn);
+  const base = (() => {
+    const u = conn?.url?.trim() ?? '';
+    if (/^https?:\/\//i.test(u)) return u.replace(/\/+$/, '');
+    if (u) return `${/\.ts\.net/i.test(u) ? 'https' : 'http'}://${u.replace(/\/+$/, '')}`;
+    return window.location.origin;
+  })();
+  const url = `${base}/?view=${code}`;
+  return (
+    <details className="tv-link">
+      <summary>📺 {T('Vista para la tele / pantalla de la mesa', 'TV / table screen view')}</summary>
+      <p className="small">{T('Ábrelo en el navegador de una tele, portátil o tablet: muestra el orden de turnos, los estados y lo último que ha pasado, sin nada oculto.', 'Open it in the browser of a TV, laptop or tablet: it shows the turn order, states and latest events, with nothing hidden revealed.')}</p>
+      <div className="row"><code className="grow">{url}</code><button className="btn small" onClick={() => void navigator.clipboard?.writeText(url)}>{T('Copiar', 'Copy')}</button></div>
+    </details>
   );
 }

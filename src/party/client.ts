@@ -16,6 +16,8 @@ export interface PartyConn {
   dmKey?: string;
   /** Ficha que se comparte (la activa al unirse) */
   characterId?: string;
+  /** Pantalla para la tele: solo mira */
+  viewer?: boolean;
 }
 
 type Status = 'off' | 'connecting' | 'online' | 'retrying';
@@ -76,7 +78,9 @@ export function summaryOf(c: Character): PcSummary {
     ac: armorClass(c).value,
     speed: speed(c).value,
     passive: passivePerception(c),
-    conditions: c.conditions.map(conditionName),
+    conditions: [...c.conditions.map(conditionName), ...c.effects.map((e) => e.name)],
+    concentration: c.concentratingOn,
+    deathSaves: c.hp.current === 0 && !c.dead ? c.deathSaves : null,
   };
 }
 
@@ -155,7 +159,7 @@ export const useParty = create<PartyState>((set, get) => {
     ws = sock;
     sock.onopen = () => {
       attempts = 0;
-      out({ t: 'hello', code: conn.code, name: conn.name, token: conn.token, dmKey: conn.dmKey });
+      out({ t: 'hello', code: conn.code, name: conn.name, token: conn.token, dmKey: conn.dmKey, viewer: conn.viewer });
     };
     sock.onmessage = (ev) => {
       let msg: ServerMessage;
@@ -229,11 +233,12 @@ export function resumeParty() {
   const st = useParty.getState();
   const params = new URLSearchParams(window.location.search);
   const dm = params.get('dm');
-  const joinCode = params.get('join');
+  const viewCode = params.get('view');
+  const joinCode = params.get('join') ?? viewCode;
   if (dm || joinCode) {
     const prev = st.conn;
     const same = prev && (dm ? prev.dmKey === dm : prev.code === joinCode);
-    st.connect({ url: window.location.origin, code: joinCode ?? '', name: dm ? 'DM' : prev?.name ?? useStore.getState().active().name, dmKey: dm ?? undefined, token: same ? prev?.token : undefined });
+    st.connect({ url: window.location.origin, code: joinCode ?? '', name: dm ? 'DM' : viewCode ? 'Pantalla' : prev?.name ?? useStore.getState().active().name, dmKey: dm ?? undefined, viewer: !!viewCode, token: same && !!prev?.viewer === !!viewCode ? prev?.token : undefined });
     window.history.replaceState(null, '', window.location.pathname);
     return;
   }

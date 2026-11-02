@@ -7,12 +7,15 @@ import { abilityMods, armorClass, fmt as fmtSigned, mod, passivePerception, prof
 import { uid } from './factory';
 import { BOONS, FEATS, FIGHTING_STYLES, GAIN_SPELLS, INVOCATIONS, METAMAGIC, SUBCLASSES, levelEntry, rechargeOf, spellCounts, type Option } from './progression';
 import { SPELLS, findSpell } from './spells';
+import { classLevelOf, classLevels, hitDiceText, spellSlotsFor } from './multiclass';
 
 export type AsiChoice =
   | { mode: 'asi'; plus: Partial<Record<Ability, number>> }
   | { mode: 'feat'; featId: string; ability: Ability | null };
 
 export interface LevelUpChoices {
+  /** Clase en la que se sube (multiclase); por defecto la principal. Puede ser una clase nueva. */
+  classId?: string;
   /** PG ganados con el dado (o la media), ya con el modificador de CON actual */
   hpGain: number;
   subclass?: string;
@@ -68,10 +71,20 @@ const pick = (list: Option[], id?: string) => (id ? list.find((x) => x.id === id
 const raise = (c: Character, a: Ability, n: number, cap: number) => { c.abilities[a] = Math.min(cap, c.abilities[a] + n); };
 
 export function applyLevelUp(c: Character, ch: LevelUpChoices): Character {
-  const cls = classById(c.classId);
+  const targetId = ch.classId || c.classId;
+  const cls = classById(targetId);
   const next = structuredClone(c);
-  const level = Math.min(20, c.level + 1);
-  next.level = level;
+  next.multiclass ??= [];
+  const total = Math.min(20, c.level + 1);
+  next.level = total;
+  // Nivel en la clase que sube (en una clase nueva de multiclase, 1)
+  const level = cls ? classLevelOf(c, cls.id) + 1 : total;
+  const primary = !c.classId || !cls || cls.id === c.classId;
+  if (cls && !c.classId) next.classId = cls.id;
+  if (cls && !primary) {
+    const m = next.multiclass.find((x) => x.classId === cls.id);
+    if (m) m.level += 1; else next.multiclass.push({ classId: cls.id, level: 1, subclass: '' });
+  }
   const oldCon = mod(c.abilities.con);
 
   // Características (antes de calcular PG y recursos)
@@ -88,16 +101,16 @@ export function applyLevelUp(c: Character, ch: LevelUpChoices): Character {
 
   // PG: el dado de este nivel + lo que suba la CON en todos los niveles
   const conDelta = mod(next.abilities.con) - oldCon;
-  const hpUp = Math.max(1, ch.hpGain) + conDelta * level + (boon?.id === 'fortitude' ? 40 : 0);
+  const hpUp = Math.max(1, ch.hpGain) + conDelta * total + (boon?.id === 'fortitude' ? 40 : 0);
   next.hp.max = Math.max(1, c.hp.max + hpUp);
   next.hp.current = Math.max(0, Math.min(next.hp.max, c.hp.current + hpUp));
 
   if (cls) {
-    // Espacios de conjuro y recursos de clase
-    const slots = slotsFor(cls.caster, level);
-    if (cls.caster === 'pact') next.pactSlots = { ...pactSlotsFor(level), used: Math.min(c.pactSlots?.used ?? 0, pactSlotsFor(level).max) };
-    else if (cls.caster !== 'none') next.slots = slots.map((n, i) => ({ max: n, used: Math.min(n, c.slots[i]?.used ?? 0) }));
-    const defs = cls.resources(level, abilityMods(next));
+    // Espacios de conjuro (también multiclase) y recursos de todas las clases
+    const { slots, pact } = spellSlotsFor(next);
+    if (pact) next.pactSlots = { ...pact, used: Math.min(c.pactSlots?.used ?? 0, pact.max) };
+    if (slots.length) next.slots = slots.map((n, i) => ({ max: n, used: Math.min(n, c.slots[i]?.used ?? 0) }));
+    const defs = classLevels(next).flatMap((e) => e.cls.resources(e.level, abilityMods(next)));
     next.resources = [
       ...defs.map((r) => {
         const prev = c.resources.find((x) => x.key === r.key);
@@ -112,12 +125,17 @@ export function applyLevelUp(c: Character, ch: LevelUpChoices): Character {
       if (ex) ex.text = L(f.text);
     }
 
+    // Primer nivel en una clase nueva: sus rasgos de nivel 1
+    if (!primary && level === 1) for (const f of cls.features(1)) addFeature(next, L(f.name), L(f.text), rechargeOf(f.name.en));
+
     // Subclase
     const sub = pick(SUBCLASSES[cls.id] ?? [], ch.subclass);
     if (sub) {
-      next.subclass = L(sub.name);
+      if (primary) next.subclass = L(sub.name);
+      else next.multiclass.find((x) => x.classId === cls.id)!.subclass = L(sub.name);
       addFeature(next, L(sub.name), L(sub.text));
     }
+    const subName = primary ? next.subclass : next.multiclass.find((x) => x.classId === cls.id)?.subclass;
 
     // Rasgos nuevos del nivel
     const entry = levelEntry(cls.id, level);
@@ -125,7 +143,7 @@ export function applyLevelUp(c: Character, ch: LevelUpChoices): Character {
       // Lo genérico que se concreta con una elección (subclase, mejora, don, estilo) se añade ya elegido
       if (['Subclass', 'Ability Score Improvement', 'Epic Boon', 'Fighting Style'].includes(gain.name.en)) continue;
       if (gain.subclass) {
-        const name = next.subclass ? `${next.subclass} (${T('nivel', 'level')} ${level})` : `${L(gain.name)} (${T('nivel', 'level')} ${level})`;
+        const name = subName ? `${subName} (${T('nivel', 'level')} ${level})` : `${L(gain.name)} (${T('nivel', 'level')} ${level})`;
         addFeature(next, name, L(gain.text));
       } else addFeature(next, L(gain.name), L(gain.text), rechargeOf(gain.name.en));
       for (const en of GAIN_SPELLS[gain.name.en] ?? []) addDbSpell(next, en, true);
@@ -171,7 +189,7 @@ export function levelUpDiff(before: Character, after: Character): LevelUpDiff {
   const add = (label: string, a: string | number, b: string | number) => { if (String(a) !== String(b)) stats.push({ label, from: String(a), to: String(b) }); };
   add(T('Nivel', 'Level'), before.level, after.level);
   add(T('PG máximos', 'Max HP'), before.hp.max, after.hp.max);
-  add(T('Dados de golpe', 'Hit Dice'), `${before.level}d${before.hitDie}`, `${after.level}d${after.hitDie}`);
+  add(T('Dados de golpe', 'Hit Dice'), hitDiceText(before), hitDiceText(after));
   add(T('Bonificador por competencia', 'Proficiency Bonus'), fmtSigned(profBonusOf(before.level)), fmtSigned(profBonusOf(after.level)));
   for (const a of ABILITY_IDS) {
     if (before.abilities[a] !== after.abilities[a]) add(abilityShort(a), `${before.abilities[a]} (${fmtSigned(mod(before.abilities[a]))})`, `${after.abilities[a]} (${fmtSigned(mod(after.abilities[a]))})`);

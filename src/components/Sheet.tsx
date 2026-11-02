@@ -6,7 +6,7 @@ import {
 } from '../rules/calc';
 import {
   ABILITIES, CLASSES, CONDITIONS, DAMAGE_TYPES, EFFECT_PRESETS, MASTERIES, SIZES, SKILLS, SPECIES, abilityName, abilityShort,
-  classById, damageTypeName, effectName, effectNotes, findMastery, resourceName,
+  damageTypeName, effectName, effectNotes, findMastery, resourceName,
 } from '../rules/srd';
 import { uid } from '../rules/factory';
 import type { Ability, Attack, Character, ConditionId, DamageType, ProfLevel, Spell } from '../types';
@@ -19,6 +19,11 @@ import { imageFileToBase64 } from '../importer';
 import { ExplainModal, longPress } from './InfoBubble';
 import { FlagsPanel } from './Flags';
 import { LevelUpPage } from './LevelUp';
+import { ClassField, SpeciesField, SubclassField } from './Identity';
+import { SuggestInput } from './Suggest';
+import { Consumables } from './Consumables';
+import { hitDiceText } from '../rules/multiclass';
+import { featureSuggestions, spellSuggestions } from '../rules/suggest';
 import { useFx } from './Transition';
 import { findSpell, spellComponents } from '../rules/spells';
 import { RECHARGE_LABEL, rechargeOf } from '../rules/progression';
@@ -86,7 +91,6 @@ export function SheetTab() {
   const ac = armorClass(c);
   const spd = speed(c);
   const reminders = activeReminders(c);
-  const cls = classById(c.classId || c.className);
 
   // Tocar una estadística: tira el dado solo si el usuario lo ha activado en Ajustes
   const tapStat = (ability: Ability, opts: { skill?: string; save?: boolean } = {}) => {
@@ -101,10 +105,6 @@ export function SheetTab() {
   const cycleSkill = (id: string) => set((x) => { x.skillProf[id] = (((x.skillProf[id] ?? 0) + 1) % 3) as ProfLevel; });
   const toggleSave = (a: Ability) => set((x) => { x.saveProf = x.saveProf.includes(a) ? x.saveProf.filter((y) => y !== a) : [...x.saveProf, a]; });
 
-  const setClass = (v: string) => set((x) => {
-    x.className = v;
-    x.classId = classById(v)?.id ?? '';
-  });
 
   const uploadPortrait = async () => {
     const [file] = await pickFiles('image/*', false);
@@ -180,9 +180,9 @@ export function SheetTab() {
             </div>
             <div className="p-grid2">
               <Field label={T('Trasfondo', 'Background')} value={c.background} onChange={(v) => set((x) => { x.background = v; })} />
-              <Field label={T('Clase', 'Class')} value={cls && (!c.className || c.className === cls.name.es || c.className === cls.name.en) ? L(cls.name) : c.className} list="dl-classes" onChange={setClass} />
-              <Field label={T('Especie', 'Species')} value={c.species} list="dl-species" onChange={(v) => set((x) => { x.species = v; })} />
-              <Field label={T('Subclase', 'Subclass')} value={c.subclass} onChange={(v) => set((x) => { x.subclass = v; })} />
+              <ClassField />
+              <SpeciesField />
+              <SubclassField />
             </div>
           </Box>
 
@@ -225,7 +225,7 @@ export function SheetTab() {
                 <NumberInput value={c.hitDiceSpent} min={0} max={c.level} onChange={(n) => set((x) => { x.hitDiceSpent = Math.max(0, Math.min(x.level, n)); })} />
                 <span>{T('Gastados', 'Spent')}</span>
               </label>
-              <div className="p-hd-max">{c.level}d{c.hitDie}<span>{T('Máx.', 'Max')}</span></div>
+              <div className="p-hd-max">{hitDiceText(c)}<span>{T('Máx.', 'Max')}</span></div>
             </Box>
 
             <Box title={T('T. S. contra muerte', 'Death Saves')} className="p-death">
@@ -467,6 +467,7 @@ export function SheetTab() {
             <Box title={T('Idiomas', 'Languages')}><Area rows={2} value={c.languages} onChange={(v) => set((x) => { x.languages = v; })} /></Box>
             <Box title={T('Equipo', 'Equipment')}>
               <Area rows={6} value={c.inventory} onChange={(v) => set((x) => { x.inventory = v; })} />
+              <Consumables mode="sheet" />
               <span className="p-mini">{T('Sintonización con objetos mágicos', 'Magic Item Attunement')}</span>
               {[0, 1, 2].map((i) => (
                 <div key={i} className="p-attune">
@@ -629,9 +630,15 @@ function FeatureModal({ id, onClose }: { id: string; onClose: () => void }) {
   const f = c.features.find((x) => x.id === id);
   if (!f) return null;
   const set = (fn: (x: Character['features'][number]) => void) => update((ch) => { fn(ch.features.find((y) => y.id === id)!); });
+  const featSugs = featureSuggestions({ ...c, features: c.features.filter((x) => x.id !== id) }, f.name);
   return (
     <Modal title={f.name || T('Nuevo rasgo', 'New feature')} onClose={onClose}>
-      <label className="field">{T('Nombre', 'Name')}<input value={f.name} autoFocus={!f.name} onChange={(e) => set((x) => { x.name = e.target.value; })} /></label>
+      <label className="field">{T('Nombre', 'Name')}
+        <SuggestInput value={f.name} autoFocus={!f.name} onChange={(v) => set((x) => { x.name = v; })}
+          items={featSugs.map((x) => ({ key: x.name, label: x.name, sub: `${x.why}${x.recharge ? ` · ${L(RECHARGE_LABEL[x.recharge])}` : ''} — ${x.text.slice(0, 90)}${x.text.length > 90 ? '…' : ''}` }))}
+          onPick={(k) => { const sg = featSugs.find((x) => x.name === k); if (sg) set((x) => { x.name = sg.name; x.text = sg.text; if (sg.recharge) x.recharge = sg.recharge; }); }} />
+      </label>
+      {!f.text && f.name.length >= 2 && featSugs.length === 0 && <p className="hint">{T('Ningún rasgo de tu clase, subclase, especie o dotes coincide; puedes escribirlo a mano.', 'No feature from your class, subclass, species or feats matches; you can type it by hand.')}</p>}
       <label className="field">{T('Qué hace', 'What it does')}<textarea className="tall" value={f.text} onChange={(e) => set((x) => { x.text = e.target.value; })} /></label>
       <label className="field">{T('Se recupera con', 'Recovers on')}
         <select value={f.recharge ?? ''} onChange={(e) => set((x) => { x.recharge = (e.target.value || undefined) as Recharge | undefined; })}>
@@ -653,9 +660,15 @@ function SpellModal({ id, onClose }: { id: string; onClose: () => void }) {
   const sp = c.spells.find((x) => x.id === id);
   if (!sp) return null;
   const set = (fn: (x: Spell) => void) => update((ch) => { fn(ch.spells.find((y) => y.id === id)!); });
+  const spellSugs = findSpell(sp.name) ? [] : spellSuggestions({ ...c, spells: c.spells.filter((x) => x.id !== id) }, sp.name);
   return (
     <Modal title={sp.name || T('Nuevo conjuro', 'New spell')} onClose={onClose}>
-      <label className="field">{T('Nombre', 'Name')}<input value={sp.name} autoFocus={!sp.name} onChange={(e) => set((x) => { x.name = e.target.value; })} /></label>
+      <label className="field">{T('Nombre', 'Name')}
+        <SuggestInput value={sp.name} autoFocus={!sp.name} onChange={(v) => set((x) => { x.name = v; })}
+          items={spellSugs.map((x) => ({ key: x.spell.name.en, label: L(x.spell.name), sub: `${x.spell.level ? T(`Nivel ${x.spell.level}`, `Level ${x.spell.level}`) : T('Truco', 'Cantrip')} · ${x.why} · ${x.spell.components}${x.spell.concentration ? ' · C' : ''} — ${L(x.spell.text).slice(0, 80)}…` }))}
+          onPick={(k) => { const info = spellSugs.find((x) => x.spell.name.en === k)?.spell; if (info) set((x) => { x.name = L(info.name); x.level = info.level; x.castingTime = L(info.time); x.range = L(info.range); x.concentration = info.concentration; x.ritual = info.ritual; x.components = info.components; x.material = info.components.includes('M'); }); }} />
+      </label>
+      {sp.name.length >= 2 && !findSpell(sp.name) && spellSugs.length === 0 && <p className="hint">{T('Ningún conjuro de tus clases y nivel coincide en la base de la app; puedes escribirlo a mano.', 'No spell from your classes and level matches in the app’s database; you can type it by hand.')}</p>}
       <div className="grid3">
         <label className="field">{T('Nivel (0 = truco)', 'Level (0 = cantrip)')}<NumberInput value={sp.level} min={0} max={9} onChange={(n) => set((x) => { x.level = Math.max(0, Math.min(9, n)); })} /></label>
         <label className="field">{T('Tiempo', 'Casting time')}<input value={sp.castingTime} onChange={(e) => set((x) => { x.castingTime = e.target.value; })} /></label>

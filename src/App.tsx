@@ -11,7 +11,7 @@ import { Toast } from './components/common';
 import { armorClass } from './rules/calc';
 import { classById } from './rules/srd';
 import { InfoBubble } from './components/InfoBubble';
-import { PartyTab } from './components/Party';
+import { PartyTab, TvView } from './components/Party';
 import { DmRosterTab } from './components/DmRoster';
 import { TransitionFx, useFx } from './components/Transition';
 import { resumeParty, useParty } from './party/client';
@@ -27,7 +27,7 @@ export default function App() {
   // El idioma vive en un módulo: lo fijamos antes de pintar los hijos
   setLang(lang);
   // Al abrir un enlace de la partida (?join= / ?dm=) se va directo a «Partida»
-  const [tab, setTab] = useState<Tab>(() => (/[?&](join|dm)=/.test(window.location.search) ? 'party' : 'sheet'));
+  const [tab, setTab] = useState<Tab>(() => (/[?&](join|dm|view)=/.test(window.location.search) ? 'party' : 'sheet'));
   useEffect(() => { resumeParty(); }, []);
   const partyOnline = useParty((s) => s.status === 'online');
   const sharedCombat = useParty((s) => !!s.view?.encounter.active);
@@ -35,6 +35,7 @@ export default function App() {
   const partyCode = useParty((s) => s.view?.code);
   // Conectado como DM: sin ficha de personaje, con Partida y Personajes
   const dmMode = useParty((s) => s.role === 'dm' && !!s.conn);
+  const viewerMode = useParty((s) => !!s.conn?.viewer);
   const play = useFx((s) => s.play);
 
   // Transición «¡COMBATE!» cuando el DM empieza un combate compartido y «¡A LUCHAR!» cuando todos están listos
@@ -46,10 +47,13 @@ export default function App() {
     if (sharedCombat && !before.active) {
       play('combat', undefined, T('Introduce tus datos y pulsa «Listo»', 'Enter your data and tap “Ready”'));
       setTab('party');
+    } else if (!sharedCombat && before.active && !dmMode) {
+      // Fin del combate compartido: recuperar munición y recoger armas arrojadizas
+      useStore.getState().recoverConsumables();
     } else if (sharedCombat && before.phase === 'setup' && sharedPhase === 'running') {
       play('combat', T('¡A LUCHAR!', 'FIGHT!'));
     }
-  }, [sharedCombat, sharedPhase, play]);
+  }, [sharedCombat, sharedPhase, play, dmMode]);
   useEffect(() => {
     if (dmMode && (tab === 'sheet' || tab === 'combat' || tab === 'assistant')) setTab('party');
   }, [dmMode, tab]);
@@ -77,6 +81,8 @@ export default function App() {
     { id: 'rules', icon: '📚', label: T('Reglas', 'Rules') },
     { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
   ];
+
+  if (viewerMode) return <div className="app" key={lang}><TvView /><TransitionFx /></div>;
 
   return (
     <div className={`app ${inCombat ? 'in-combat' : ''}`} key={lang}>

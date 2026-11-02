@@ -161,4 +161,38 @@ describe('partida compartida', () => {
     expect(vex.every((c) => c.hidden && c.hpMax === 52 && c.initiative! >= 4 && c.initiative! <= 23)).toBe(true);
     expect(JSON.stringify(viewFor(s.room, s.p1))).not.toContain('Vex');
   });
+
+  it('pantalla de tele: ve sin secretos y no puede hacer nada', () => {
+    const s = setup();
+    const tv = join(s.room, 'Tele', undefined, undefined, true);
+    let room = tv.room;
+    expect(tv.member.role).toBe('viewer');
+    let r = apply(room, s.dm, { t: 'start' }); room = r.room;
+    r = apply(room, s.dm, { t: 'add', combatants: [{ name: 'Lich', kind: 'monster', hpMax: 100, hidden: true, counters: [{ id: 'l', label: 'Acciones legendarias', max: 3, used: 0, reset: 'turn' }] }, { name: 'Ogro', kind: 'monster', hpMax: 59, cr: '2' }] });
+    room = r.room;
+    const v = viewFor(room, tv.member.id)!;
+    expect(JSON.stringify(v)).not.toContain('Lich');
+    expect(v.encounter.order.find((c) => c.name === 'Ogro')!.cr).toBeUndefined();
+    expect(apply(room, tv.member.id, { t: 'nextTurn' }).error).toBe('not-allowed');
+    expect(v.encounter.needed).not.toContain(tv.member.id);
+  });
+
+  it('las condiciones con rondas bajan al acabar el turno y las acciones legendarias vuelven en su turno', () => {
+    const s = setup();
+    s.run(s.dm, { t: 'start' });
+    s.run(s.dm, { t: 'add', combatants: [{ name: 'Dragón', kind: 'monster', hpMax: 200, initiative: 30, conditions: [{ name: 'Derribado', rounds: 1 }, { name: 'Maldito', rounds: null }], counters: [{ id: 'l', label: 'Acciones legendarias', max: 3, used: 0, reset: 'turn' }] }] });
+    const ids = Object.fromEntries(s.room.encounter.order.map((c) => [c.name, c.id]));
+    s.run(s.dm, { t: 'setInitiative', id: ids.Thalia, value: 10 });
+    s.run(s.dm, { t: 'setInitiative', id: ids.Brakka, value: 5 });
+    s.run(s.dm, { t: 'begin' });
+    expect(s.room.encounter.order[0].name).toBe('Dragón');
+    // Gasta 2 acciones legendarias en los turnos de los demás
+    s.run(s.dm, { t: 'nextTurn' });
+    const drag = () => s.room.encounter.order.find((c) => c.id === ids['Dragón'])!;
+    expect(drag().conditions!.map((c) => c.name)).toEqual(['Maldito']);
+    s.run(s.dm, { t: 'update', id: ids['Dragón'], patch: { counters: [{ ...drag().counters![0], used: 2 }] } });
+    s.run(s.dm, { t: 'nextTurn' });
+    s.run(s.dm, { t: 'nextTurn' });
+    expect(drag().counters![0].used).toBe(0);
+  });
 });

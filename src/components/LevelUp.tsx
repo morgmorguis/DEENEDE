@@ -4,10 +4,11 @@ import { useMemo, useState } from 'react';
 import { useChar, useStore } from '../store';
 import type { Ability } from '../types';
 import { L, T } from '../i18n';
-import { ABILITIES, CLASSES, RESOURCE_NAMES, SKILLS, abilityShort, slotsFor, pactSlotsFor } from '../rules/srd';
+import { ABILITIES, CLASSES, SKILLS, abilityShort } from '../rules/srd';
 import { fmt, mod, profBonus, rollExpr } from '../rules/calc';
 import { BOONS, FEATS, FIGHTING_STYLES, INVOCATIONS, METAMAGIC, RECHARGE_LABEL, SUBCLASSES, levelEntry, inClassList, type Option } from '../rules/progression';
 import { applyLevelUp, averageHitDie, levelUpDiff, newSpellAllowance, type LevelUpChoices } from '../rules/levelup';
+import { classLevelOf, classLevels, meetsReq, reqText, spellSlotsFor } from '../rules/multiclass';
 import { SPELLS, findSpell } from '../rules/spells';
 import { useFx } from './Transition';
 
@@ -48,10 +49,54 @@ function Card({ title, done, children }: { title: string; done?: boolean; childr
 
 export function LevelUpPage({ onClose }: { onClose: () => void }) {
   const c = useChar();
+  const [target, setTarget] = useState(c.classId);
+  // Al cambiar de clase se reinician las elecciones
+  return <LevelUpBody key={target} onClose={onClose} target={target} setTarget={setTarget} />;
+}
+
+function ClassPicker({ target, setTarget }: { target: string; setTarget: (id: string) => void }) {
+  const c = useChar();
+  const mine = classLevels(c);
+  const others = CLASSES.filter((x) => !mine.some((e) => e.cls.id === x.id));
+  const isNew = !!target && !mine.some((e) => e.cls.id === target);
+  const okNew = isNew ? meetsReq(c, target) && mine.every((e) => meetsReq(c, e.cls.id)) : true;
+  return (
+    <Card title={T('¿En qué clase subes?', 'Which class do you level up?')}>
+      <div className="lu-options">
+        {mine.map((e) => (
+          <button key={e.cls.id} className={`lu-option ${target === e.cls.id ? 'on' : ''}`} onClick={() => setTarget(e.cls.id)}>
+            <b>{target === e.cls.id ? '✓ ' : ''}{L(e.cls.name)} {e.level} → {e.level + 1}</b>
+            <span>{e.subclass || (e.primary ? T('Clase principal', 'Main class') : T('Multiclase', 'Multiclass'))}</span>
+          </button>
+        ))}
+      </div>
+      {mine.length > 0 && (
+        <label className="field mt">{T('…o empieza una clase nueva (multiclase)', '…or start a new class (multiclass)')}
+          <select value={isNew ? target : ''} onChange={(e) => setTarget(e.target.value || c.classId)}>
+            <option value="">—</option>
+            {others.map((x) => <option key={x.id} value={x.id}>{L(x.name)} ({reqText(x.id)})</option>)}
+          </select>
+        </label>
+      )}
+      {isNew && (
+        <p className={okNew ? 'hint' : 'error'}>
+          {okNew
+            ? T('Cumples los requisitos de multiclase (13 en la característica principal de tus clases y de la nueva). Con una clase nueva solo ganas algunas de sus competencias iniciales.', 'You meet the multiclass requirements (13 in the main ability of your classes and the new one). A new class only grants some of its starting proficiencies.')
+            : T(`Las reglas piden 13 en la característica principal de cada clase: ${[...mine.map((e) => `${L(e.cls.name)} ${reqText(e.cls.id)}`), `${L(CLASSES.find((x) => x.id === target)!.name)} ${reqText(target)}`].join(', ')}. Puedes seguir si tu DM lo permite.`, `The rules require 13 in each class’s main ability: ${[...mine.map((e) => `${L(e.cls.name)} ${reqText(e.cls.id)}`), `${L(CLASSES.find((x) => x.id === target)!.name)} ${reqText(target)}`].join(', ')}. You can continue if your DM allows it.`)}
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function LevelUpBody({ onClose, target, setTarget }: { onClose: () => void; target: string; setTarget: (id: string) => void }) {
+  const c = useChar();
   const replace = useStore((s) => s.replace);
   const showToast = useStore((s) => s.showToast);
-  const cls = CLASSES.find((x) => x.id === c.classId);
-  const level = c.level + 1;
+  const cls = CLASSES.find((x) => x.id === target) ?? CLASSES.find((x) => x.id === c.classId);
+  // Nivel en la clase que sube (1 si es una clase nueva) y nivel total del personaje
+  const level = cls ? classLevelOf(c, cls.id) + 1 : c.level + 1;
+  const total = c.level + 1;
   const entry = cls ? levelEntry(cls.id, level) : { features: [], choices: [] };
   const con = mod(c.abilities.con);
   const hitDie = cls?.hitDie ?? c.hitDie;
@@ -81,8 +126,12 @@ export function LevelUpPage({ onClose }: { onClose: () => void }) {
   const metaChoice = entry.choices.find((x) => x.kind === 'metamagic');
   const invChoice = entry.choices.find((x) => x.kind === 'invocation');
   const optionChoices = entry.choices.filter((x) => x.kind === 'option');
-  const allowance = cls ? newSpellAllowance(cls.id, c.level) : { cantrips: 0, spells: 0, maxLevel: 0 };
+  const baseAllowance = cls ? newSpellAllowance(cls.id, level - 1) : { cantrips: 0, spells: 0, maxLevel: 0 };
 
+  // Con multiclase, el nivel máximo de conjuro sale de los espacios combinados
+  const after = cls ? applyLevelUp(c, { classId: cls.id, hpGain: 1 }) : c;
+  const combined = spellSlotsFor(after);
+  const allowance = { ...baseAllowance, maxLevel: Math.max(combined.slots.length, combined.pact?.level ?? 0) };
   const knownSpell = (en: string) => c.spells.some((s) => findSpell(s.name)?.name.en === en);
   const classSpells = useMemo(() => (cls ? SPELLS.filter((s) => inClassList(s.name.en, cls.id) && s.level <= allowance.maxLevel && !knownSpell(s.name.en)) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,26 +163,14 @@ export function LevelUpPage({ onClose }: { onClose: () => void }) {
   const toggle = (list: string[], set: (v: string[]) => void, id: string, max: number) =>
     set(list.includes(id) ? list.filter((x) => x !== id) : max === 1 ? [id] : list.length < max ? [...list, id] : list);
 
-  // Resumen de lo que cambia automáticamente
+  // Resumen de lo que cambia automáticamente (espacios y recursos salen en el resumen final)
   const autoGains: string[] = [];
-  if (profBonus(level) > profBonus(c.level)) autoGains.push(T(`Bonificador por competencia ${fmt(profBonus(c.level))} → ${fmt(profBonus(level))}`, `Proficiency Bonus ${fmt(profBonus(c.level))} → ${fmt(profBonus(level))}`));
-  if (cls) {
-    if (cls.caster === 'pact') {
-      const a = pactSlotsFor(c.level); const b = pactSlotsFor(level);
-      if (a.max !== b.max || a.level !== b.level) autoGains.push(T(`Espacios de pacto: ${b.max} de nivel ${b.level}`, `Pact slots: ${b.max} of level ${b.level}`));
-    } else if (cls.caster !== 'none') {
-      const a = slotsFor(cls.caster, c.level); const b = slotsFor(cls.caster, level);
-      b.forEach((n, i) => { if (n > (a[i] ?? 0)) autoGains.push(T(`Espacios de nivel ${i + 1}: ${a[i] ?? 0} → ${n}`, `Level ${i + 1} slots: ${a[i] ?? 0} → ${n}`)); });
-    }
-    const ra = cls.resources(c.level, { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: mod(c.abilities.cha) });
-    for (const r of cls.resources(level, { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: mod(c.abilities.cha) })) {
-      const before = ra.find((x) => x.key === r.key)?.max ?? 0;
-      if (r.max > before) autoGains.push(`${L(RESOURCE_NAMES[r.key])}: ${before} → ${r.max}`);
-    }
-    if ([5, 11, 17].includes(level) && c.spells.some((s) => s.level === 0)) autoGains.push(T('Tus trucos de daño mejoran.', 'Your damage cantrips get stronger.'));
-  }
+  if (profBonus(total) > profBonus(c.level)) autoGains.push(T(`Bonificador por competencia ${fmt(profBonus(c.level))} → ${fmt(profBonus(total))}`, `Proficiency Bonus ${fmt(profBonus(c.level))} → ${fmt(profBonus(total))}`));
+  if ([5, 11, 17].includes(total) && c.spells.some((s) => s.level === 0)) autoGains.push(T('Tus trucos de daño mejoran.', 'Your damage cantrips get stronger.'));
+  if (cls && level === 1 && classLevels(c).length) for (const f of cls.features(1)) autoGains.push(T(`Rasgo de nivel 1 de ${L(cls.name)}: ${L(f.name)}`, `${L(cls.name)} level 1 feature: ${L(f.name)}`));
 
   const choices: LevelUpChoices = {
+    classId: cls?.id,
     hpGain,
     subclass,
     asi: choice('asi') && (asiMode === 'asi' || featId) ? (asiMode === 'asi' ? { mode: 'asi', plus } : { mode: 'feat', featId: featId!, ability: featAbility }) : undefined,
@@ -150,9 +187,9 @@ export function LevelUpPage({ onClose }: { onClose: () => void }) {
   const diff = levelUpDiff(c, preview);
 
   const lvlUp = () => {
-    useFx.getState().play('levelup', T(`¡NIVEL ${level}!`, `LEVEL ${level}!`), `${c.name} · ${T('PG', 'HP')} ${c.hp.max} → ${preview.hp.max}`);
+    useFx.getState().play('levelup', T(`¡NIVEL ${total}!`, `LEVEL ${total}!`), `${c.name} · ${cls ? `${L(cls.name)} ${level} · ` : ''}${T('PG', 'HP')} ${c.hp.max} → ${preview.hp.max}`);
     replace(preview);
-    showToast(T(`⬆️ ¡Nivel ${level}!`, `⬆️ Level ${level}!`), [
+    showToast(T(`⬆️ ¡Nivel ${total}!`, `⬆️ Level ${total}!`), [
       ...diff.stats.filter((x) => x.label !== T('Nivel', 'Level')).map((x) => (x.from ? `${x.label}: ${x.from} → ${x.to}` : `${x.label}: ${x.to}`)),
       ...diff.features.map((f) => `${f.updated ? '⬆️' : '+'} ${f.name}${f.recharge ? ` (${L(RECHARGE_LABEL[f.recharge])})` : ''}`),
       ...diff.spells.map((sp) => `✨ ${sp.name}`),
@@ -166,12 +203,13 @@ export function LevelUpPage({ onClose }: { onClose: () => void }) {
         <button className="icon-btn" onClick={onClose} aria-label={T('Cerrar', 'Close')}>✕</button>
         <div className="grow">
           <h2>⬆️ {T('Subir de nivel', 'Level up')}</h2>
-          <p className="muted">{c.name} · {cls ? L(cls.name) : c.className || T('Sin clase', 'No class')} · {T('nivel', 'level')} {c.level} → <b>{level}</b></p>
+          <p className="muted">{c.name} · {cls ? `${L(cls.name)} ${level - 1} → ${level}` : c.className || T('Sin clase', 'No class')} · {T('nivel total', 'total level')} {c.level} → <b>{total}</b></p>
         </div>
       </div>
 
       <div className="lu-body">
         {c.level >= 20 && <p className="reminders">{T('Ya estás en el nivel máximo (20).', 'You’re already at the maximum level (20).')}</p>}
+        {cls && c.level < 20 && <ClassPicker target={cls.id} setTarget={setTarget} />}
         {!cls && <p className="reminders">{T('No reconozco tu clase, así que solo subiré el nivel y los PG. Elige una clase en «Más opciones» para ver tus opciones.', 'I don’t recognize your class, so I’ll only raise your level and HP. Pick a class in “More options” to see your options.')}</p>}
 
         <Card title={T('Puntos de golpe', 'Hit points')} done={done.hp}>

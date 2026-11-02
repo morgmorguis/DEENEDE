@@ -215,6 +215,28 @@ export interface Character {
   ignoredFlags: string[];
   /** Enemigos a los que este personaje ha dado el golpe final */
   kills: Kill[];
+  /** Clases adicionales (multiclase). El nivel de la clase principal es `level` menos la suma de estas */
+  multiclass: ClassLevel[];
+  /** Linaje o ascendencia de la especie (alto elfo, dracónido rojo…) */
+  lineage?: string;
+  /** Munición y consumibles con su cantidad */
+  consumables: Consumable[];
+}
+
+export interface ClassLevel {
+  classId: string;
+  level: number;
+  subclass: string;
+}
+
+export interface Consumable {
+  id: string;
+  name: string;
+  qty: number;
+  /** ammo: se recupera la mitad tras el combate (reglas 2024); thrown: armas arrojadizas que se recogen; item: se gasta (pociones, pergaminos…) */
+  kind: 'ammo' | 'thrown' | 'item';
+  /** Gastados en el combate actual */
+  used: number;
 }
 
 export interface Kill {

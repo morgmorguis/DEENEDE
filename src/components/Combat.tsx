@@ -7,6 +7,7 @@ import { EffectPicker, SpellComp } from './Sheet';
 import { InitiativePrompt, InitiativeTracker, TurnPanel } from './Initiative';
 import { ExplainModal, longPress } from './InfoBubble';
 import { useFx } from './Transition';
+import { Consumables } from './Consumables';
 import { L, T } from '../i18n';
 
 export function CombatTab() {
@@ -133,6 +134,10 @@ export function CombatTab() {
           )}
         </Section>
       )}
+
+      <Section title={T('Munición y consumibles', 'Ammo & consumables')}>
+        <Consumables mode="combat" />
+      </Section>
 
       <Section title={T('Efectos activos', 'Active effects')} right={<button className="btn small" onClick={() => setEffOpen(true)}>+ {T('Efecto', 'Effect')}</button>}>
         {c.effects.length === 0 && <span className="muted">{T('Ninguno.', 'None.')}</span>}
