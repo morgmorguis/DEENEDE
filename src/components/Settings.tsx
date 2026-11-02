@@ -91,7 +91,7 @@ export function SettingsTab() {
       <Section title={T('Personajes', 'Characters')} right={<button className="btn small primary" onClick={() => setCreating(true)}>+ {T('Nuevo', 'New')}</button>}>
         {characters.map((c) => (
           <div key={c.id} className={`char-line ${c.id === activeId ? 'active' : ''}`}>
-            {c.portrait ? <img className="char-thumb" src={c.portrait} alt="" /> : <span className="char-thumb empty">🧙</span>}
+            {c.portrait ? <img className="char-thumb" src={c.portraitThumb ?? c.portrait} alt="" /> : <span className="char-thumb empty">🧙</span>}
             <button className="grow link-left" onClick={() => setActive(c.id)}>
               <b>{c.name}</b> <span className="muted small">{c.species} {classById(c.classId) ? L(classById(c.classId)!.name) : c.className} {c.level}</span>
             </button>

@@ -116,7 +116,7 @@ export function SheetTab() {
     const [file] = await pickFiles('image/*', false);
     if (!file) return;
     const data = await imageFileToBase64(file, 640, 0.82);
-    set((x) => { x.portrait = `data:image/jpeg;base64,${data}`; });
+    set((x) => { x.portrait = `data:image/jpeg;base64,${data}`; x.portraitThumb = undefined; });
   };
 
   const abilityBox = (a: Ability) => {
@@ -465,7 +465,7 @@ export function SheetTab() {
               {c.portrait ? (
                 <div className="p-portrait-wrap">
                   <img className={`p-portrait ${c.portrait.startsWith('data:image/png') ? 'pixel' : ''}`} src={c.portrait} alt={T('Retrato del personaje', 'Character portrait')} onClick={uploadPortrait} />
-                  <button className="p-link" onClick={() => set((x) => { x.portrait = null; })}>{T('Quitar imagen', 'Remove image')}</button>
+                  <button className="p-link" onClick={() => set((x) => { x.portrait = null; x.portraitThumb = undefined; })}>{T('Quitar imagen', 'Remove image')}</button>
                 </div>
               ) : (
                 <>

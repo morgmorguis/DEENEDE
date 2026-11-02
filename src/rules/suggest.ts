@@ -19,16 +19,31 @@ const score = (q: string, names: string[]) => {
 
 const THIRD = /arcane trickster|eldritch knight|embaucador arcano|caballero arcano/i;
 
-export interface SpellSuggestion { spell: SpellInfo; why: string }
+export interface SpellSuggestion {
+  spell: SpellInfo;
+  why: string;
+  /** Si aún no puede lanzarlo: nivel de esa clase al que lo desbloquea */
+  unlock?: number;
+}
+
+/** Nivel de clase al que se puede lanzar por primera vez un conjuro de nivel `lv` (reglas 2024) */
+export function unlockLevel(caster: string, lv: number, third = false): number | null {
+  if (lv === 0) return 1;
+  if (third) return ([0, 3, 7, 13, 19] as const)[lv] ?? null;
+  if (caster === 'full') return lv <= 9 ? lv * 2 - 1 : null;
+  if (caster === 'half') return lv <= 5 ? lv * 4 - 3 : null;
+  if (caster === 'pact') return lv <= 5 ? lv * 2 - 1 : ([0, 0, 0, 0, 0, 0, 11, 13, 15, 17] as const)[lv] ?? null;
+  return null;
+}
 
 /** Conjuros que el personaje podría tener: de la lista de sus clases y de nivel que pueda lanzar */
-export function spellSuggestions(c: Character, query: string, limit = 8, browse = false): SpellSuggestion[] {
+export function spellSuggestions(c: Character, query: string, limit = 8, browse = false, future = false): SpellSuggestion[] {
   if (!browse && fold(query).length < 2) return [];
   const entries = classLevels(c);
   const { slots, pact } = spellSlotsFor(c);
   const maxLevel = Math.max(slots.length, pact?.level ?? 0, c.slots.reduce((m, s, i) => (s.max > 0 ? i + 1 : m), 0), c.pactSlots?.max ? c.pactSlots.level : 0);
   // Listas: las de sus clases; los tercio-lanzadores usan la de mago
-  const lists = entries.map((e) => ({ id: THIRD.test(e.subclass) ? 'mago' : e.cls.id, name: L(e.cls.name) }));
+  const lists = entries.map((e) => ({ id: THIRD.test(e.subclass) ? 'mago' : e.cls.id, name: L(e.cls.name), caster: e.cls.caster as string, third: THIRD.test(e.subclass), level: e.level }));
   const { species, lineage } = findSpecies(c.species);
   const speciesSpells = [...(species?.spells ?? []), ...(lineage?.spells ?? [])];
   const known = new Set(c.spells.map((s) => findSpell(s.name)?.name.en).filter(Boolean));
@@ -36,10 +51,18 @@ export function spellSuggestions(c: Character, query: string, limit = 8, browse 
   for (const sp of SPELLS) {
     if (known.has(sp.name.en) || !matches(query, [sp.name.es, sp.name.en])) continue;
     if (speciesSpells.includes(sp.name.en)) { out.push({ spell: sp, why: species ? L(species.name) : '' }); continue; }
-    const from = lists.find((l) => inClassList(sp.name.en, l.id));
-    if (!from) continue;
-    if (sp.level > 0 && sp.level > maxLevel) continue;
-    out.push({ spell: sp, why: from.name });
+    const froms = lists.filter((l) => inClassList(sp.name.en, l.id));
+    if (!froms.length) continue;
+    if (sp.level > 0 && sp.level > maxLevel) {
+      if (!future) continue;
+      // Clase con la que antes se desbloquea (en niveles de esa clase)
+      const opts = froms.map((l) => ({ l, at: unlockLevel(l.caster, sp.level, l.third) })).filter((x): x is { l: typeof froms[number]; at: number } => x.at !== null && x.at <= 20);
+      if (!opts.length) continue;
+      const best = opts.sort((a, b) => (a.at - a.l.level) - (b.at - b.l.level))[0];
+      out.push({ spell: sp, why: best.l.name, unlock: best.at });
+      continue;
+    }
+    out.push({ spell: sp, why: froms[0].name });
   }
   if (browse) return out.sort((a, b) => a.spell.level - b.spell.level || L(a.spell.name).localeCompare(L(b.spell.name)));
   return out.sort((a, b) => score(query, [a.spell.name.es, a.spell.name.en]) - score(query, [b.spell.name.es, b.spell.name.en]) || a.spell.level - b.spell.level).slice(0, limit);

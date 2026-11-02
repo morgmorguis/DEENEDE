@@ -100,7 +100,7 @@ function RestoreModal({ data, onClose, onDone }: { data: ReturnType<typeof parse
           const here = current.find((x) => x.id === c.id);
           return (
             <li key={c.id}>
-              {c.portrait ? <img className="char-thumb" src={c.portrait} alt="" /> : <span className="char-thumb empty">🧙</span>}
+              {c.portrait ? <img className="char-thumb" src={c.portraitThumb ?? c.portrait} alt="" /> : <span className="char-thumb empty">🧙</span>}
               <span className="grow">
                 <b>{c.name}</b> <span className="muted small">{className(c)} {c.level} · {T(`${c.notes.length} nota(s)`, `${c.notes.length} note(s)`)}</span>
               </span>

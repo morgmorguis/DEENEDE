@@ -3,6 +3,22 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.15.0 · 3 nov 2026 — Retrato de cuerpo entero estilo años 70 y conjuros futuros
+
+**Editor de aspecto**
+- Nuevo **retrato de cuerpo entero** al estilo de las ilustraciones de fantasía de los 70 (tinta marrón, colores planos con sombra, cielos por bandas, soles a rayas), con un **toque pixel** leve que se puede quitar o marcar más.
+- **10 rostros**, **10 complexiones**, **10 peinados**, 6 barbas y **10 ropajes por clase** (120 en total), cada uno con su arma y su tocado.
+- Colores cambiables: piel o escamas, ojos, pelo y tres colores del ropaje (principal, capa y pantalón, detalles), con muestras y un selector libre.
+- 8 fondos: atardecer, castillo, bosque, lunas gemelas, mar, mazmorra, desierto y cosmos.
+- Rasgos de especie: orejas puntiagudas, cuernos, colmillos, cabeza de dragón y aureola; los pequeños se ven más bajos.
+- «Usar como retrato» pone la ilustración en la hoja y **su cara** en la barra de arriba.
+
+**Conjuros disponibles**
+- Salen también los que hayas quitado de la hoja, y con «Ver también los que conseguirás al subir de nivel» aparecen los de niveles más altos con 🔒 y el nivel de clase al que se desbloquean (lanzadores completos, medios, brujo y caballero arcano o embaucador arcano). La lista crece sola al subir de nivel.
+
+**Estilo**
+- **Fondos de la app al estilo de los 70**: atardecer con castillo de agujas y cipreses (Básico), bosque de árboles-seta con torre del mago (Verdoso), cordillera nevada con aurora y ciudadela (Grises) y mar nocturno con faro y velero (Azules).
+
 ## 0.14.2 · 2 nov 2026 — Conjuros y rasgos disponibles sin escribir
 
 - Botón **📖 Disponibles** en «Trucos y conjuros preparados»: lista todos los conjuros que puedes tener según tus clases (y multiclase), tu nivel, tu subclase y tu especie o linaje, con filtro por nivel y por nombre. Toca uno para leerlo y **+ Añadir** para ponerlo en la hoja; los que ya tienes salen marcados.

@@ -98,7 +98,7 @@ export default function App() {
           </div>
         ) : (<>
         <div className="topbar-row">
-          {c.portrait && <img className="top-avatar" src={c.portrait} alt="" onClick={() => setTab('sheet')} />}
+          {c.portrait && <img className="top-avatar" src={c.portraitThumb ?? c.portrait} alt="" onClick={() => setTab('sheet')} />}
           <button className="who" onClick={() => setTab('sheet')}>
             <b>{c.name || T('Sin nombre', 'Unnamed')}</b>
             <span className="muted small">{cls ? L(cls.name) : c.className} {c.level} · {T('CA', 'AC')} {armorClass(c).value}</span>

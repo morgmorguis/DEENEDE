@@ -169,6 +169,8 @@ export interface Character {
   size: string;
   alignment: string;
   portrait: string | null;
+  /** Miniatura de la cara del retrato dibujado (para la barra superior) */
+  portraitThumb?: string;
   abilities: Record<Ability, number>;
   saveProf: Ability[];
   skillProf: Record<string, ProfLevel>;

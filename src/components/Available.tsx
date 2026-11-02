@@ -18,9 +18,10 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
   const [q, setQ] = useState('');
   const [level, setLevel] = useState<number | 'all'>('all');
   const [open, setOpen] = useState<string | null>(null);
+  const [future, setFuture] = useState(false);
 
   // Se calcula sin lo que ya tiene para poder marcarlo como «ya la tienes»
-  const spells = useMemo(() => (kind === 'spell' ? spellSuggestions({ ...c, spells: [] }, '', 0, true) : []), [c, kind]);
+  const spells = useMemo(() => (kind === 'spell' ? spellSuggestions({ ...c, spells: [] }, '', 0, true, future) : []), [c, kind, future]);
   const feats = useMemo(() => (kind === 'feature' ? featureSuggestions({ ...c, features: [] }, '', 0, true) : []), [c, kind]);
   const knownSpells = new Set(c.spells.map((s) => findSpell(s.name)?.name.en ?? s.name));
   const knownFeats = new Set(c.features.map((f) => fold(f.name)));
@@ -35,8 +36,9 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
     };
     return (
       <Modal title={T('Conjuros disponibles', 'Available spells')} onClose={onClose}>
-        <p className="small muted">{T('Los de la lista de tus clases que puedes lanzar a tu nivel, más los que te da tu especie. Toca uno para leerlo y «+ Añadir» para ponerlo en la hoja.', 'Spells from your classes’ lists you can cast at your level, plus those your species grants. Tap one to read it and “+ Add” to put it on your sheet.')}</p>
+        <p className="small muted">{T('Los de la lista de tus clases que puedes lanzar a tu nivel, más los que te da tu especie (aunque los hayas quitado de la hoja). Toca uno para leerlo y «+ Añadir» para ponerlo en la hoja.', 'Spells from your classes’ lists you can cast at your level, plus those your species grants. Tap one to read it and “+ Add” to put it on your sheet.')}</p>
         <input className="avail-search" value={q} placeholder={T('Filtrar por nombre…', 'Filter by name…')} onChange={(e) => setQ(e.target.value)} />
+        <label className="check avail-future"><input type="checkbox" checked={future} onChange={(e) => { setFuture(e.target.checked); setLevel('all'); }} /> {T('Ver también los que conseguirás al subir de nivel', 'Also show the ones you’ll get when you level up')}</label>
         {levels.length > 1 && (
           <div className="av-chips avail-levels">
             <button className={`chip toggle ${level === 'all' ? 'on' : ''}`} onClick={() => setLevel('all')}>{T('Todos', 'All')}</button>
@@ -44,17 +46,17 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
           </div>
         )}
         <div className="avail-list">
-          {list.map(({ spell, why }) => {
+          {list.map(({ spell, why, unlock }) => {
             const have = knownSpells.has(spell.name.en) || knownSpells.has(L(spell.name));
             const isOpen = open === spell.name.en;
             return (
-              <div key={spell.name.en} className={`avail-item ${have ? 'have' : ''}`}>
+              <div key={spell.name.en} className={`avail-item ${have ? 'have' : ''} ${unlock ? 'locked' : ''}`}>
                 <button className="avail-main" onClick={() => setOpen(isOpen ? null : spell.name.en)}>
                   <b>{L(spell.name)}</b>
                   <span className="muted small">{spell.level ? T(`Nivel ${spell.level}`, `Level ${spell.level}`) : T('Truco', 'Cantrip')} · {L(spell.time)} · {L(spell.range)} · {spell.components}{spell.concentration ? ' · C' : ''}{spell.ritual ? ' · R' : ''} · <i>{why}</i></span>
                   {isOpen && <span className="avail-text">{L(spell.text)}</span>}
                 </button>
-                {have ? <span className="avail-have">✓ {T('Ya lo tienes', 'Already known')}</span> : <button className="btn small primary" onClick={() => add(spell.name.en)}>+ {T('Añadir', 'Add')}</button>}
+                {unlock ? <span className="avail-lock">🔒 {T(`${why} nivel ${unlock}`, `${why} level ${unlock}`)}</span> : have ? <span className="avail-have">✓ {T('Ya lo tienes', 'Already known')}</span> : <button className="btn small primary" onClick={() => add(spell.name.en)}>+ {T('Añadir', 'Add')}</button>}
               </div>
             );
           })}
