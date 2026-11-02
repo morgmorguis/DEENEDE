@@ -3,6 +3,12 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.14.1 · 2 nov 2026 — Actualizar sin desinstalar
+
+- Los APK se firman ahora siempre con la misma clave: a partir de esta versión, las siguientes se **instalan encima** sin desinstalar y sin perder los datos (esta todavía necesita desinstalar la anterior una última vez).
+- Cada APK tiene un número de versión mayor que el anterior, para que Android lo acepte como actualización.
+- **Ajustes → Acerca de** muestra la versión, el commit y la fecha de compilación, para comprobar qué versión tienes instalada.
+
 ## 0.14.0 · 2 nov 2026 — Origen al crear el personaje, editor de aspecto y paisajes nuevos
 
 **Creación del personaje (nivel 1)**

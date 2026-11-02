@@ -138,6 +138,7 @@ export function SettingsTab() {
       </Section>
 
       <Section title={T('Acerca de', 'About')}>
+        <p className="app-version"><b>Di en Di {__APP_VERSION__}</b> <span className="muted small">· {__APP_COMMIT__} · {__APP_BUILT__}</span></p>
         <p className="small">{T('Compañero de D&D 5e (reglas 2024). Los textos de reglas se basan en el System Reference Document 5.2 de Wizards of the Coast LLC, disponible bajo licencia Creative Commons Attribution 4.0 International. Esta app no está afiliada ni respaldada por Wizards of the Coast.', 'D&D 5e companion (2024 rules). Rules text is based on the System Reference Document 5.2 by Wizards of the Coast LLC, available under the Creative Commons Attribution 4.0 International license. This app is not affiliated with or endorsed by Wizards of the Coast.')}</p>
       </Section>
 
