@@ -7,6 +7,7 @@ import type { Ability, Character } from '../types';
 import { Modal, NumberInput, Section } from './common';
 import { ImportModal } from './Import';
 import { BackupSection } from './Backup';
+import { ManualViewer } from './Manual';
 import { DEFAULT_MODEL } from '../config';
 import { L, T, getLang } from '../i18n';
 import { translateCharacter } from '../rules/glossary';
@@ -25,6 +26,7 @@ export function SettingsTab() {
   const replace = useStore((s) => s.replace);
   const [translating, setTranslating] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [manual, setManual] = useState(false);
   const active = characters.find((c) => c.id === activeId)!;
 
   return (
@@ -130,10 +132,16 @@ export function SettingsTab() {
         </label>
       </Section>
 
+      <Section title={T('Manual', 'Manual')}>
+        <p className="small">{T('La guía ilustrada con todas las funciones de la app, capítulo a capítulo. Funciona sin conexión.', 'The illustrated guide to every feature, chapter by chapter. Works offline.')}</p>
+        <button className="btn primary full" onClick={() => setManual(true)}>📖 {T('Abrir el manual', 'Open the manual')}</button>
+      </Section>
+
       <Section title={T('Acerca de', 'About')}>
         <p className="small">{T('Compañero de D&D 5e (reglas 2024). Los textos de reglas se basan en el System Reference Document 5.2 de Wizards of the Coast LLC, disponible bajo licencia Creative Commons Attribution 4.0 International. Esta app no está afiliada ni respaldada por Wizards of the Coast.', 'D&D 5e companion (2024 rules). Rules text is based on the System Reference Document 5.2 by Wizards of the Coast LLC, available under the Creative Commons Attribution 4.0 International license. This app is not affiliated with or endorsed by Wizards of the Coast.')}</p>
       </Section>
 
+      {manual && <ManualViewer onClose={() => setManual(false)} />}
       {creating && <NewCharacter onClose={() => setCreating(false)} onCreate={(c) => { add(c); setCreating(false); }} />}
       {importing && <ImportModal onClose={() => setImporting(false)} />}
     </div>

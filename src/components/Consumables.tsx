@@ -6,6 +6,7 @@ import type { Consumable } from '../types';
 import { detectConsumables } from '../rules/consumables';
 import { uid } from '../rules/factory';
 import { T } from '../i18n';
+import { confirmDelete } from './Confirm';
 
 const KIND_ICON: Record<Consumable['kind'], string> = { ammo: '🏹', thrown: '🗡️', item: '🧪' };
 const kindLabel = (k: Consumable['kind']) => (k === 'ammo' ? T('Munición (recuperas la mitad)', 'Ammunition (recover half)') : k === 'thrown' ? T('Arrojadiza (se recoge)', 'Thrown (picked up)') : T('Consumible (se gasta)', 'Consumable (used up)'));
@@ -15,6 +16,8 @@ export function Consumables({ mode }: { mode: 'sheet' | 'combat' }) {
   const update = useStore((s) => s.update);
   const use = useStore((s) => s.useConsumable);
   const [adding, setAdding] = useState(false);
+  // En la hoja, los controles solo aparecen al editar; «Listo» guarda y los cierra
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [qty, setQty] = useState('20');
   const [kind, setKind] = useState<Consumable['kind']>('ammo');
@@ -37,16 +40,36 @@ export function Consumables({ mode }: { mode: 'sheet' | 'combat' }) {
     );
   }
 
+  if (!editing) {
+    return (
+      <div className="cons-sheet">
+        <div className="p-title"><span>{T('Munición y consumibles', 'Ammo & consumables')}</span><button className="p-add" onClick={() => setEditing(true)}>✏️ {T('Editar', 'Edit')}</button></div>
+        {list.map((x) => (
+          <div key={x.id} className={`cons-row ${x.qty === 0 ? 'empty' : ''}`}>
+            <span className="grow">{KIND_ICON[x.kind]} {x.name}</span>
+            <b className="cons-count">× {x.qty}</b>
+          </div>
+        ))}
+        {detected.length > 0 && (
+          <button className="p-link" onClick={() => update((ch) => { ch.consumables = [...ch.consumables, ...detected]; })}>
+            🔎 {T(`Añadir lo que he encontrado en tu equipo: ${detected.map((d) => `${d.qty} ${d.name.toLowerCase()}`).join(', ')}`, `Add what I found in your equipment: ${detected.map((d) => `${d.qty} ${d.name.toLowerCase()}`).join(', ')}`)}
+          </button>
+        )}
+        {!list.length && !detected.length && <p className="p-empty">{T('Apunta aquí flechas, virotes, pociones… para marcarlas en combate. Pulsa «Editar».', 'List arrows, bolts, potions… here to tick them off in combat. Tap “Edit”.')}</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="cons-sheet">
-      <div className="p-title"><span>{T('Munición y consumibles', 'Ammo & consumables')}</span><button className="p-add" onClick={() => setAdding(!adding)}>+</button></div>
+      <div className="p-title"><span>{T('Munición y consumibles', 'Ammo & consumables')}</span><button className="p-add" onClick={() => setAdding(!adding)}>+ {T('Añadir', 'Add')}</button></div>
       {list.map((x) => (
         <div key={x.id} className="cons-row">
           <span className="grow">{KIND_ICON[x.kind]} {x.name}</span>
           <button className="p-step" onClick={() => update((ch) => { const y = ch.consumables.find((z) => z.id === x.id)!; y.qty = Math.max(0, y.qty - 1); })}>−</button>
           <input className="cons-qty" type="number" inputMode="numeric" value={x.qty} onChange={(e) => update((ch) => { ch.consumables.find((z) => z.id === x.id)!.qty = Math.max(0, Number(e.target.value) || 0); })} />
           <button className="p-step" onClick={() => update((ch) => { ch.consumables.find((z) => z.id === x.id)!.qty += 1; })}>+</button>
-          <button className="p-link" aria-label={T(`Quitar ${x.name}`, `Remove ${x.name}`)} onClick={() => update((ch) => { ch.consumables = ch.consumables.filter((z) => z.id !== x.id); })}>✕</button>
+          <button className="p-trash" aria-label={T(`Borrar ${x.name}`, `Delete ${x.name}`)} onClick={async () => { if (await confirmDelete(x.name)) update((ch) => { ch.consumables = ch.consumables.filter((z) => z.id !== x.id); }); }}>🗑</button>
         </div>
       ))}
       {detected.length > 0 && (
@@ -64,7 +87,7 @@ export function Consumables({ mode }: { mode: 'sheet' | 'combat' }) {
           <button className="btn small" disabled={!name.trim()} onClick={() => { update((ch) => { ch.consumables.push({ id: uid(), name: name.trim(), qty: Math.max(0, Number(qty) || 0), kind, used: 0 }); }); setName(''); setAdding(false); }}>{T('Añadir', 'Add')}</button>
         </div>
       )}
-      {!list.length && !detected.length && !adding && <p className="p-empty">{T('Apunta aquí flechas, virotes, pociones… para marcarlas en combate.', 'List arrows, bolts, potions… here to tick them off in combat.')}</p>}
+      <button className="btn small primary cons-done" onClick={() => { setEditing(false); setAdding(false); }}>✓ {T('Listo', 'Done')}</button>
     </div>
   );
 }

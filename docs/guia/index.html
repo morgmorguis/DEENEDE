@@ -65,10 +65,12 @@ h1 { font: 700 clamp(30px, 6vw, 56px)/1.05 var(--f-head); margin: 0; text-wrap: 
 .toc h2 { font: 700 15px/1.6 var(--f-head); color: var(--gold); margin: 0 0 10px; letter-spacing: .14em; }
 .toc ol { margin: 0; padding: 0; list-style: none; counter-reset: toc; display: grid; gap: 2px; }
 .toc li { counter-increment: toc; }
+.toc li:has(> .sub) { counter-increment: none; }
 .toc a { display: grid; grid-template-columns: 2.2em 1fr; padding: 4px 6px; text-decoration: none; color: var(--text); font-size: 16px; line-height: 1.35; border-left: 3px solid transparent; }
 .toc a::before { content: counter(toc, decimal-leading-zero); font: 9px/2 var(--f-display); color: var(--muted); }
 .toc a:hover, .toc a.on { background: var(--panel-2); border-left-color: var(--gold); }
 .toc .sub { padding-left: 2.2em; font-size: 14px; color: var(--muted); }
+.toc .sub::before { content: '·'; }
 
 main { min-width: 0; display: grid; gap: 64px; }
 .chapter { scroll-margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
@@ -127,7 +129,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.13</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.14</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -147,6 +149,8 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a href="#empezar">Empezar</a></li>
       <li><a href="#hoja">La hoja de personaje</a></li>
       <li><a href="#escribir">Rellenar la hoja a mano</a></li>
+      <li><a href="#origen">Origen y habilidades (nivel 1)</a></li>
+      <li><a href="#aspecto">Aspecto y retrato pixel</a></li>
       <li><a href="#info">Saber qué hace cada cosa</a></li>
       <li><a href="#avisos">Avisos de la ficha</a></li>
       <li><a href="#nivel">Subir de nivel</a></li>
@@ -175,7 +179,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <ol class="steps">
         <li><b>Móvil o tablet Android:</b> descarga el APK desde GitHub → <i>Actions</i> → la última ejecución → artefacto <code>di-en-di-apk</code>. Descomprime el zip y abre <code>Di en Di.apk</code>.</li>
         <li><b>Windows:</b> descarga el artefacto <code>di-en-di-windows</code> y abre <code>Di en Di.exe</code>. Se abre la app en su propia ventana; deja abierta la ventanita negra mientras juegas.</li>
-        <li>Para crear tu personaje ve a <b>Ajustes → Personajes → + Nuevo</b>, o importa tu hoja (capítulo 11).</li>
+        <li>Para crear tu personaje ve a <b>Ajustes → Personajes → + Nuevo</b>, o importa tu hoja (capítulo 13). Después usa <b>🎓 Origen y habilidades</b> (capítulo 4) y la pestaña <b>🎨 Aspecto</b> (capítulo 5).</li>
       </ol>
       <div class="tip warn"><span class="tip-label">ANTES DE ACTUALIZAR</span><p>Los APK de prueba se firman cada vez con una clave distinta, así que para instalar una versión nueva hay que desinstalar la anterior y se borran los datos. Haz antes <b>Ajustes → Copia de seguridad → Exportar todo</b>.</p></div>
     </section>
@@ -205,16 +209,60 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
           <p>Al escribir un conjuro o un rasgo aparece <b>texto predictivo</b> solo con lo que tu personaje puede tener ahora: lo de la lista de sus clases, de un nivel que pueda lanzar, de su subclase, de su especie y de las dotes disponibles.</p>
           <p>Un mago de nivel 1 que escribe «fire» o «fue» ve <i>Descarga de fuego</i>, pero no <i>Bola de fuego</i> hasta que pueda lanzarla. Un guerrero no ve conjuros de mago. Al elegir una sugerencia se rellenan el nivel, el tiempo, el alcance, los componentes y si requiere concentración; en los rasgos, su texto y cómo se recuperan.</p>
           <p>Si lo que buscas no está en la base de la app (tiene unos 85 conjuros habituales), escríbelo a mano igualmente.</p>
+          <h3>Borrar con la papelera</h3>
+          <p>Cada rasgo, arma y conjuro tiene una papelera 🗑 a la derecha. Antes de borrar, la app pregunta <b>«¿Seguro que quieres borrar…?»</b>: pulsa <b>Borrar</b> para confirmarlo o <b>Cancelar</b> si te has equivocado. Lo mismo pasa con la munición y los consumibles.</p>
           <h3>Componentes y recargas</h3>
           <p>Los conjuros muestran sus componentes como en el manual: <span class="badge">V</span> verbal (tienes que poder hablar), <span class="badge">S</span> somático, <span class="badge">M</span> material, más C de concentración y R de ritual. Los rasgos llevan su recarga: ⛺ descanso corto, 🌙 descanso largo, ✨ espacio de conjuro o ♾️ a voluntad.</p>
         </div>
         <figure><img class="shot" src="img/05-predictivo.jpg" alt="Al escribir «fue» aparece la sugerencia Descarga de fuego, truco de mago" width="642" height="456" loading="lazy"><figcaption>Sugerencias mientras escribes.</figcaption></figure>
       </div>
+      <figure><img class="shot" src="img/24-borrar.jpg" alt="Aviso «¿Seguro que quieres borrar Furia?» con los botones Cancelar y Borrar" width="700" height="1515" loading="lazy" style="width: min(100%, 340px)"><figcaption>Antes de borrar, la app pregunta.</figcaption></figure>
+    </section>
+
+    <!-- origen -->
+    <section class="chapter" id="origen">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 04</span><h2>Origen y habilidades (nivel 1)</h2></div>
+      <div class="split">
+        <div>
+          <p>En la hoja, el botón <b>🎓 Origen y habilidades</b> (resaltado mientras tu personaje es de nivel 1) te guía por las elecciones de creación de las reglas 2024. <b>Solo aparecen las opciones que puedes escoger</b> según tu clase, tu trasfondo y tu especie:</p>
+          <ol class="steps">
+            <li><b>Trasfondo</b>: al elegirlo ves las dos habilidades que te da, su herramienta, su dote de origen y entre qué características repartes +2/+1 o +1/+1/+1.</li>
+            <li><b>Habilidades de clase</b>: solo las de la lista de tu clase y en el número correcto (2 el bárbaro, 3 el bardo y el explorador, 4 el pícaro…). El contador te dice cuántas llevas.</li>
+            <li><b>Especie</b>: el elfo elige una entre Perspicacia, Percepción y Supervivencia, y el humano una cualquiera.</li>
+            <li><b>Extras de clase</b>: pericia del pícaro, estilo de combate del guerrero, orden divina del clérigo u orden primigenia del druida. Si eliges el trasfondo con la dote <i>Habilidoso</i>, también tres habilidades más.</li>
+          </ol>
+          <h3>Conflictos</h3>
+          <p>Si una habilidad ya te la da otra fuente, aparece <b>tachada con el motivo</b> («ya por trasfondo») y no puedes escogerla dos veces: tienes que elegir otra. Si la tenías marcada antes de cambiar de trasfondo, se marca en rojo y aparece en <b>⚠️ Conflictos</b> hasta que la cambies.</p>
+          <p>Al pulsar <b>✓ Aplicar a la ficha</b> la app te pide confirmación y pone las competencias, el trasfondo, la herramienta, la dote y los rasgos elegidos.</p>
+        </div>
+        <figure><img class="shot" src="img/23-origen.jpg" alt="Ventana Origen y habilidades: trasfondo Soldado; Atletismo e Intimidación tachadas por venir del trasfondo; Percepción elegida, 1 de 2" width="700" height="1142" loading="lazy" style="width: min(100%, 380px)"><figcaption>Atletismo e Intimidación ya vienen del trasfondo.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- aspecto -->
+    <section class="chapter" id="aspecto">
+      <div class="chapter-head"><span class="chapter-num">Capítulo 05</span><h2>Aspecto y retrato pixel</h2></div>
+      <div class="split">
+        <div>
+          <p>La pestaña <b>🎨 Aspecto</b> es un editor de personaje sencillo. Arriba ves el <b>retrato pixel art</b> que se va dibujando mientras eliges:</p>
+          <ul class="list">
+            <li><b>Rasgos</b>: color de piel o escamas, ojos, orejas puntiagudas, cuernos, colmillos, hocico, aureola y un detalle (cicatriz, parche, pintura de guerra o pecas).</li>
+            <li><b>Peinado</b>: estilo, color y barba.</li>
+            <li><b>Ropa</b>: túnica, toga de mago, cuero, placas o capa, su color, lo que llevas en la cabeza y el fondo del retrato.</li>
+            <li><b>Descripción</b>: edad, altura, peso, ojos, pelo, piel y un texto libre.</li>
+          </ul>
+          <p>Empieza con un aspecto según tu especie (el elfo con orejas puntiagudas, el tiefling con cuernos, el dracónido con escamas del color de su ascendencia…). <b>🎲 Aleatorio</b> te propone uno nuevo y <b>↺ Según especie</b> vuelve al inicial.</p>
+          <p>Pulsa <b>🖼️ Usar como retrato</b> y el dibujo pasa a la hoja: lo verás arriba, junto al nombre, y en el recuadro <b>Aspecto</b>, con tus datos físicos debajo. Si prefieres una foto o un dibujo tuyo, sigue pudiendo subir una imagen.</p>
+        </div>
+        <figure><img class="shot" src="img/25-aspecto.jpg" alt="Editor de aspecto con las opciones de peinado, ropa y fondo" width="700" height="1515" loading="lazy" style="width: min(100%, 360px)"><figcaption>Peinado, ropa y fondo.</figcaption></figure>
+      </div>
+      <figure><img class="shot" src="img/25b-retratos.jpg" alt="Ocho retratos pixel diferentes generados con Aleatorio" width="1600" height="214" loading="lazy"><figcaption>Algunos retratos hechos con 🎲 Aleatorio.</figcaption></figure>
+      <figure><img class="shot" src="img/26-retrato-hoja.jpg" alt="Recuadro Aspecto de la hoja con el retrato pixel y debajo «34 años · 2,20 m»" width="692" height="946" loading="lazy" style="width: min(100%, 340px)"><figcaption>El retrato en la hoja.</figcaption></figure>
     </section>
 
     <!-- 4 -->
     <section class="chapter" id="info">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 04</span><h2>Saber qué hace cada cosa</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 06</span><h2>Saber qué hace cada cosa</h2></div>
       <div class="split">
         <div>
           <p><b>Mantén pulsada 1,5 segundos</b> cualquier habilidad, salvación, característica, arma, conjuro, rasgo, recurso o condición. Aparece una burbuja con lo que hace y con lo que te limita <i>ahora mismo</i>: ventaja o desventaja por tus condiciones, los espacios que te quedan, la concentración que perderías, que en Furia no puedes lanzar conjuros…</p>
@@ -227,7 +275,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 5 -->
     <section class="chapter" id="avisos">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 05</span><h2>Avisos de la ficha</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 07</span><h2>Avisos de la ficha</h2></div>
       <p>Encima de la hoja, un panel avisa de lo que falta o no cuadra con las reglas 2024: falta la clase, la especie o el trasfondo; salvaciones que no son las de tu clase; PG imposibles; puntuaciones de más de 20; conjuros de nivel demasiado alto; competencias de armas, armaduras o herramientas que tu clase te da y no están marcadas; armas marciales sin competencia; PX suficientes para subir de nivel.</p>
       <p>Cada aviso explica el motivo. Muchos tienen <b>🔧 Corregir</b>, que lo arregla solo, y todos se pueden <b>Ignorar</b> para que no vuelvan a salir (y restaurar después).</p>
       <figure><img class="shot" src="img/04-avisos.jpg" alt="Panel de avisos con «Falta el trasfondo» y el botón Ignorar" width="700" height="195" loading="lazy" style="width: min(100%, 460px)"></figure>
@@ -235,7 +283,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 6 -->
     <section class="chapter" id="nivel">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 06</span><h2>Subir de nivel</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 08</span><h2>Subir de nivel</h2></div>
       <div class="split">
         <div>
           <p>Pulsa <b>⬆️ Subir de nivel</b> en la hoja. Tras la transición «¡SUBES DE NIVEL!» se abre una pantalla con todo lo que corresponde a tu clase en el siguiente nivel según las reglas 2024:</p>
@@ -254,7 +302,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 7 -->
     <section class="chapter" id="combate">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 07</span><h2>Combate en solitario</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 09</span><h2>Combate en solitario</h2></div>
       <div class="split">
         <div>
           <p>La pestaña <b>Combate</b> sirve para llevar tu turno aunque no uséis la partida compartida. Al pulsar <b>¡Empezar combate!</b> salta la transición y la app te pregunta tu iniciativa (la escribes o la tira por ti; nunca sola).</p>
@@ -271,25 +319,27 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 8 -->
     <section class="chapter" id="municion">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 08</span><h2>Munición y consumibles</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 10</span><h2>Munición y consumibles</h2></div>
       <p>En la hoja, debajo del <b>Equipo</b>, apunta tu munición y consumibles con su cantidad. Si tu equipo dice «carcaj con 20 flechas, 2 pociones de curación», la app te ofrece añadirlos directamente.</p>
+      <p>Normalmente la lista solo muestra lo que llevas. Pulsa <b>✏️ Editar</b> para añadir, sumar o restar y borrar, y <b>✓ Listo</b> para guardarlo y volver a la vista normal.</p>
       <p>En combate (también en la partida compartida) pulsa <b>✓ Usar 1</b> cada vez que gastes uno. Al terminar el combate se aplican las reglas 2024: recuperas <b>la mitad de la munición gastada</b> (redondeando abajo), recoges las armas arrojadizas y los consumibles quedan gastados.</p>
       <div class="pair">
-        <figure><img class="shot" src="img/08-municion.jpg" alt="Lista de la hoja: flechas 20, jabalinas 4, pociones de curación 2" width="656" height="308" loading="lazy"><figcaption>En la hoja.</figcaption></figure>
+        <figure><img class="shot" src="img/08-municion.jpg" alt="Lista de la hoja: flechas 20, jabalinas 4, pociones de curación 2, con el botón Editar" width="656" height="236" loading="lazy"><figcaption>En la hoja.</figcaption></figure>
+        <figure><img class="shot" src="img/08b-municion-editar.jpg" alt="Modo editar: botones − y +, papelera y botón Listo" width="656" height="392" loading="lazy"><figcaption>Editando, con ✓ Listo.</figcaption></figure>
         <figure><img class="shot" src="img/11-municion-combate.jpg" alt="En combate: Flechas × 18, usadas en este combate: 2, con botones Usar 1" width="700" height="524" loading="lazy"><figcaption>En combate.</figcaption></figure>
       </div>
     </section>
 
     <!-- 9 -->
     <section class="chapter" id="asistente">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 09</span><h2>El asistente</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 11</span><h2>El asistente</h2></div>
       <p>En la pestaña <b>Asistente</b> escribe o dicta lo que pasa en la mesa y la app lo aplica a tu ficha con las reglas: «un goblin me ha hecho 7 de daño cortante», «me curo 2d4+2», «me lanzan Bendición», «gasto un espacio de nivel 2», «descanso largo». Explica cada paso del cálculo y se puede deshacer.</p>
       <p>Funciona sin internet. Si añades una clave de Claude en Ajustes, entiende también frases más libres.</p>
     </section>
 
     <!-- 10 -->
     <section class="chapter" id="diario">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 10</span><h2>Diario, voz y kill count</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 12</span><h2>Diario, voz y kill count</h2></div>
       <div class="split">
         <div>
           <p>El botón 📜 abre el <b>diario</b> desde cualquier pantalla. Tiene carpetas (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees) y notas rápidas.</p>
@@ -302,7 +352,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 11 -->
     <section class="chapter" id="importar">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 11</span><h2>Importar una ficha</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 13</span><h2>Importar una ficha</h2></div>
       <div class="split">
         <div>
           <p>En la hoja, <b>📥 Importar ficha</b> lee tu hoja de papel o digital sin escribirla a mano:</p>
@@ -319,7 +369,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 12 -->
     <section class="chapter" id="partida">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 12</span><h2>Partida compartida</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 14</span><h2>Partida compartida</h2></div>
       <p>El DM ejecuta un pequeño servidor en su PC y todos jugáis el mismo combate desde la app o el navegador. Las fichas siguen en cada móvil; a la partida solo se envía un resumen (vida, CA, percepción pasiva, condiciones, concentración).</p>
 
       <h3 id="partida-montar">Montar el servidor (DM, Windows)</h3>
@@ -363,27 +413,30 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 13 -->
     <section class="chapter" id="estilo">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 13</span><h2>Colores, idioma y ajustes</h2></div>
-      <p>En <b>Ajustes</b> eliges entre cuatro paletas, cada una con su paisaje pixel art de fondo:</p>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 15</span><h2>Colores, idioma y ajustes</h2></div>
+      <p>En <b>Ajustes</b> eliges entre cuatro paletas, cada una con su paisaje pixel art de fondo al estilo de los RPG de fantasía de los 90, con el cielo por bandas de color:</p>
       <div class="table-scroll">
         <table>
           <thead><tr><th>Paleta</th><th>Paisaje</th></tr></thead>
           <tbody>
-            <tr><td>Básico</td><td>Bosque otoñal al atardecer con un castillo en la colina</td></tr>
-            <tr><td>Verdoso</td><td>Bosque encantado de noche con luciérnagas y setas</td></tr>
-            <tr><td>Grises</td><td>Montañas nevadas con pinos y luna</td></tr>
-            <tr><td>Azules</td><td>Lago nocturno con la luna reflejada</td></tr>
+            <tr><td>Básico</td><td>Atardecer otoñal: castillo con banderas, torre del mago con luz mágica y un dragón volando entre las nubes</td></tr>
+            <tr><td>Verdoso</td><td>Bosque encantado de noche: cabaña de bruja, círculo de piedras con runas, setas que brillan y luciérnagas</td></tr>
+            <tr><td>Grises</td><td>Montañas nevadas con aurora, una puerta enana iluminada por la forja y pinos con nieve</td></tr>
+            <tr><td>Azules</td><td>Lago nocturno con faro, barco de vela, torre élfica y una estrella fugaz</td></tr>
           </tbody>
         </table>
       </div>
-      <figure><img class="shot" src="img/22-paisajes.jpg" alt="Los cuatro paisajes pixel: otoño, bosque, montañas nevadas y lago" width="1200" height="637" loading="lazy"></figure>
+      <figure><img class="shot" src="img/22-paisajes.jpg" alt="Los cuatro paisajes pixel: otoño, bosque, montañas nevadas y lago" width="1200" height="698" loading="lazy"></figure>
       <p>También en Ajustes: <b>idioma</b> (español o inglés, toda la app), <b>tirar dados al tocar una estadística</b> (desactivado por defecto), <b>anotar tiradas a mano en combate</b>, traducir la ficha, el idioma del dictado y la clave opcional de Claude.</p>
       <figure><img class="shot" src="img/13-colores.jpg" alt="Selector de colores: Básico, Verdoso, Grises y Azules" width="700" height="233" loading="lazy" style="width: min(100%, 420px)"></figure>
+      <h3>El manual dentro de la app</h3>
+      <p>Al final de Ajustes, <b>📖 Abrir el manual</b> abre esta misma guía a pantalla completa, sin necesidad de internet. Ciérrala con <b>✕ Cerrar</b>.</p>
+      <figure><img class="shot" src="img/27-manual.jpg" alt="El manual abierto dentro de la app, con el índice" width="700" height="1515" loading="lazy" style="width: min(100%, 340px)"></figure>
     </section>
 
     <!-- 14 -->
     <section class="chapter" id="copia">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 14</span><h2>Copia de seguridad</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 16</span><h2>Copia de seguridad</h2></div>
       <div class="split">
         <div>
           <p><b>Ajustes → Copia de seguridad</b> guarda tus fichas con todo su progreso y su diario en un archivo. En Android se guarda en <i>Documentos/DiEnDi</i> y se abre el menú Compartir para enviarlo a Drive o al correo.</p>
@@ -395,7 +448,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 15 -->
     <section class="chapter" id="dudas">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 15</span><h2>Dudas frecuentes</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 17</span><h2>Dudas frecuentes</h2></div>
       <h3>Google Play Protect bloquea la instalación</h3>
       <p>Es normal en un APK que no viene de la tienda. En el aviso pulsa «Más detalles» → «Instalar de todas formas».</p>
       <h3>Un enemigo tiene la vida «?» y no sé si ha caído</h3>

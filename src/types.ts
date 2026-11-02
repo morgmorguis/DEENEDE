@@ -1,3 +1,4 @@
+import type { AvatarLook } from './rules/avatar';
 export type Ability = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
 export type DamageType =
@@ -221,6 +222,19 @@ export interface Character {
   lineage?: string;
   /** Munición y consumibles con su cantidad */
   consumables: Consumable[];
+  /** Aspecto elegido en el editor de personaje (retrato pixel) */
+  look?: AvatarLook;
+  /** Datos físicos del editor de personaje */
+  physical?: Physical;
+}
+
+export interface Physical {
+  age: string;
+  height: string;
+  weight: string;
+  eyes: string;
+  hair: string;
+  skin: string;
 }
 
 export interface ClassLevel {

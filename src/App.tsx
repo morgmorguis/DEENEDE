@@ -14,11 +14,13 @@ import { InfoBubble } from './components/InfoBubble';
 import { PartyTab, TvView } from './components/Party';
 import { DmRosterTab } from './components/DmRoster';
 import { TransitionFx, useFx } from './components/Transition';
+import { ConfirmHost } from './components/Confirm';
+import { AvatarTab } from './components/Avatar';
 import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
 import { applyScene } from './scenes';
 
-type Tab = 'sheet' | 'combat' | 'party' | 'roster' | 'assistant' | 'rules' | 'settings';
+type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'roster' | 'assistant' | 'rules' | 'settings';
 
 export default function App() {
   const c = useChar();
@@ -55,7 +57,7 @@ export default function App() {
     }
   }, [sharedCombat, sharedPhase, play, dmMode]);
   useEffect(() => {
-    if (dmMode && (tab === 'sheet' || tab === 'combat' || tab === 'assistant')) setTab('party');
+    if (dmMode && (tab === 'sheet' || tab === 'avatar' || tab === 'combat' || tab === 'assistant')) setTab('party');
   }, [dmMode, tab]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -68,16 +70,17 @@ export default function App() {
   const endTurn = useStore((s) => s.endTurn);
   const cls = classById(c.classId);
 
-  const tabs: { id: Tab; icon: string; label: string }[] = dmMode ? [
+  const tabs: { id: Tab; icon: string; label: string; short?: string }[] = dmMode ? [
     { id: 'party', icon: sharedCombat ? '🔴' : '🎲', label: T('Partida', 'Game') },
     { id: 'roster', icon: '📋', label: T('Personajes', 'Characters') },
     { id: 'rules', icon: '📚', label: T('Reglas', 'Rules') },
     { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
   ] : [
     { id: 'sheet', icon: '🧙', label: T('Hoja', 'Sheet') },
+    { id: 'avatar', icon: '🎨', label: T('Aspecto', 'Looks') },
     { id: 'combat', icon: '⚔️', label: T('Combate', 'Combat') },
     { id: 'party', icon: partyOnline ? (sharedCombat ? '🔴' : '🟢') : '🎲', label: T('Partida', 'Game') },
-    { id: 'assistant', icon: '💬', label: T('Asistente', 'Assistant') },
+    { id: 'assistant', icon: '💬', label: T('Asistente', 'Assistant'), short: T('Chat', 'Chat') },
     { id: 'rules', icon: '📚', label: T('Reglas', 'Rules') },
     { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
   ];
@@ -120,6 +123,7 @@ export default function App() {
 
       <main className="content">
         {tab === 'sheet' && <SheetTab />}
+        {tab === 'avatar' && <AvatarTab />}
         {tab === 'combat' && <CombatTab />}
         {tab === 'party' && <PartyTab />}
         {tab === 'roster' && <DmRosterTab />}
@@ -132,12 +136,13 @@ export default function App() {
       <Toast />
       <InfoBubble />
       <TransitionFx />
+      <ConfirmHost />
 
       <nav className="bottomnav" style={{ ['--nav-cols' as string]: tabs.length }}>
         {tabs.map((t) => (
           <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
             <span className="nav-icon">{t.icon}</span>
-            <span className="nav-label">{t.label}</span>
+            <span className="nav-label">{t.short ? <><span className="nl-long">{t.label}</span><span className="nl-short">{t.short}</span></> : t.label}</span>
           </button>
         ))}
       </nav>

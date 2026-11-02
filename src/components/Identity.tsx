@@ -5,6 +5,7 @@ import { CLASSES, RESOURCE_NAMES } from '../rules/srd';
 import { SUBCLASSES, CLASS_PROFS } from '../rules/progression';
 import { SPECIES_INFO, applySpecies, findSpecies } from '../rules/species';
 import { applyClass, classLevels, meetsReq, reqText, spellSlotsFor } from '../rules/multiclass';
+import { BACKGROUNDS, findBackground } from '../rules/origins';
 import type { Character } from '../types';
 import { Modal } from './common';
 import { L, T } from '../i18n';
@@ -179,5 +180,27 @@ function MulticlassModal({ onClose }: { onClose: () => void }) {
       <p className="hint">{T('Los espacios de conjuro se recalculan con la tabla de multiclase (niveles completos de lanzadores, la mitad de paladín y explorador; la magia de pacto va aparte).', 'Spell slots are recalculated with the multiclass table (full caster levels, half of Paladin and Ranger; Pact Magic is separate).')}</p>
       <button className="btn primary full" disabled={total > 20} onClick={save}>{T('Guardar', 'Save')}</button>
     </Modal>
+  );
+}
+
+export function BackgroundField() {
+  const c = useChar();
+  const update = useStore((s) => s.update);
+  const known = findBackground(c.background);
+  const [custom, setCustom] = useState(!!c.background && !known);
+  return (
+    <div>
+      <SelectField label={T('Trasfondo', 'Background')} value={custom ? CUSTOM : known?.id ?? ''} onChange={(v) => {
+        if (v === CUSTOM) { setCustom(true); return; }
+        setCustom(false);
+        const b = BACKGROUNDS.find((x) => x.id === v);
+        update((x) => { x.background = b ? L(b.name) : ''; });
+      }}>
+        <option value="">—</option>
+        {BACKGROUNDS.map((x) => <option key={x.id} value={x.id}>{L(x.name)}</option>)}
+        <option value={CUSTOM}>{T('Otro (escribir)…', 'Other (type)…')}</option>
+      </SelectField>
+      {custom && <input className="p-inline" value={c.background} placeholder={T('Trasfondo', 'Background')} onChange={(e) => update((x) => { x.background = e.target.value; })} />}
+    </div>
   );
 }

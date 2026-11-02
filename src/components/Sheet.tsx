@@ -19,9 +19,12 @@ import { imageFileToBase64 } from '../importer';
 import { ExplainModal, longPress } from './InfoBubble';
 import { FlagsPanel } from './Flags';
 import { LevelUpPage } from './LevelUp';
-import { ClassField, SpeciesField, SubclassField } from './Identity';
+import { BackgroundField, ClassField, SpeciesField, SubclassField } from './Identity';
 import { SuggestInput } from './Suggest';
+import { physicalLine } from '../rules/avatar';
+import { confirmDelete } from './Confirm';
 import { Consumables } from './Consumables';
+import { OriginPicker } from './OriginPicker';
 import { hitDiceText } from '../rules/multiclass';
 import { featureSuggestions, spellSuggestions } from '../rules/suggest';
 import { useFx } from './Transition';
@@ -72,6 +75,7 @@ export function SheetTab() {
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [levelUp, setLevelUp] = useState(false);
+  const [origin, setOrigin] = useState(false);
   const [hpOpen, setHpOpen] = useState(false);
   const [statInfo, setStatInfo] = useState<{ ability: Ability; skill?: string; save?: boolean } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
@@ -155,6 +159,7 @@ export function SheetTab() {
     <div className="tab sheet-tab">
       <div className="sheet-toolbar">
         <button className="btn small primary lvlup-btn" disabled={c.level >= 20} onClick={() => { useFx.getState().play('levelup', undefined, T(`Nivel ${c.level} → ${c.level + 1}`, `Level ${c.level} → ${c.level + 1}`)); setLevelUp(true); }}>⬆️ {T('Subir de nivel', 'Level up')}</button>
+        <button className={`btn small ${c.level === 1 ? 'primary' : ''}`} onClick={() => setOrigin(true)}>🎓 {T('Origen y habilidades', 'Origin & skills')}</button>
         <button className="btn small" onClick={() => setImporting(true)}>📥 {T('Importar ficha', 'Import sheet')}</button>
         <button className="btn small" onClick={() => setEditing(true)}>⚙️ {T('Más opciones', 'More options')}</button>
       </div>
@@ -179,7 +184,7 @@ export function SheetTab() {
               <Field label={T('Nombre del personaje', 'Character name')} value={c.name} onChange={(v) => set((x) => { x.name = v; })} />
             </div>
             <div className="p-grid2">
-              <Field label={T('Trasfondo', 'Background')} value={c.background} onChange={(v) => set((x) => { x.background = v; })} />
+              <BackgroundField />
               <ClassField />
               <SpeciesField />
               <SubclassField />
@@ -274,7 +279,7 @@ export function SheetTab() {
             <Box title={T('Armas y trucos de daño', 'Weapons & Damage Cantrips')} right={<button className="p-add" onClick={() => { const id = uid(); set((x) => { x.attacks.push({ id, name: '', ability: 'str', proficient: true, damage: '1d6', damageType: 'cortante', range: '', extraBonus: 0 }); }); setAttackEdit(id); }}>+</button>}>
               <table className="p-table">
                 <thead>
-                  <tr><th>{T('Nombre', 'Name')}</th><th>{T('Bonif. at./CD', 'Atk Bonus/DC')}</th><th>{T('Daño y tipo', 'Damage & Type')}</th><th>{T('Notas', 'Notes')}</th></tr>
+                  <tr><th>{T('Nombre', 'Name')}</th><th>{T('Bonif. at./CD', 'Atk Bonus/DC')}</th><th>{T('Daño y tipo', 'Damage & Type')}</th><th>{T('Notas', 'Notes')}</th><th aria-label={T('Borrar', 'Delete')}></th></tr>
                 </thead>
                 <tbody>
                   {c.attacks.map((a) => {
@@ -285,10 +290,11 @@ export function SheetTab() {
                         <td>{fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}</td>
                         <td>{a.damage}{flat ? fmt(flat) : ''} {damageTypeName(a.damageType).toLowerCase()}</td>
                         <td className="p-notes">{[a.range, findMastery(a.mastery) ? L(findMastery(a.mastery)!.name) : '', a.notes].filter(Boolean).join(' · ')}</td>
+                        <td className="p-trash-cell"><button className="p-trash" aria-label={T(`Borrar ${a.name}`, `Delete ${a.name}`)} onClick={async (e) => { e.stopPropagation(); if (await confirmDelete(a.name || T('arma', 'weapon'))) set((x) => { x.attacks = x.attacks.filter((y) => y.id !== a.id); }); }}>🗑</button></td>
                       </tr>
                     );
                   })}
-                  {c.attacks.length === 0 && <tr><td colSpan={4} className="p-empty">{T('Toca + para añadir un arma', 'Tap + to add a weapon')}</td></tr>}
+                  {c.attacks.length === 0 && <tr><td colSpan={5} className="p-empty">{T('Toca + para añadir un arma', 'Tap + to add a weapon')}</td></tr>}
                 </tbody>
               </table>
             </Box>
@@ -296,10 +302,13 @@ export function SheetTab() {
             <Box title={T('Rasgos de clase', 'Class Features')} right={<button className="p-add" onClick={() => { const id = uid(); set((x) => { x.features.push({ id, name: '', text: '' }); }); setFeatEdit(id); }}>+</button>}>
               {c.features.length === 0 && <p className="p-empty">{T('Sin rasgos.', 'No features.')}</p>}
               {c.features.map((f) => (
-                <button key={f.id} className="p-feature" {...longPress({ type: 'feature', id: f.id })} onClick={() => (f.name ? setFeatInfo(f.id) : setFeatEdit(f.id))}>
+                <div key={f.id} className="p-feature-row">
+                <button className="p-feature" {...longPress({ type: 'feature', id: f.id })} onClick={() => (f.name ? setFeatInfo(f.id) : setFeatEdit(f.id))}>
                   <b>{f.name || T('Nuevo rasgo', 'New feature')}{featureRecharge(c, f) && <span className="recharge-tag">{L(RECHARGE_LABEL[featureRecharge(c, f)!])}</span>}</b>
                   {f.text && <span className="p-feature-text">{f.text}</span>}
                 </button>
+                <button className="p-trash" aria-label={T(`Borrar ${f.name}`, `Delete ${f.name}`)} onClick={async () => { if (await confirmDelete(f.name || T('rasgo', 'feature'))) set((x) => { x.features = x.features.filter((y) => y.id !== f.id); }); }}>🗑</button>
+                </div>
               ))}
             </Box>
 
@@ -431,7 +440,7 @@ export function SheetTab() {
           <Box title={T('Trucos y conjuros preparados', 'Cantrips & Prepared Spells')} className="p-spells" right={<button className="p-add" onClick={() => { const id = uid(); set((x) => { x.spells.push({ id, name: '', level: 0, prepared: true, castingTime: T('Acción', 'Action'), range: '', concentration: false }); }); setSpellEdit(id); }}>+</button>}>
             <table className="p-table">
               <thead>
-                <tr><th>{T('Nv', 'Lvl')}</th><th>{T('Nombre', 'Name')}</th><th>{T('Tiempo', 'Time')}</th><th>{T('Alcance', 'Range')}</th><th title={T('Componentes: V verbal, S somático, M material · C concentración · R ritual', 'Components: V verbal, S somatic, M material · C concentration · R ritual')}>{T('Comp.', 'Comp.')}</th></tr>
+                <tr><th>{T('Nv', 'Lvl')}</th><th>{T('Nombre', 'Name')}</th><th>{T('Tiempo', 'Time')}</th><th>{T('Alcance', 'Range')}</th><th title={T('Componentes: V verbal, S somático, M material · C concentración · R ritual', 'Components: V verbal, S somatic, M material · C concentration · R ritual')}>{T('Comp.', 'Comp.')}</th><th aria-label={T('Borrar', 'Delete')}></th></tr>
               </thead>
               <tbody>
                 {[...c.spells].sort((a, b) => a.level - b.level).map((s) => (
@@ -441,9 +450,10 @@ export function SheetTab() {
                     <td>{s.castingTime}</td>
                     <td>{s.range}</td>
                     <td className="p-crm"><SpellComp sp={s} /></td>
+                    <td className="p-trash-cell"><button className="p-trash" aria-label={T(`Borrar ${s.name}`, `Delete ${s.name}`)} onClick={async (e) => { e.stopPropagation(); if (await confirmDelete(s.name || T('conjuro', 'spell'))) set((x) => { x.spells = x.spells.filter((y) => y.id !== s.id); }); }}>🗑</button></td>
                   </tr>
                 ))}
-                {c.spells.length === 0 && <tr><td colSpan={5} className="p-empty">{T('Toca + para añadir un conjuro', 'Tap + to add a spell')}</td></tr>}
+                {c.spells.length === 0 && <tr><td colSpan={6} className="p-empty">{T('Toca + para añadir un conjuro', 'Tap + to add a spell')}</td></tr>}
               </tbody>
             </table>
           </Box>
@@ -452,12 +462,16 @@ export function SheetTab() {
             <Box title={T('Aspecto', 'Appearance')} className="p-appearance">
               {c.portrait ? (
                 <div className="p-portrait-wrap">
-                  <img className="p-portrait" src={c.portrait} alt={T('Retrato del personaje', 'Character portrait')} onClick={uploadPortrait} />
+                  <img className={`p-portrait ${c.portrait.startsWith('data:image/png') ? 'pixel' : ''}`} src={c.portrait} alt={T('Retrato del personaje', 'Character portrait')} onClick={uploadPortrait} />
                   <button className="p-link" onClick={() => set((x) => { x.portrait = null; })}>{T('Quitar imagen', 'Remove image')}</button>
                 </div>
               ) : (
-                <button className="p-upload" onClick={uploadPortrait}>🖼️ {T('Subir imagen del personaje', 'Upload character image')}</button>
+                <>
+                  <button className="p-upload" onClick={uploadPortrait}>🖼️ {T('Subir imagen del personaje', 'Upload character image')}</button>
+                  <p className="hint">{T('O créalo en la pestaña 🎨 Aspecto.', 'Or make one in the 🎨 Looks tab.')}</p>
+                </>
               )}
+              {physicalLine(c.physical) && <p className="p-phys muted">{physicalLine(c.physical)}</p>}
               <Area rows={3} value={c.appearance} onChange={(v) => set((x) => { x.appearance = v; })} />
             </Box>
             <Box title={T('Historia y personalidad', 'Backstory & Personality')}>
@@ -494,6 +508,7 @@ export function SheetTab() {
 
       {hpOpen && <HpModal onClose={() => setHpOpen(false)} />}
       {levelUp && <LevelUpPage onClose={() => setLevelUp(false)} />}
+      {origin && <OriginPicker onClose={() => setOrigin(false)} />}
       {statInfo && <StatInfoModal {...statInfo} onClose={() => setStatInfo(null)} />}
       {attackEdit && <AttackModal id={attackEdit} onClose={() => setAttackEdit(null)} />}
       {spellEdit && <SpellModal id={spellEdit} onClose={() => setSpellEdit(null)} />}
@@ -604,7 +619,7 @@ function AttackModal({ id, onClose }: { id: string; onClose: () => void }) {
       <label className="field">{T('Notas', 'Notes')}<input value={a.notes ?? ''} onChange={(e) => set((x) => { x.notes = e.target.value; })} /></label>
       <p className="hint">{T(`Bonificador de ataque: ${fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}. El modificador de característica se suma al daño automáticamente.`, `Attack bonus: ${fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}. The ability modifier is added to damage automatically.`)}</p>
       <div className="row">
-        <button className="btn danger" onClick={() => { update((ch) => { ch.attacks = ch.attacks.filter((y) => y.id !== id); }); onClose(); }}>{T('Borrar', 'Delete')}</button>
+        <button className="btn danger" onClick={async () => { if (await confirmDelete(a.name || T('arma', 'weapon'))) { update((ch) => { ch.attacks = ch.attacks.filter((y) => y.id !== id); }); onClose(); } }}>{T('Borrar', 'Delete')}</button>
         <button className="btn primary grow" onClick={onClose}>{T('Hecho', 'Done')}</button>
       </div>
     </Modal>
@@ -647,7 +662,7 @@ function FeatureModal({ id, onClose }: { id: string; onClose: () => void }) {
         </select>
       </label>
       <div className="row">
-        <button className="btn danger" onClick={() => { update((ch) => { ch.features = ch.features.filter((y) => y.id !== id); }); onClose(); }}>{T('Borrar', 'Delete')}</button>
+        <button className="btn danger" onClick={async () => { if (await confirmDelete(f.name || T('rasgo', 'feature'))) { update((ch) => { ch.features = ch.features.filter((y) => y.id !== id); }); onClose(); } }}>{T('Borrar', 'Delete')}</button>
         <button className="btn primary grow" onClick={onClose}>{T('Hecho', 'Done')}</button>
       </div>
     </Modal>
@@ -691,7 +706,7 @@ function SpellModal({ id, onClose }: { id: string; onClose: () => void }) {
       </div>
       <label className="field">{T('Notas / qué hace', 'Notes / what it does')}<textarea value={sp.notes ?? ''} onChange={(e) => set((x) => { x.notes = e.target.value; })} /></label>
       <div className="row">
-        <button className="btn danger" onClick={() => { update((ch) => { ch.spells = ch.spells.filter((y) => y.id !== id); }); onClose(); }}>{T('Borrar', 'Delete')}</button>
+        <button className="btn danger" onClick={async () => { if (await confirmDelete(sp.name || T('conjuro', 'spell'))) { update((ch) => { ch.spells = ch.spells.filter((y) => y.id !== id); }); onClose(); } }}>{T('Borrar', 'Delete')}</button>
         <button className="btn primary grow" onClick={onClose}>{T('Hecho', 'Done')}</button>
       </div>
     </Modal>

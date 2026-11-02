@@ -3,6 +3,30 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.14.0 · 2 nov 2026 — Origen al crear el personaje, editor de aspecto y paisajes nuevos
+
+**Creación del personaje (nivel 1)**
+- Botón **🎓 Origen y habilidades** en la hoja (resaltado a nivel 1): eliges el **trasfondo** (16 de las reglas 2024, con sus habilidades, herramienta, dote de origen y características) y solo ves las **habilidades que puedes escoger** según tu clase, en el número correcto, más las de tu especie (elfo y humano), la dote *Habilidoso*, la pericia del pícaro, el estilo de combate del guerrero y las órdenes del clérigo y del druida.
+- **Conflictos**: si una habilidad ya te la da otra fuente aparece tachada con el motivo y tienes que elegir otra; las duplicadas se marcan en rojo en «⚠️ Conflictos».
+- El trasfondo de la cabecera es ahora un selector (o texto libre).
+
+**Editor de aspecto (pestaña 🎨 Aspecto)**
+- Piel o escamas, ojos, orejas, cuernos, colmillos, hocico, aureola, cicatriz, parche, pintura de guerra, pecas, peinado y color, barba, ropa y color, tocado y fondo.
+- Genera un **retrato pixel art** al momento; empieza según tu especie y tiene 🎲 Aleatorio.
+- **Usar como retrato** lo pone en la hoja y arriba junto al nombre.
+- Datos físicos (edad, altura, peso, ojos, pelo, piel) y descripción libre; salen en el recuadro «Aspecto» de la hoja.
+
+**Hoja**
+- **Papelera** en cada rasgo, arma y conjuro, con el aviso «¿Seguro que quieres borrar…?» (también al borrar munición y desde las ventanas de edición).
+- **Munición y consumibles**: la lista se ve limpia; con **✏️ Editar** sumas, restas, añades y borras, y **✓ Listo** lo guarda y cierra.
+
+**Ajustes**
+- **📖 Manual**: la guía ilustrada se abre dentro de la app, también sin internet.
+
+**Estilo**
+- **Paisajes nuevos** más detallados, estilo RPG de los 90 con el cielo por bandas: castillo con banderas, torre del mago y dragón (Básico); cabaña de bruja, círculo de piedras y setas que brillan (Verdoso); aurora y puerta enana iluminada (Grises); faro, barco de vela, torre élfica y estrella fugaz (Azules).
+- La barra inferior admite 7 pestañas en móviles estrechos (en pantallas pequeñas «Asistente» se acorta a «Chat»).
+
 ## 0.13.0 · 2 nov 2026 — Hoja a mano con ayudas, multiclase y mejoras del DM
 
 **Hoja de personaje**
