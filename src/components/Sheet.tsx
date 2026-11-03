@@ -23,8 +23,9 @@ import { LevelUpPage } from './LevelUp';
 import { BackgroundField, ClassField, SpeciesField, SubclassField } from './Identity';
 import { SuggestInput } from './Suggest';
 import { physicalLine } from '../rules/avatar';
-import { AvailablePicker } from './Available';
-import { FEATURES } from '../features';
+import { AvailablePicker, FeatureCounter } from './Available';
+import { featureLimits } from '../rules/classFit';
+import { useAvatarEditor } from '../features';
 import { spellCounts, spellLimits, spellUse } from '../rules/spellLimits';
 import { confirmDelete } from './Confirm';
 import { Consumables } from './Consumables';
@@ -104,6 +105,7 @@ function SpellCounter() {
 export function SheetTab() {
   const c = useChar();
   const update = useStore((s) => s.update);
+  const avatarOn = useAvatarEditor();
   const run = useStore((s) => s.runCommands);
   const tapToRoll = useStore((s) => s.settings.tapToRoll);
   const roll = useRoll();
@@ -346,6 +348,7 @@ export function SheetTab() {
                 <button className="p-trash" aria-label={T(`Borrar ${f.name}`, `Delete ${f.name}`)} onClick={async () => { if (await confirmDelete(f.name || T('rasgo', 'feature'))) set((x) => { x.features = x.features.filter((y) => y.id !== f.id); }); }}>🗑</button>
                 </div>
               ))}
+              <FeatureCounter limits={featureLimits(c)} />
             </Box>
 
             <div className="p-grid2">
@@ -505,7 +508,7 @@ export function SheetTab() {
               ) : (
                 <>
                   <button className="p-upload" onClick={uploadPortrait}>🖼️ {T('Subir imagen del personaje', 'Upload character image')}</button>
-                  {FEATURES.avatarEditor && <p className="hint">{T('O créalo en la pestaña 🎨 Aspecto.', 'Or make one in the 🎨 Looks tab.')}</p>}
+                  {avatarOn && <p className="hint">{T('O créalo en la pestaña 🎨 Aspecto.', 'Or make one in the 🎨 Looks tab.')}</p>}
                 </>
               )}
               {physicalLine(c.physical) && <p className="p-phys muted">{physicalLine(c.physical)}</p>}

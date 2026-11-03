@@ -39,7 +39,8 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
 - **Munición y consumibles**: lista con cantidades (se detectan en el texto del equipo: «20 flechas, 2 pociones»). En combate marcas «Usar 1» y al terminar se recupera la mitad de la munición gastada (reglas 2024), se recogen las armas arrojadizas y los consumibles se descuentan.
 - Varios personajes y creación guiada por clase (PG, salvaciones, espacios y recursos automáticos).
 - **Origen y habilidades a nivel 1** (botón 🎓 en la hoja): trasfondo de las reglas 2024 y solo las habilidades que puedes escoger según clase, especie y dotes, con los **conflictos** marcados (si dos fuentes dan la misma, tienes que elegir otra). También pericia del pícaro, estilo de combate y órdenes del clérigo y del druida.
-- **Editor de aspecto** (pestaña 🎨 Aspecto): **oculto de momento** (`src/features.ts` → `avatarEditor`) mientras se rehace; el código sigue en `src/components/Avatar.tsx` y `src/rules/avatar.ts`.
+- **Editor de aspecto** (pestaña 🎨 Aspecto): experimental, oculto por defecto; se muestra con un interruptor en Ajustes. El código está en `src/components/Avatar.tsx` y `src/rules/avatar.ts`.
+- **Conjuros completos**: los 392 conjuros de las reglas 2024 (SRD 5.2 + Player’s Handbook) con las listas de cada clase, límites de trucos y preparados, y rasgos limitados por clase y nivel (se limpian al cambiar de clase).
 - **Límite de conjuros**: trucos y preparados según las tablas de clase de 2024, con contador y aviso, y un **icono de usos** en cada conjuro (♾️ a voluntad, ✨ espacios con 🌙/⛺, 1×🌙 de especie).
 - **Borrar con confirmación**: papelera en rasgos, armas, conjuros y munición, con aviso «¿Seguro que quieres borrar…?».
 - **Manual dentro de la app** (Ajustes → 📖 Abrir el manual), también sin internet.
@@ -126,6 +127,8 @@ El icono (un goblin en pixel art que mira a cámara y lanza dados) se genera con
 - `src/scenes.ts`: póster de fondo de cada paleta.
 - `scripts/posters/`: generador de los pósteres (SVG con texturas, luz, niebla y grano) que se pintan a JPEG con Playwright: `node scripts/posters/render.cjs`.
 - `src/rules/spellLimits.ts`: trucos y conjuros preparados por clase y nivel, y usos de cada conjuro.
+- `src/rules/spellsGen.ts`: conjuros generados con `node scripts/build-spells.cjs` a partir de `data/` (SRD 5.2 y resúmenes en español).
+- `src/rules/classFit.ts`: límites de rasgos elegibles y limpieza al cambiar de clase.
 - `scripts/copy-guide.mjs`: copia la guía (`docs/guia`) a `public/guia` al compilar para el manual de Ajustes.
 - `src/i18n.ts`: idioma de la app (`T('texto', 'text')`).
 - `src/importer.ts`: importación de fichas (pdf.js para PDF, mammoth para Word).

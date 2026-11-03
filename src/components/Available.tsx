@@ -9,6 +9,7 @@ import { uid } from '../rules/factory';
 import { L, T } from '../i18n';
 import { Modal } from './common';
 import { speciesSpellNames, spellCounts, spellLimits } from '../rules/spellLimits';
+import { featureLimits, groupFull } from '../rules/classFit';
 
 const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 const RECHARGE: Record<string, string> = { short: '⛺', long: '🌙', slot: '✨', atwill: '♾️' };
@@ -77,6 +78,7 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
     );
   }
 
+  const limits = featureLimits(c);
   const list = feats.filter((x) => !k || fold(x.name).includes(k) || fold(x.why).includes(k));
   const groups = [...new Set(list.map((x) => x.why))];
   const add = (name: string) => {
@@ -86,6 +88,7 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
   return (
     <Modal title={T('Rasgos disponibles', 'Available features')} onClose={onClose}>
       <p className="small muted">{T('Rasgos de tus clases hasta tu nivel, opciones que puedes elegir (estilos, invocaciones…), subclases, rasgos de especie y dotes. Toca uno para leerlo.', 'Features from your classes up to your level, options you can choose (styles, invocations…), subclasses, species traits and feats. Tap one to read it.')}</p>
+      <FeatureCounter limits={limits} />
       <input className="avail-search" value={q} placeholder={T('Filtrar…', 'Filter…')} onChange={(e) => setQ(e.target.value)} />
       <div className="avail-list">
         {groups.map((g) => (
@@ -100,7 +103,7 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
                     <b>{f.name} {f.recharge ? RECHARGE[f.recharge] : ''}</b>
                     <span className={isOpen ? 'avail-text' : 'muted small avail-snippet'}>{f.text}</span>
                   </button>
-                  {have ? <span className="avail-have">✓ {T('Ya lo tienes', 'Already have it')}</span> : <button className="btn small primary" onClick={() => add(f.name)}>+ {T('Añadir', 'Add')}</button>}
+                  {have ? <span className="avail-have">✓ {T('Ya lo tienes', 'Already have it')}</span> : groupFull(limits, f.group) ? <span className="avail-lock" title={T('Ya tienes el máximo de este tipo; quita uno para elegir otro', 'You already have the maximum of this kind; remove one to choose another')}>{T('Máx.', 'Max')} {limits.find((l) => l.group === f.group)?.max ?? 0}</span> : <button className="btn small primary" onClick={() => add(f.name)}>+ {T('Añadir', 'Add')}</button>}
                 </div>
               );
             })}
@@ -110,5 +113,17 @@ export function AvailablePicker({ kind, onClose }: { kind: 'spell' | 'feature'; 
       </div>
       <button className="btn full" onClick={onClose}>{T('Hecho', 'Done')}</button>
     </Modal>
+  );
+}
+
+/** Cuántos rasgos elegibles llevas de cada tipo frente a los que permiten tu clase, nivel y especie */
+export function FeatureCounter({ limits }: { limits: ReturnType<typeof featureLimits> }) {
+  const shown = limits.filter((l) => l.max > 0 || l.have > 0);
+  if (!shown.length) return null;
+  return (
+    <div className="spell-counter feature-counter">
+      {shown.map((l) => <span key={l.group} className={l.have > l.max ? 'over' : l.have === l.max ? 'full' : ''}>{l.label} <b>{l.have}/{l.max}</b></span>)}
+      {shown.some((l) => l.have > l.max) && <p className="spell-over">⚠️ {T('Tienes más de los que permite tu nivel. Quita los que sobren.', 'You have more than your level allows. Remove the extra ones.')}</p>}
+    </div>
   );
 }

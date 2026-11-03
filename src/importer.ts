@@ -38,6 +38,25 @@ async function loadPdf(file: File) {
   return { pdfjs, doc };
 }
 
+/** Texto de un PDF agrupado en líneas (de arriba abajo y de izquierda a derecha) */
+async function pdfTextLines(doc: Awaited<ReturnType<typeof loadPdf>>['doc']): Promise<string> {
+  const out: string[] = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 12); i++) {
+    const page = await doc.getPage(i);
+    const tc = await page.getTextContent();
+    const items = (tc.items as { str: string; transform: number[] }[]).filter((x) => x.str?.trim());
+    const rows: { y: number; parts: { x: number; s: string }[] }[] = [];
+    for (const it of items) {
+      const x = it.transform[4]; const y = it.transform[5];
+      const row = rows.find((r) => Math.abs(r.y - y) < 3);
+      if (row) row.parts.push({ x, s: it.str }); else rows.push({ y, parts: [{ x, s: it.str }] });
+    }
+    rows.sort((a, b) => b.y - a.y);
+    for (const r of rows) out.push(r.parts.sort((a, b) => a.x - b.x).map((p) => p.s).join('  ').replace(/\s{3,}/g, '  ').trim());
+  }
+  return out.join('\n');
+}
+
 /** Pinta las páginas del PDF (con los valores del formulario) en canvas */
 async function renderPdfPages(file: File): Promise<HTMLCanvasElement[]> {
   const { pdfjs, doc } = await loadPdf(file);
@@ -45,7 +64,8 @@ async function renderPdfPages(file: File): Promise<HTMLCanvasElement[]> {
   for (let i = 1; i <= Math.min(doc.numPages, 8); i++) {
     const page = await doc.getPage(i);
     const base = page.getViewport({ scale: 1 });
-    const viewport = page.getViewport({ scale: Math.min(3, MAX_SIDE / Math.max(base.width, base.height)) });
+    // Para el OCR conviene más resolución que para enviar la imagen
+    const viewport = page.getViewport({ scale: Math.min(4, 3000 / Math.max(base.width, base.height)) });
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(viewport.width);
     canvas.height = Math.round(viewport.height);
@@ -236,6 +256,12 @@ export async function importOffline(files: File[], pasted: string, onProgress?: 
       if (byName) {
         sheet = byName;
         method = 'pdf-form';
+        continue;
+      }
+      // PDF con texto (exportado de Word, D&D Beyond…): se lee su texto, ordenado en líneas
+      const layer = await pdfTextLines(doc);
+      if (layer.replace(/[^\p{L}]/gu, '').length > 150) {
+        texts.push(layer);
         continue;
       }
       // PDF escaneado o sin campos: lo pasamos por OCR

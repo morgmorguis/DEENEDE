@@ -25,6 +25,8 @@ export interface Settings {
   manualRolls: boolean;
   /** Fecha (ms) de la última copia de seguridad exportada */
   lastBackupAt: number | null;
+  /** Mostrar la pestaña experimental del editor de aspecto */
+  avatarEditor?: boolean;
 }
 
 interface State {

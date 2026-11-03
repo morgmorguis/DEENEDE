@@ -4,6 +4,7 @@ import { useChar, useStore } from '../store';
 import { CLASSES, RESOURCE_NAMES } from '../rules/srd';
 import { SUBCLASSES, CLASS_PROFS } from '../rules/progression';
 import { SPECIES_INFO, applySpecies, findSpecies } from '../rules/species';
+import { pruneForClass, pruneSummary, removedBetween } from '../rules/classFit';
 import { applyClass, classLevels, meetsReq, reqText, spellSlotsFor } from '../rules/multiclass';
 import { BACKGROUNDS, findBackground } from '../rules/origins';
 import type { Character } from '../types';
@@ -39,8 +40,11 @@ export function ClassField() {
     if (v === CUSTOM) { setCustom(true); update((x) => { x.classId = ''; }); return; }
     setCustom(false);
     if (!v) return;
-    if (c.classId && c.classId !== v && !confirm(T('¿Cambiar de clase? Se pondrán su dado de golpe, salvaciones, competencias, recursos, espacios y rasgos (lo añadido a mano se conserva).', 'Change class? Its hit die, saves, proficiencies, resources, slots and features will be applied (things you added by hand are kept).'))) return;
-    replace(withClass(c, v));
+    if (c.classId && c.classId !== v && !confirm(T('¿Cambiar de clase? Se pondrán su dado de golpe, salvaciones, competencias, recursos, espacios y rasgos, y se quitarán los rasgos y conjuros de la clase anterior que ya no puedas tener (lo que escribiste a mano y la app no reconoce se conserva).', 'Change class? Its hit die, saves, proficiencies, resources, slots and features will be applied, and features and spells of the old class you can no longer have will be removed (custom entries the app doesn’t recognise are kept).'))) return;
+    const r = pruneForClass(withClass(c, v));
+    replace(r.next);
+    const lines = pruneSummary(removedBetween(c, r.next));
+    if (lines.length) useStore.getState().showToast(T('Clase cambiada', 'Class changed'), lines);
   };
   return (
     <div className="p-class">
@@ -148,7 +152,10 @@ function MulticlassModal({ onClose }: { onClose: () => void }) {
       ...defs.map((r) => { const old = c.resources.find((x) => x.key === r.key); return { id: old?.id ?? Math.random().toString(36).slice(2, 10), key: r.key, name: L(RESOURCE_NAMES[r.key]), max: r.max, used: Math.min(r.max, old?.used ?? 0), recovers: r.recovers }; }),
       ...c.resources.filter((x) => !x.key),
     ];
-    replace(next);
+    const r = pruneForClass(next);
+    replace(r.next);
+    const lines = pruneSummary(removedBetween(c, r.next));
+    if (lines.length) useStore.getState().showToast(T('Multiclase actualizada', 'Multiclass updated'), lines);
     onClose();
   };
   return (

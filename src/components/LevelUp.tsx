@@ -38,10 +38,23 @@ function AbilityChips({ allowed, value, onChange }: { allowed: Ability[]; value:
   );
 }
 
-function Card({ title, done, children }: { title: string; done?: boolean; children: React.ReactNode }) {
+/** Botón ℹ️ que despliega por qué ganas algo según las reglas */
+function Why({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className={`lu-why-btn ${open ? 'on' : ''}`} onClick={() => setOpen(!open)} aria-expanded={open} aria-label={T('¿Por qué?', 'Why?')} title={T('¿Por qué?', 'Why?')}>ℹ️</button>
+      {open && <p className="lu-why">{text}</p>}
+    </>
+  );
+}
+
+function Card({ title, done, why, children }: { title: string; done?: boolean; why?: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
     <section className={`card lu-card ${done === false ? 'pending' : ''}`}>
-      <div className="card-head"><h2>{done ? '✅ ' : done === false ? '⬜ ' : ''}{title}</h2></div>
+      <div className="card-head"><h2>{done ? '✅ ' : done === false ? '⬜ ' : ''}{title}</h2>{why && <button type="button" className={`lu-why-btn ${open ? 'on' : ''}`} onClick={() => setOpen(!open)} aria-expanded={open} aria-label={T('¿Por qué?', 'Why?')} title={T('¿Por qué?', 'Why?')}>ℹ️</button>}</div>
+      {why && open && <p className="lu-why">{why}</p>}
       {children}
     </section>
   );
@@ -212,7 +225,9 @@ function LevelUpBody({ onClose, target, setTarget }: { onClose: () => void; targ
         {cls && c.level < 20 && <ClassPicker target={cls.id} setTarget={setTarget} />}
         {!cls && <p className="reminders">{T('No reconozco tu clase, así que solo subiré el nivel y los PG. Elige una clase en «Más opciones» para ver tus opciones.', 'I don’t recognize your class, so I’ll only raise your level and HP. Pick a class in “More options” to see your options.')}</p>}
 
-        <Card title={T('Puntos de golpe', 'Hit points')} done={done.hp}>
+        <Card title={T('Puntos de golpe', 'Hit points')} done={done.hp} why={T(
+          `Cada vez que subes un nivel de ${cls ? L(cls.name) : T('tu clase', 'your class')} ganas lo que saques en su dado de golpe (d${hitDie}) o, si prefieres no tirar, la media fija (${averageHitDie(hitDie)}: la mitad del dado más 1). A eso le sumas tu modificador de Constitución (${fmt(con)}). Nunca ganas menos de 1 PG por nivel. También ganas un dado de golpe más (d${hitDie}) para curarte en los descansos cortos.`,
+          `Each time you gain a ${cls ? L(cls.name) : 'class'} level you gain what you roll on its Hit Die (d${hitDie}) or, if you’d rather not roll, the fixed average (${averageHitDie(hitDie)}: half the die plus 1). Add your Constitution modifier (${fmt(con)}). You never gain less than 1 HP per level. You also gain one more Hit Die (d${hitDie}) to heal during Short Rests.`)}>
           <div className="segmented">
             <button className={hpMode === 'avg' ? 'on' : ''} onClick={() => setHpMode('avg')}>{T('Media fija', 'Fixed average')} ({averageHitDie(hitDie)})</button>
             <button className={hpMode === 'roll' ? 'on' : ''} onClick={() => setHpMode('roll')}>🎲 {T('Tirar', 'Roll')} 1d{hitDie}</button>
@@ -228,24 +243,28 @@ function LevelUpBody({ onClose, target, setTarget }: { onClose: () => void; targ
         </Card>
 
         {(entry.features.length > 0 || autoGains.length > 0) && (
-          <Card title={T('Lo que ganas', 'What you gain')}>
+          <Card title={T('Lo que ganas', 'What you gain')} why={T('Cada clase tiene una tabla de progresión (niveles 1 a 20) que dice qué rasgos llegan en cada nivel. El bonificador por competencia depende del nivel total del personaje: +2 en niveles 1-4, +3 en 5-8, +4 en 9-12, +5 en 13-16 y +6 en 17-20. Toca ℹ️ en cada rasgo para ver de dónde sale.', 'Each class has a progression table (levels 1 to 20) saying which features arrive at each level. The Proficiency Bonus depends on total character level: +2 at levels 1-4, +3 at 5-8, +4 at 9-12, +5 at 13-16 and +6 at 17-20. Tap ℹ️ on each feature to see where it comes from.')}>
             <ul className="lu-gains">
               {autoGains.map((g) => <li key={g}>➕ {g}</li>)}
               {entry.features.map((f) => (
-                <li key={f.name.en}><b>{f.subclass && c.subclass ? `${c.subclass}: ` : ''}{L(f.name)}</b><span>{L(f.text)}</span></li>
+                <li key={f.name.en}><b>{f.subclass && c.subclass ? `${c.subclass}: ` : ''}{L(f.name)}</b><span>{L(f.text)}</span>
+                  <Why text={f.subclass
+                    ? T(`Es un rasgo de tu subclase${c.subclass ? ` (${c.subclass})` : ''}: las subclases dan rasgos nuevos en niveles concretos de la tabla de ${cls ? L(cls.name) : 'tu clase'}, y este es el que toca a nivel ${level}.`, `It’s a feature of your subclass${c.subclass ? ` (${c.subclass})` : ''}: subclasses grant new features at set levels of the ${cls ? L(cls.name) : 'class'} table, and this is the one at level ${level}.`)
+                    : T(`Lo ganas porque la tabla de ${cls ? L(cls.name) : 'tu clase'} da «${L(f.name)}» al llegar a nivel ${level} de esa clase.`, `You gain it because the ${cls ? L(cls.name) : 'class'} table grants “${L(f.name)}” at class level ${level}.`)} />
+                </li>
               ))}
             </ul>
           </Card>
         )}
 
         {cls && choice('subclass') && (
-          <Card title={T('Elige tu subclase', 'Choose your subclass')} done={done.subclass}>
+          <Card title={T('Elige tu subclase', 'Choose your subclass')} done={done.subclass} why={T('En las reglas de 2024 todas las clases eligen subclase a nivel 3. La subclase te da rasgos propios en varios niveles más adelante.', 'In the 2024 rules every class picks its subclass at level 3. The subclass grants its own features at several later levels.')}>
             <OptionList options={SUBCLASSES[cls.id] ?? []} selected={subclass ? [subclass] : []} onToggle={(id) => setSubclass(id)} />
           </Card>
         )}
 
         {choice('asi') && (
-          <Card title={T('Mejora de característica o dote', 'Ability Score Improvement or feat')} done={done.asi}>
+          <Card title={T('Mejora de característica o dote', 'Ability Score Improvement or feat')} done={done.asi} why={T(`La tabla de ${cls ? L(cls.name) : 'tu clase'} da una mejora de característica en este nivel (todas en los niveles 4, 8, 12 y 16; el guerrero también en 6 y 14 y el pícaro en 10). Puedes subir +2 una característica o +1 a dos (máximo 20), o elegir una dote en su lugar.`, `The ${cls ? L(cls.name) : 'class'} table grants an Ability Score Improvement at this level (all classes at 4, 8, 12 and 16; Fighter also at 6 and 14 and Rogue at 10). You can raise one score by 2 or two by 1 (maximum 20), or take a feat instead.`)}>
             <div className="segmented">
               <button className={asiMode === 'asi' ? 'on' : ''} onClick={() => setAsiMode('asi')}>{T('Características', 'Abilities')}</button>
               <button className={asiMode === 'feat' ? 'on' : ''} onClick={() => setAsiMode('feat')}>{T('Dote', 'Feat')}</button>
@@ -278,20 +297,20 @@ function LevelUpBody({ onClose, target, setTarget }: { onClose: () => void; targ
         )}
 
         {choice('boon') && (
-          <Card title={T('Don épico', 'Epic Boon')} done={done.boon}>
+          <Card title={T('Don épico', 'Epic Boon')} done={done.boon} why={T('A nivel 19 todas las clases ganan un don épico: una dote especial que además sube una característica (hasta 30).', 'At level 19 every class gains an Epic Boon: a special feat that also raises one ability score (up to 30).')}>
             <OptionList options={BOONS} selected={boonId ? [boonId] : []} onToggle={(id) => { setBoonId(id); setBoonAbility(null); }} />
             {boon?.abilities && <AbilityChips allowed={boon.abilities} value={boonAbility} onChange={setBoonAbility} />}
           </Card>
         )}
 
         {choice('fightingStyle') && (
-          <Card title={T('Estilo de combate', 'Fighting Style')} done={done.style}>
+          <Card title={T('Estilo de combate', 'Fighting Style')} done={done.style} why={T(`La tabla de ${cls ? L(cls.name) : 'tu clase'} te da una dote de estilo de combate en este nivel. Solo puedes tener cada estilo una vez.`, `The ${cls ? L(cls.name) : 'class'} table grants a Fighting Style feat at this level. You can take each style only once.`)}>
             <OptionList options={FIGHTING_STYLES.filter((x) => !c.features.some((f) => f.name.includes(L(x.name))))} selected={style ? [style] : []} onToggle={setStyle} />
           </Card>
         )}
 
         {expChoice && expChoice.kind === 'expertise' && (
-          <Card title={T(`Pericia (elige ${expNeeded})`, `Expertise (choose ${expNeeded})`)} done={done.expertise}>
+          <Card title={T(`Pericia (elige ${expNeeded})`, `Expertise (choose ${expNeeded})`)} done={done.expertise} why={T(`La tabla de ${cls ? L(cls.name) : 'tu clase'} te da Pericia en este nivel: eliges habilidades en las que ya eres competente y duplicas en ellas tu bonificador por competencia.`, `The ${cls ? L(cls.name) : 'class'} table grants Expertise at this level: pick skills you’re already proficient in and double your Proficiency Bonus for them.`)}>
             <p className="hint">{T('Duplicas tu bonificador de competencia en estas habilidades.', 'You double your Proficiency Bonus for these skills.')}</p>
             {expPool.length === 0 && <p className="muted">{T('No tienes habilidades competentes elegibles. Marca tus competencias en la hoja.', 'You have no eligible proficient skills. Tick your proficiencies on the sheet.')}</p>}
             <div className="row wrap">
@@ -303,25 +322,25 @@ function LevelUpBody({ onClose, target, setTarget }: { onClose: () => void; targ
         )}
 
         {metaChoice && metaChoice.kind === 'metamagic' && (
-          <Card title={T(`Metamagia (elige ${metaChoice.count})`, `Metamagic (choose ${metaChoice.count})`)} done={done.metamagic}>
+          <Card title={T(`Metamagia (elige ${metaChoice.count})`, `Metamagic (choose ${metaChoice.count})`)} done={done.metamagic} why={T('El hechicero aprende 2 opciones de metamagia a nivel 2 y 2 más en los niveles 10 y 17. Cada opción solo se elige una vez.', 'The Sorcerer learns 2 Metamagic options at level 2 and 2 more at levels 10 and 17. Each option can be chosen only once.')}>
             <OptionList options={metaPool} selected={metamagic} max={metaChoice.count} onToggle={(id) => toggle(metamagic, setMetamagic, id, metaChoice.count)} />
           </Card>
         )}
 
         {invChoice && invChoice.kind === 'invocation' && (
-          <Card title={T(`Invocaciones (elige ${invChoice.count})`, `Invocations (choose ${invChoice.count})`)} done={done.invocations}>
+          <Card title={T(`Invocaciones (elige ${invChoice.count})`, `Invocations (choose ${invChoice.count})`)} done={done.invocations} why={T('La tabla del brujo dice cuántas invocaciones sobrenaturales conoces en cada nivel (1 a nivel 1, 3 a nivel 2 y más a medida que subes). Algunas exigen un nivel mínimo o un pacto.', 'The Warlock table says how many Eldritch Invocations you know at each level (1 at level 1, 3 at level 2 and more as you go). Some require a minimum level or a pact.')}>
             <OptionList options={invPool} selected={invocations} max={invChoice.count} onToggle={(id) => toggle(invocations, setInvocations, id, invChoice.count)} />
           </Card>
         )}
 
         {optionChoices.map((oc) => oc.kind === 'option' && (
-          <Card key={oc.id} title={L(oc.title)} done={!!options[oc.id]}>
+          <Card key={oc.id} title={L(oc.title)} done={!!options[oc.id]} why={T(`La tabla de ${cls ? L(cls.name) : 'tu clase'} te pide elegir «${L(oc.title)}» en este nivel; eliges una de las opciones.`, `The ${cls ? L(cls.name) : 'class'} table asks you to choose “${L(oc.title)}” at this level; pick one option.`)}>
             <OptionList options={oc.options} selected={options[oc.id] ? [options[oc.id]] : []} onToggle={(id) => setOptions({ ...options, [oc.id]: id })} />
           </Card>
         ))}
 
         {cls && (allowance.cantrips > 0 || allowance.spells > 0) && (
-          <Card title={T('Conjuros nuevos (opcional)', 'New spells (optional)')}>
+          <Card title={T('Conjuros nuevos (opcional)', 'New spells (optional)')} why={T(`La tabla de ${cls ? L(cls.name) : 'tu clase'} indica cuántos trucos conoces y cuántos conjuros puedes tener preparados en cada nivel, y de qué nivel máximo según tus espacios de conjuro. Aquí ves solo la diferencia con el nivel anterior.`, `The ${cls ? L(cls.name) : 'class'} table sets how many cantrips you know and how many spells you can have prepared at each level, and their maximum level based on your spell slots. Here you only see the difference from the previous level.`)}>
             <p className="hint">
               {allowance.cantrips > 0 && T(`Puedes aprender ${allowance.cantrips} truco(s) más. `, `You can learn ${allowance.cantrips} more cantrip(s). `)}
               {allowance.spells > 0 && T(`Puedes preparar ${allowance.spells} conjuro(s) más, de nivel ${allowance.maxLevel} como máximo.`, `You can prepare ${allowance.spells} more spell(s), up to level ${allowance.maxLevel}.`)}

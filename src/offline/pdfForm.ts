@@ -3,7 +3,9 @@
 import type { Ability } from '../types';
 import type { ImportedSheet } from '../ai';
 import { emptySheet, parseAttackBonus, parseDamageCell, parseDamageType, parseHitDie, parseInt0, setSkill } from './sheetUtils';
-import { classById } from '../rules/srd';
+import { SKILLS, classById } from '../rules/srd';
+import { findClass } from './textParse';
+import { findSpell } from '../rules/spells';
 import { T } from '../i18n';
 
 export interface FormField {
@@ -208,16 +210,21 @@ const NAMED: [RegExp, string][] = [
   [/^xp$|^experience/i, 'xp'], [/^str$/i, 'score:str'], [/^dex$/i, 'score:dex'], [/^con$/i, 'score:con'], [/^int$/i, 'score:int'],
   [/^wis$/i, 'score:wis'], [/^cha$/i, 'score:cha'], [/^ac$/i, 'ac'], [/^speed$/i, 'speed'], [/^hpmax$/i, 'hpMax'],
   [/^hpcurrent$/i, 'hpCurrent'], [/^hptemp$/i, 'hpTemp'], [/^hd$|^hdtotal$/i, 'hdMax'], [/^equipment$/i, 'equipment'],
-  [/^proficiencieslang$/i, 'languages'], [/^features and traits$|^features$/i, 'features1'], [/^cp$/i, 'cp'], [/^sp$/i, 'sp'],
+  [/^proficiencieslang$/i, 'languages'], [/^features and traits$|^features$/i, 'features1'], [/^feat\+traits$/i, 'features2'], [/^profbonus$/i, 'prof'], [/^cp$/i, 'cp'], [/^sp$/i, 'sp'],
   [/^ep$/i, 'ep'], [/^gp$/i, 'gp'], [/^pp$/i, 'pp'], [/^personalitytraits|^backstory/i, 'backstory'], [/^spellcastingability/i, 'spellAbility'],
 ];
 
 export function mapByFieldNames(fields: FormField[]): ImportedSheet | null {
   const text: Record<string, string> = {};
   const weapons: Record<string, Record<string, string>> = {};
+  const spellNames: string[] = [];
+  const raw: Record<string, string> = {};
   for (const f of fields) {
     if (f.kind !== 'text' || !f.value) continue;
     const name = f.name.trim();
+    raw[name.toLowerCase().replace(/\s+/g, '')] = f.value;
+    // Hoja oficial de 2014: los conjuros van en campos «Spells 1014», «Spells 1015»…
+    if (/^spells\s*\d+/i.test(name)) { spellNames.push(f.value.trim()); continue; }
     const w = name.match(/^wpn\s*(?:name)?\s*(\d*)\s*(name|atkbonus|damage)?/i);
     if (w && /wpn/i.test(name)) {
       const idx = w[1] || '1';
@@ -232,8 +239,9 @@ export function mapByFieldNames(fields: FormField[]): ImportedSheet | null {
   const s = emptySheet();
   s.name = text.name ?? '';
   const cl = text.class ?? text.classLevel ?? '';
-  s.className = cl.replace(/\d+/g, '').trim();
-  s.classId = classById(s.className)?.id ?? null;
+  s.className = cl.replace(/\([^)]*\)/g, '').replace(/\d+/g, '').trim();
+  s.classId = findClass(cl) ?? classById(s.className)?.id ?? null;
+  s.subclass = cl.match(/\(([^)]+)\)/)?.[1]?.trim() ?? '';
   s.level = parseInt0(text.level ?? cl) || 1;
   s.background = text.background ?? '';
   s.species = text.species ?? '';
@@ -248,11 +256,31 @@ export function mapByFieldNames(fields: FormField[]): ImportedSheet | null {
   s.hitDie = parseHitDie(text.hdMax);
   s.equipment = text.equipment ?? '';
   s.languages = text.languages ?? '';
-  s.classFeatures = text.features1 ? splitFeatures(text.features1) : [];
+  s.classFeatures = [...(text.features1 ? splitFeatures(text.features1) : []), ...(text.features2 ? splitFeatures(text.features2) : [])];
+  // Competencias deducidas de los bonificadores: si el bono de una habilidad o salvación es el modificador
+  // más la competencia, eres competente; con el doble, tienes pericia
+  const prof = parseInt0(text.prof) || (2 + Math.floor((Math.max(1, s.level) - 1) / 4));
+  const mod = (a: Ability) => Math.floor((s.abilities[a] - 10) / 2);
+  const SKILL_FIELDS: Record<string, string> = { acrobatics: 'acrobacias', animal: 'trato_animales', arcana: 'arcanos', athletics: 'atletismo', deception: 'engano', history: 'historia', insight: 'perspicacia', intimidation: 'intimidacion', investigation: 'investigacion', medicine: 'medicina', nature: 'naturaleza', perception: 'percepcion', performance: 'interpretacion', persuasion: 'persuasion', religion: 'religion', sleightofhand: 'juego_manos', stealth: 'sigilo', survival: 'supervivencia' };
+  for (const [field, id] of Object.entries(SKILL_FIELDS)) {
+    const v = raw[field]; const sk = SKILLS.find((x) => x.id === id);
+    if (!v || !sk || !/[-+]?\d/.test(v)) continue;
+    const extra = parseInt0(v) - mod(sk.ability);
+    if (extra >= prof * 2) setSkill(s, id, true); else if (extra >= prof) setSkill(s, id, false);
+  }
+  const SAVE_FIELDS: Record<string, Ability> = { ststrength: 'str', stdexterity: 'dex', stconstitution: 'con', stintelligence: 'int', stwisdom: 'wis', stcharisma: 'cha' };
+  for (const [field, a] of Object.entries(SAVE_FIELDS)) {
+    const v = raw[field];
+    if (v && /[-+]?\d/.test(v) && parseInt0(v) - mod(a) >= prof && !s.saveProficiencies.includes(a)) s.saveProficiencies.push(a);
+  }
+  for (const n of spellNames) {
+    const info = findSpell(n);
+    if (n.length > 2 && !s.spells.some((x) => x.name === n)) s.spells.push({ name: info ? info.name.es : n, level: info?.level ?? 1, castingTime: '', range: '', concentration: info?.concentration ?? false, ritual: info?.ritual ?? false, material: info ? info.components.includes('M') : false, notes: '' });
+  }
   s.backstory = text.backstory ?? '';
   s.coins = { cp: parseInt0(text.cp), sp: parseInt0(text.sp), ep: parseInt0(text.ep), gp: parseInt0(text.gp), pp: parseInt0(text.pp) };
   s.attacks = Object.values(weapons).filter((w) => w.name).map((w) => ({ name: w.name, attackBonus: parseAttackBonus(w.bonus), damage: parseDamageCell(w.damage), damageType: parseDamageType(w.damage ?? ''), range: '', notes: '' }));
-  s.warnings.push(T('Las casillas de competencia de esta hoja no tienen nombre reconocible: revisa salvaciones y habilidades.', 'This sheet’s proficiency boxes have no recognizable names: check saves and skills.'));
+  s.warnings.push(T('Las competencias se han deducido de los bonificadores de cada habilidad y salvación: revísalas.', 'Proficiencies were inferred from each skill and save bonus: check them.'));
   return s;
 }
 

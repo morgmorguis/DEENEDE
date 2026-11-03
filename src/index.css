@@ -1000,7 +1000,8 @@ td.p-trash-cell { width: 28px; text-align: right; padding: 0; }
 .spell-use { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 8px; font-size: 11px; line-height: 17px; background: rgba(0, 0, 0, .07); white-space: nowrap; vertical-align: 1px; }
 .spell-use.warn { background: rgba(196, 72, 59, .16); color: #a63a2e; }
 .spell-counter { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 12px; padding: 6px 2px 2px; }
-.spell-counter .over b, .spell-counter .full b { color: #a63a2e; }
+.spell-counter .over b { color: #a63a2e; }
+.spell-counter .full b { color: #2f7a3a; }
 .spell-over { flex-basis: 100%; margin: 4px 0 0; color: #a63a2e; font-size: 12.5px; }
 .modal .spell-counter { font-size: 13px; padding: 4px 0 6px; }
 .modal .spell-counter .full b { color: var(--gold2); }
@@ -1008,3 +1009,11 @@ td.p-trash-cell { width: 28px; text-align: right; padding: 0; }
   .p-spells .p-table th:nth-child(3), .p-spells .p-table td:nth-child(3) { display: none; }
 }
 .p-spells .p-table td:nth-child(2) b { overflow-wrap: normal; word-break: normal; hyphens: auto; }
+
+/* Subir de nivel: ¿por qué? */
+.lu-card .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lu-why-btn { background: none; border: 1px solid var(--line); border-radius: 999px; width: 28px; height: 28px; padding: 0; font-size: 14px; line-height: 1; flex-shrink: 0; opacity: .85; }
+.lu-why-btn.on { border-color: var(--gold); background: rgba(201, 162, 39, .15); opacity: 1; }
+.lu-why { margin: 6px 0 10px; padding: 8px 10px; border-left: 3px solid var(--gold); background: rgba(201, 162, 39, .08); font-size: .88rem; line-height: 1.45; border-radius: 4px; }
+.lu-gains li { position: relative; }
+.lu-gains li .lu-why-btn { width: 24px; height: 24px; font-size: 12px; margin-top: 4px; }

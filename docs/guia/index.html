@@ -129,7 +129,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.16.1</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.17</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -213,7 +213,11 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
           <p>Debajo de la tabla verás <b>Trucos 3/3 · Preparados 4/6</b>: los que llevas frente a los que permite tu clase a tu nivel según las tablas de 2024 (un mago de nivel 1 tiene 3 trucos y 4 preparados; uno de nivel 10, 5 y 15). En <b>Disponibles</b> no puedes pasarte: los que sobran salen como «Máx. trucos». Si ya tenías de más, la hoja te avisa en rojo. Los conjuros de tu especie y los que marques como <b>siempre preparado</b> (dominio, juramento, patrón…) no cuentan.</p>
           <p>Cada conjuro lleva un <b>icono de usos</b>: <b>♾️</b> truco a voluntad; <b>✨2/3🌙</b> espacios de su nivel que te quedan, que vuelven con un descanso largo; <b>✨1/2⛺</b> espacios de pacto del brujo, que vuelven con un descanso corto; <b>1×🌙</b> conjuro de tu especie, una vez gratis por descanso largo. Si no te quedan espacios, el icono sale en rojo; toca o mantén el dedo encima para leer el detalle.</p>
           <figure><img class="shot" src="img/30-conjuros-usos.jpg" alt="Tabla de conjuros de un mago con iconos ♾️ en los trucos y ✨4/4🌙 en Armadura de mago, y el contador Trucos 3/3 Preparados 1/6" width="692" height="812" loading="lazy" style="width: min(100%, 360px)"></figure>
-          <p>Si lo que buscas no está en la base de la app (tiene unos 100 conjuros habituales, con todos los trucos de 2024 de cada clase), escríbelo a mano igualmente.</p>
+          <p>La base de la app tiene <b>todos los conjuros de las reglas 2024</b>: los 339 del SRD 5.2 más los del Manual del Jugador que no están en él (392 en total), con las listas de cada clase. Si usas uno de otro libro, escríbelo a mano igualmente.</p>
+          <h3>Rasgos que puedes tener</h3>
+          <p>Debajo de «Rasgos de clase» verás cuántos llevas de cada cosa que se elige frente a los que permite tu nivel: <b>Estilo de combate 1/1</b>, <b>Invocaciones 2/3</b>, <b>Metamagia 2/2</b>, <b>Subclase 1/1</b>, <b>Dotes 1/2</b> (la de origen, una por cada mejora de característica, el don épico y la del humano). En <b>📖 Disponibles</b> no puedes pasarte: lo que sobra sale como «Máx.».</p>
+          <p>Al <b>cambiar de clase</b> (o quitar una de tu multiclase) se quitan solos los rasgos y conjuros que ya no te corresponden y la app te dice cuáles. Lo que escribiste a mano y la app no reconoce se conserva.</p>
+          <figure><img class="shot" src="img/31-rasgos-limite.jpg" alt="Rasgos de clase de un bárbaro con el contador Subclase 1/1 y Dotes 1/1" width="692" height="792" loading="lazy" style="width: min(100%, 360px)"></figure>
           <h3>Textos largos en grande</h3>
           <p>Los recuadros de texto de la hoja (atributos de especie, dotes, equipo, historia, idiomas…) tienen un botón <b>⤢</b> en la esquina que los abre a pantalla completa para leer y escribir cómodamente. <b>✓ Listo</b> vuelve a la hoja.</p>
           <figure><img class="shot" src="img/29-texto-grande.jpg" alt="Atributos de especie abiertos a pantalla completa con el botón Listo" width="700" height="1515" loading="lazy" style="width: min(100%, 300px)"></figure>
@@ -277,6 +281,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
           <ul class="list">
             <li><b>¿En qué clase subes?</b> Tu clase, otra de tu multiclase o una nueva (avisa si no tienes 13 en la característica que pide).</li>
             <li><b>Puntos de golpe:</b> media fija o tirada (la escribes o la tira la app).</li>
+            <li><b>ℹ️ ¿Por qué?</b> Cada apartado y cada rasgo nuevo tienen un botón ℹ️ que explica la regla: de dónde salen los PG (dado de golpe de tu clase o su media, más tu modificador de Constitución), por qué ganas ese rasgo en ese nivel, cuándo llegan las mejoras de característica, la subclase o los conjuros nuevos.</li>
             <li><b>Lo que ganas:</b> los rasgos nuevos, explicados.</li>
             <li><b>Lo que eliges:</b> subclase, mejora de característica o dote, don épico, estilo de combate, pericias, metamagia, invocaciones, opciones de clase y conjuros nuevos de tu lista.</li>
           </ul>
@@ -285,6 +290,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
         <figure><img class="phone" src="img/06-subir-nivel.jpg" alt="Pantalla de subir de nivel con la mejora de características" width="700" height="1515" loading="lazy"><figcaption>Elegir una mejora de característica.</figcaption></figure>
       </div>
       <figure><img class="shot" src="img/07-resumen-nivel.jpg" alt="Resumen: nivel 3 → 4, PG 35 → 45, dados de golpe 3d12 → 4d12, FUE 17 → 18" width="700" height="415" loading="lazy" style="width: min(100%, 460px)"><figcaption>El resumen antes de confirmar.</figcaption></figure>
+          <figure><img class="shot" src="img/33-subir-por-que.jpg" alt="Apartado Puntos de golpe con la explicación de por qué sube la vida" width="700" height="770" loading="lazy" style="width: min(100%, 360px)"><figcaption>El botón ℹ️ explica de dónde sale la vida.</figcaption></figure>
     </section>
 
     <!-- 7 -->
@@ -344,9 +350,10 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
         <div>
           <p>En la hoja, <b>📥 Importar ficha</b> lee tu hoja de papel o digital sin escribirla a mano:</p>
           <ul class="list">
-            <li><b>PDF rellenable</b> de la hoja oficial 2024: se lee casi perfecto.</li>
-            <li><b>Word</b> o texto pegado («FUE 15, CA 14, Clase: Pícaro»).</li>
-            <li><b>Fotos</b> o PDF escaneados con OCR dentro del móvil; revisa después las competencias.</li>
+            <li><b>PDF rellenable</b> de la hoja oficial 2024: se lee casi perfecto. También la hoja oficial de 2014: las competencias se deducen de los bonificadores de cada habilidad y salvación, y se leen sus conjuros.</li>
+            <li><b>PDF con texto</b> (exportado de Word, D&amp;D Beyond…): se lee su texto directamente, sin OCR.</li>
+            <li><b>Word</b> o texto pegado, con o sin etiquetas: «FUE 15, CA 14, Clase: Pícaro», «Level 4 Wood Elf Druid (Circle of the Moon)», «Hacha de batalla +6, 1d8+3 cortante», «Trucos: …», «1st level (4 slots): …», «15 po, 8 pp». Se leen nombre, clase y subclase, especie, salvaciones, habilidades, armas, conjuros con sus espacios, rasgos, idiomas, equipo y monedas.</li>
+            <li><b>Fotos</b> o PDF escaneados con OCR dentro del móvil: la imagen se amplía y se le sube el contraste antes de leerla, y se toleran letras mal leídas en los títulos. Revisa después las competencias (las casillas no se ven en una foto).</li>
           </ul>
           <p>Todo se hace <b>sin conexión y gratis</b>. Con una clave de Claude, las fotos se leen mejor. Los términos se traducen al idioma de la app (equipo, idiomas, conjuros, rasgos) y siempre ves una vista previa con los avisos antes de crear el personaje o reemplazar el actual.</p>
         </div>
@@ -417,6 +424,8 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <figure><img class="shot" src="img/22-paisajes.jpg" alt="Los ocho pósteres: ocaso, bosque, cumbres, abismo, mar, mazmorra, ciudadela y cripta" width="1200" height="600" loading="lazy"></figure>
       <p>También en Ajustes: <b>idioma</b> (español o inglés, toda la app), <b>tirar dados al tocar una estadística</b> (desactivado por defecto), <b>anotar tiradas a mano en combate</b>, traducir la ficha, el idioma del dictado y la clave opcional de Claude.</p>
       <figure><img class="shot" src="img/13-colores.jpg" alt="Selector de colores: Básico, Verdoso, Grises y Azules" width="700" height="233" loading="lazy" style="width: min(100%, 420px)"></figure>
+      <h3>Editor de aspecto (experimental)</h3>
+      <p>En Ajustes, el interruptor <b>🎨 Editor de aspecto (experimental)</b> muestra la pestaña «Aspecto» para dibujar a tu personaje y ponerlo de retrato. Está oculta por defecto mientras se mejora.</p>
       <h3>El manual dentro de la app</h3>
       <p>Al final de Ajustes, <b>📖 Abrir el manual</b> abre esta misma guía a pantalla completa, sin necesidad de internet. Ciérrala con <b>✕ Cerrar</b>.</p>
       <figure><img class="shot" src="img/27-manual.jpg" alt="El manual abierto dentro de la app, con el índice" width="700" height="1515" loading="lazy" style="width: min(100%, 340px)"></figure>

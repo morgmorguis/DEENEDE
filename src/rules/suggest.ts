@@ -68,16 +68,18 @@ export function spellSuggestions(c: Character, query: string, limit = 8, browse 
   return out.sort((a, b) => score(query, [a.spell.name.es, a.spell.name.en]) - score(query, [b.spell.name.es, b.spell.name.en]) || a.spell.level - b.spell.level).slice(0, limit);
 }
 
-export interface FeatureSuggestion { name: string; text: string; recharge?: Recharge; why: string }
+/** Grupo del rasgo, para contar los que se pueden elegir: estilos, metamagia, invocaciones, una opción de clase, subclase, dote */
+export type FeatureGroup = 'class' | 'style' | 'metamagic' | 'invocation' | 'subclass' | 'feat' | 'species' | `option:${string}`;
+export interface FeatureSuggestion { name: string; text: string; recharge?: Recharge; why: string; group: FeatureGroup }
 
 /** Rasgos que el personaje podría tener: de sus clases hasta su nivel, subclase, especie, linaje y dotes */
 export function featureSuggestions(c: Character, query: string, limit = 8, browse = false): FeatureSuggestion[] {
   if (!browse && fold(query).length < 2) return [];
   const have = new Set(c.features.map((f) => fold(f.name)));
   const pool: FeatureSuggestion[] = [];
-  const add = (name: Tr, text: Tr, why: string, prefix?: Tr) => {
+  const add = (name: Tr, text: Tr, why: string, prefix?: Tr, group: FeatureGroup = 'class') => {
     const n = prefix ? `${L(prefix)}: ${L(name)}` : L(name);
-    if (!have.has(fold(n)) && !pool.some((p) => p.name === n) && matches(query, [name.es, name.en, n])) pool.push({ name: n, text: L(text), recharge: rechargeOf(name.en), why });
+    if (!have.has(fold(n)) && !pool.some((p) => p.name === n) && matches(query, [name.es, name.en, n])) pool.push({ name: n, text: L(text), recharge: rechargeOf(name.en), why, group });
   };
   const generic = ['Subclass', 'Subclass feature', 'Ability Score Improvement', 'Epic Boon', 'Fighting Style'];
   for (const e of classLevels(c)) {
@@ -87,21 +89,21 @@ export function featureSuggestions(c: Character, query: string, limit = 8, brows
       const entry = levelEntry(e.cls.id, lv);
       for (const g of entry.features) if (!generic.includes(g.name.en) && !g.subclass) add(g.name, g.text, why);
       for (const ch of entry.choices) {
-        if (ch.kind === 'fightingStyle') for (const o of FIGHTING_STYLES) add(o.name, o.text, why, { es: 'Estilo de combate', en: 'Fighting Style' });
-        if (ch.kind === 'metamagic') for (const o of METAMAGIC) add(o.name, o.text, why, { es: 'Metamagia', en: 'Metamagic' });
-        if (ch.kind === 'invocation') for (const o of INVOCATIONS.filter((x) => (x.minLevel ?? 1) <= e.level)) add(o.name, o.text, why, { es: 'Invocación', en: 'Invocation' });
-        if (ch.kind === 'option') for (const o of ch.options) add(o.name, o.text, why, ch.title);
+        if (ch.kind === 'fightingStyle') for (const o of FIGHTING_STYLES) add(o.name, o.text, why, { es: 'Estilo de combate', en: 'Fighting Style' }, 'style');
+        if (ch.kind === 'metamagic') for (const o of METAMAGIC) add(o.name, o.text, why, { es: 'Metamagia', en: 'Metamagic' }, 'metamagic');
+        if (ch.kind === 'invocation') for (const o of INVOCATIONS.filter((x) => (x.minLevel ?? 1) <= e.level)) add(o.name, o.text, why, { es: 'Invocación', en: 'Invocation' }, 'invocation');
+        if (ch.kind === 'option') for (const o of ch.options) add(o.name, o.text, why, ch.title, `option:${ch.id}`);
       }
     }
-    if (e.cls.id === 'guerrero') for (const o of FIGHTING_STYLES) add(o.name, o.text, why, { es: 'Estilo de combate', en: 'Fighting Style' });
-    if (e.cls.id === 'brujo') for (const o of INVOCATIONS.filter((x) => (x.minLevel ?? 1) <= e.level)) add(o.name, o.text, why, { es: 'Invocación', en: 'Invocation' });
+    if (e.cls.id === 'guerrero') for (const o of FIGHTING_STYLES) add(o.name, o.text, why, { es: 'Estilo de combate', en: 'Fighting Style' }, 'style');
+    if (e.cls.id === 'brujo') for (const o of INVOCATIONS.filter((x) => (x.minLevel ?? 1) <= e.level)) add(o.name, o.text, why, { es: 'Invocación', en: 'Invocation' }, 'invocation');
     // Subclases que puede elegir (desde nivel 3)
-    if (e.level >= 3) for (const o of SUBCLASSES[e.cls.id] ?? []) if (!e.subclass || [o.name.es, o.name.en].includes(e.subclass)) add(o.name, o.text, why);
+    if (e.level >= 3) for (const o of SUBCLASSES[e.cls.id] ?? []) if (!e.subclass || [o.name.es, o.name.en].includes(e.subclass)) add(o.name, o.text, why, undefined, 'subclass');
   }
   const { species, lineage } = findSpecies(c.species);
   const sp = species ?? SPECIES_INFO.find((x) => x.id === c.lineage);
-  if (sp) for (const t of [...sp.traits, ...(lineage?.traits ?? [])]) add(t.name, t.text, L(sp.name));
-  if (c.level >= 4) for (const o of FEATS) add(o.name, o.text, T('Dote', 'Feat'));
+  if (sp) for (const t of [...sp.traits, ...(lineage?.traits ?? [])]) add(t.name, t.text, L(sp.name), undefined, 'species');
+  if (c.level >= 4) for (const o of FEATS) add(o.name, o.text, T('Dote', 'Feat'), undefined, 'feat');
   if (browse) return pool;
   return pool.sort((a, b) => score(query, [a.name]) - score(query, [b.name])).slice(0, limit);
 }

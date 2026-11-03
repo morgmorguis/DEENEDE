@@ -39,7 +39,7 @@ export async function recognizeImages(images: (HTMLCanvasElement | Blob)[], onPr
   const pages: OcrPage[] = [];
   try {
     for (const img of images) {
-      const { data } = await worker.recognize(img, {}, { text: true, blocks: true });
+      const { data } = await worker.recognize(await prepare(img), {}, { text: true, blocks: true });
       const words: OcrWord[] = [];
       for (const b of data.blocks ?? []) for (const p of b.paragraphs) for (const l of p.lines) for (const w of l.words) {
         if (w.text.trim()) words.push({ text: w.text.trim(), ...w.bbox });
@@ -54,32 +54,76 @@ export async function recognizeImages(images: (HTMLCanvasElement | Blob)[], onPr
   return pages;
 }
 
+/** Prepara la imagen para el OCR: tamaño cómodo para Tesseract (las fotos pequeñas se amplían y las
+ *  enormes se reducen), escala de grises y contraste estirado para que el texto destaque del fondo. */
+async function prepare(img: HTMLCanvasElement | Blob): Promise<HTMLCanvasElement> {
+  const src: CanvasImageSource & { width: number; height: number } = img instanceof Blob ? await createImageBitmap(img) : img;
+  const long = Math.max(src.width, src.height);
+  const k = long < 2400 ? 2400 / long : long > 3600 ? 3600 / long : 1;
+  const c = document.createElement('canvas');
+  c.width = Math.round(src.width * k); c.height = Math.round(src.height * k);
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(src, 0, 0, c.width, c.height);
+  const im = ctx.getImageData(0, 0, c.width, c.height); const d = im.data;
+  // Niveles automáticos: el 1 % más oscuro pasa a negro y el 1 % más claro a blanco
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) { const g = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0; d[i] = g; hist[g]++; }
+  const total = d.length / 4; let lo = 0; let hi = 255; let acc = 0;
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc > total * 0.01) { lo = v; break; } }
+  acc = 0; for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc > total * 0.01) { hi = v; break; } }
+  const span = Math.max(1, hi - lo);
+  for (let i = 0; i < d.length; i += 4) { const g = Math.max(0, Math.min(255, ((d[i] - lo) * 255) / span)); d[i] = d[i + 1] = d[i + 2] = g; }
+  ctx.putImageData(im, 0, 0);
+  return c;
+}
+
 // ---------- Interpretar una foto de la hoja oficial por la posición de sus etiquetas ----------
 
 const strip = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+-]/g, '');
 
 interface Label { x0: number; y0: number; x1: number; y1: number; h: number }
 
+/** Distancia de edición (para tolerar letras mal leídas: «DIL» por «DEL», «COLPE» por «GOLPE») */
+function lev(a: string, b: string) {
+  const dp = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0]; dp[0] = i;
+    for (let j = 1; j <= b.length; j++) { const tmp = dp[j]; dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = tmp; }
+  }
+  return dp[b.length];
+}
+/** ¿La palabra leída coincide con la de la etiqueta? (empieza igual o con un error si es larga) */
+const near = (word: string, label: string) => word.startsWith(label) || (label.length >= 3 && lev(word.slice(0, label.length + 1), label) <= (label.length >= 6 ? 2 : 1) && Math.abs(word.length - label.length) <= 2);
+
 /** Busca una etiqueta (una o varias palabras seguidas) y devuelve su caja */
 function findLabel(words: OcrWord[], variants: string[][]): Label | null {
   return findLabels(words, variants)[0] ?? null;
 }
 
-/** Todas las apariciones de una etiqueta, en orden de lectura */
+/** Todas las apariciones de una etiqueta, en orden de lectura. Primero se buscan coincidencias exactas
+ *  y solo si no hay ninguna se aceptan palabras con alguna letra mal leída. */
 function findLabels(words: OcrWord[], variants: string[][]): Label[] {
-  const found: Label[] = [];
-  for (const v of variants) {
-    for (let i = 0; i < words.length; i++) {
-      if (!strip(words[i].text).startsWith(v[0])) continue;
-      let ok = true;
-      for (let j = 1; j < v.length; j++) if (!words[i + j] || !strip(words[i + j].text).startsWith(v[j])) ok = false;
-      if (!ok) continue;
-      const ws = words.slice(i, i + v.length);
-      const box = { x0: Math.min(...ws.map((w) => w.x0)), y0: Math.min(...ws.map((w) => w.y0)), x1: Math.max(...ws.map((w) => w.x1)), y1: Math.max(...ws.map((w) => w.y1)) };
-      found.push({ ...box, h: Math.max(8, box.y1 - box.y0) });
+  const scan = (eq: (word: string, label: string) => boolean) => {
+    const found: Label[] = [];
+    for (const v of variants) {
+      for (let i = 0; i < words.length; i++) {
+        if (!eq(strip(words[i].text), v[0])) continue;
+        let ok = true;
+        for (let j = 1; j < v.length; j++) if (!words[i + j] || !eq(strip(words[i + j].text), v[j])) ok = false;
+        if (!ok) continue;
+        const ws = words.slice(i, i + v.length);
+        const box = { x0: Math.min(...ws.map((w) => w.x0)), y0: Math.min(...ws.map((w) => w.y0)), x1: Math.max(...ws.map((w) => w.x1)), y1: Math.max(...ws.map((w) => w.y1)) };
+        // Restos de bordes leídos como letras: cajas de 1-3 píxeles de alto no son etiquetas
+        if (box.y1 - box.y0 < 5) continue;
+        found.push({ ...box, h: Math.max(8, box.y1 - box.y0) });
+      }
     }
-  }
-  return found;
+    return found;
+  };
+  const exact = scan((w, l) => w.startsWith(l));
+  return exact.length ? exact : scan(near);
 }
 
 /** Números dentro de una zona; limpia restos de bordes como "17)" o "(3)" */
@@ -87,6 +131,9 @@ const numbersIn = (words: OcrWord[], x0: number, x1: number, y0: number, y1: num
   words.filter((w) => (w.x0 + w.x1) / 2 >= x0 && (w.x0 + w.x1) / 2 <= x1 && (w.y0 + w.y1) / 2 >= y0 && (w.y0 + w.y1) / 2 <= y1)
     .map((w) => {
       const raw = w.text.replace(/[Oo](?=\d)|(?<=\d)[Oo]/g, '0').replace(/[−–]/g, '-');
+      // Dos números de recuadros vecinos pegados («1217»): nos quedamos con el primero
+      const fused = raw.match(/^[^\d+-]{0,2}(\d{2})(\d{2})[^\d]{0,2}$/);
+      if (fused && Number(fused[1]) >= 3 && Number(fused[1]) <= 30) return { w, t: fused[1] };
       const m = raw.match(/^[^\d+-]{0,2}([-+]?)(\d{1,3})[^\d]{0,2}$/);
       if (!m) return null;
       // "181)" suele ser "18" con el borde del recuadro pegado
@@ -95,9 +142,14 @@ const numbersIn = (words: OcrWord[], x0: number, x1: number, y0: number, y1: num
     })
     .filter((x): x is { w: OcrWord; t: string } => x !== null);
 
-const textAbove = (words: OcrWord[], l: Label, width: number) =>
-  words.filter((w) => w.y1 <= l.y0 + l.h * 0.3 && w.y1 >= l.y0 - l.h * 3 && w.x0 >= l.x0 - l.h && w.x0 <= l.x0 + width)
-    .sort((a, b) => a.y0 - b.y0 || a.x0 - b.x0).map((w) => w.text).join(' ').trim();
+/** El texto escrito justo encima de una etiqueta: solo la línea más cercana, de izquierda a derecha */
+const textAbove = (words: OcrWord[], l: Label, width: number) => {
+  const cand = words.filter((w) => w.y1 <= l.y0 + l.h * 0.3 && w.y1 >= l.y0 - l.h * 3 && w.x0 >= l.x0 - l.h && w.x0 <= l.x0 + width && w.y1 - w.y0 >= 5);
+  if (!cand.length) return '';
+  const mid = (w: OcrWord) => (w.y0 + w.y1) / 2;
+  const nearest = Math.max(...cand.map(mid));
+  return cand.filter((w) => nearest - mid(w) < l.h * 0.9).sort((a, b) => a.x0 - b.x0).map((w) => w.text).join(' ').trim();
+};
 
 const ABILITY_LABELS: [Ability, string[][]][] = [
   ['str', [['fuerza'], ['strength']]], ['dex', [['destreza'], ['dexterity']]], ['con', [['constitucion'], ['constitution']]],
@@ -113,7 +165,13 @@ export function parseOcrPages(pages: OcrPage[]): ImportedSheet {
     for (const classL of findLabels(words, [['clase'], ['class']])) {
       const v = textAbove(words, classL, classL.h * 10);
       const id = findClass(v);
-      if (id && !s.classId) { s.classId = id; s.className = v; }
+      // Nos quedamos solo con las palabras que nombran la clase (no con números o restos de otros recuadros)
+      if (id && !s.classId) { s.classId = id; s.className = v.split(/\s+/).filter((t) => findClass(t)).join(' ') || v; }
+    }
+    const hdL = findLabel(words, [['dados', 'de', 'golpe'], ['dados', 'de'], ['hit', 'dice']]);
+    if (hdL && !s.hitDie) {
+      const d = words.find((w) => /^\d*d(6|8|10|12)$/i.test(w.text) && w.y0 >= hdL.y1 - hdL.h && w.y0 <= hdL.y1 + hdL.h * 6 && w.x1 >= hdL.x0 - hdL.h * 2 && w.x0 <= hdL.x1 + hdL.h * 2);
+      if (d) s.hitDie = Number(d.text.match(/d(\d+)/i)![1]);
     }
     for (const [key, variants] of [['background', [['trasfondo'], ['background']]], ['species', [['especie'], ['species']]], ['subclass', [['subclase'], ['subclass']]]] as const) {
       const l = findLabel(words, variants as unknown as string[][]);
@@ -153,7 +211,14 @@ export function parseOcrPages(pages: OcrPage[]): ImportedSheet {
       if (score) s.abilities[a] = score;
     }
   }
-  if (!s.attacks.length) s.attacks = parseWeaponRows(pages.flatMap((p) => p.words));
+  if (!s.attacks.length) {
+    for (const { words } of pages) {
+      // Solo las filas de la tabla de armas (debajo de su título), para no confundir el dado de golpe con un arma
+      const head = findLabel(words, [['armas', 'y', 'trucos'], ['weapons', '&'], ['weapons', 'and'], ['ataques'], ['attacks']]);
+      const area = head ? words.filter((w) => w.y0 > head.y1 && w.y0 < head.y1 + head.h * 40 && w.x1 > head.x0 - head.h * 25) : words;
+      s.attacks.push(...parseWeaponRows(area));
+    }
+  }
   // Lo que no se haya encontrado por posición se busca en el texto corrido
   return parseSheetText(pages.map((p) => p.text).join('\n'), s);
 }

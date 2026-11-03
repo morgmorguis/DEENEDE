@@ -1,3 +1,4 @@
+import { GEN_LISTS } from './spellsGen';
 // Progresión de clases de D&D 2024 (niveles 1-20): rasgos que se ganan, elecciones que hay que hacer y
 // opciones disponibles explicadas. Resumido y parafraseado; nombres de subclases y dotes según el
 // Player's Handbook 2024 y el SRD 5.2 (CC-BY-4.0).
@@ -495,7 +496,7 @@ const LISTS: Record<string, string> = {
 const LETTER: Record<string, string> = { bardo: 'B', clerigo: 'C', druida: 'D', paladin: 'P', explorador: 'R', hechicero: 'S', brujo: 'K', mago: 'W' };
 
 /** ¿Está este conjuro (por su nombre en inglés) en la lista de la clase? */
-export const inClassList = (spellEn: string, classId: string) => !!LETTER[classId] && (LISTS[spellEn] ?? '').includes(LETTER[classId]);
+export const inClassList = (spellEn: string, classId: string) => !!LETTER[classId] && (GEN_LISTS[spellEn.replace(/’/g, "'")] ?? LISTS[spellEn] ?? '').includes(LETTER[classId]);
 
 // ---------- Recarga de rasgos y conjuros que se obtienen sí o sí ----------
 

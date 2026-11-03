@@ -16,7 +16,7 @@ import { DmRosterTab } from './components/DmRoster';
 import { TransitionFx, useFx } from './components/Transition';
 import { ConfirmHost } from './components/Confirm';
 import { AvatarTab } from './components/Avatar';
-import { FEATURES } from './features';
+import { useAvatarEditor } from './features';
 import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
 import { applyScene } from './scenes';
@@ -27,6 +27,7 @@ export default function App() {
   const c = useChar();
   const lang = useStore((s) => s.settings.lang);
   const theme = useStore((s) => s.settings.theme);
+  const avatarOn = useAvatarEditor();
   // El idioma vive en un módulo: lo fijamos antes de pintar los hijos
   setLang(lang);
   // Al abrir un enlace de la partida (?join= / ?dm=) se va directo a «Partida»
@@ -58,8 +59,9 @@ export default function App() {
     }
   }, [sharedCombat, sharedPhase, play, dmMode]);
   useEffect(() => {
+    if (!avatarOn && tab === 'avatar') setTab('sheet');
     if (dmMode && (tab === 'sheet' || tab === 'avatar' || tab === 'combat' || tab === 'assistant')) setTab('party');
-  }, [dmMode, tab]);
+  }, [dmMode, tab, avatarOn]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     applyScene(theme);
@@ -78,7 +80,7 @@ export default function App() {
     { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
   ] : [
     { id: 'sheet', icon: '🧙', label: T('Hoja', 'Sheet') },
-    ...(FEATURES.avatarEditor ? [{ id: 'avatar' as Tab, icon: '🎨', label: T('Aspecto', 'Looks') }] : []),
+    ...(avatarOn ? [{ id: 'avatar' as Tab, icon: '🎨', label: T('Aspecto', 'Looks') }] : []),
     { id: 'combat', icon: '⚔️', label: T('Combate', 'Combat') },
     { id: 'party', icon: partyOnline ? (sharedCombat ? '🔴' : '🟢') : '🎲', label: T('Partida', 'Game') },
     { id: 'assistant', icon: '💬', label: T('Asistente', 'Assistant'), short: T('Chat', 'Chat') },
@@ -124,7 +126,7 @@ export default function App() {
 
       <main className="content">
         {tab === 'sheet' && <SheetTab />}
-        {FEATURES.avatarEditor && tab === 'avatar' && <AvatarTab />}
+        {avatarOn && tab === 'avatar' && <AvatarTab />}
         {tab === 'combat' && <CombatTab />}
         {tab === 'party' && <PartyTab />}
         {tab === 'roster' && <DmRosterTab />}

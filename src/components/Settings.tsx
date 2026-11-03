@@ -85,6 +85,13 @@ export function SettingsTab() {
           </span>
           <input type="checkbox" className="switch" checked={settings.manualRolls} onChange={(e) => setSettings({ manualRolls: e.target.checked })} />
         </label>
+        <label className="switch-row">
+          <span className="grow">
+            <b>🎨 {T('Editor de aspecto (experimental)', 'Looks editor (experimental)')}</b>
+            <span className="hint block">{T('Muestra la pestaña «Aspecto» para dibujar a tu personaje y ponerlo de retrato. Está en pruebas: el dibujo aún es sencillo.', 'Shows the “Looks” tab to draw your character and use it as a portrait. It’s experimental: the drawing is still simple.')}</span>
+          </span>
+          <input type="checkbox" className="switch" checked={!!settings.avatarEditor} onChange={(e) => setSettings({ avatarEditor: e.target.checked })} />
+        </label>
         <p className="hint">💬 {T('Mantén pulsada 1,5 s una habilidad, salvación, arma, conjuro, rasgo, recurso o condición para ver qué hace y qué te limita ahora mismo.', 'Press and hold a skill, save, weapon, spell, feature, resource or condition for 1.5 s to see what it does and what limits it right now.')}</p>
       </Section>
 

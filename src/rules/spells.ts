@@ -1,6 +1,7 @@
-// Conjuros habituales con un resumen de lo que hacen (reglas 2024, basado en el SRD 5.2, CC-BY-4.0).
-// No es la lista completa: sirve para explicar conjuros al mantenerlos pulsados, traducir sus
-// nombres y completar datos al importar una ficha. Los conjuros que no estén aquí usan las notas del usuario.
+// Conjuros de las reglas 2024: los más habituales escritos a mano con un resumen (aquí) y el resto del
+// SRD 5.2 (CC-BY-4.0) y del Player’s Handbook 2024 generados en spellsGen.ts. Sirven para el texto
+// predictivo, la lista de disponibles, explicar conjuros al mantenerlos pulsados y completar datos al importar.
+import { GEN_SPELLS } from './spellsGen';
 import type { Tr } from '../i18n';
 
 export interface SpellInfo {
@@ -31,7 +32,7 @@ const r = (es: string, en: string): Tr => ({ es, en });
 const s = (name: Tr, level: number, time: Tr, range: Tr, components: string, duration: Tr, concentration: boolean, text: Tr, ritual = false): SpellInfo =>
   ({ name, level, time, range, components, duration, concentration, ritual, text });
 
-export const SPELLS: SpellInfo[] = [
+const HAND_SPELLS: SpellInfo[] = [
   // Trucos
   s(r('Descarga de fuego', 'Fire Bolt'), 0, ACT, ft(120), 'V, S', INST, false, r('Ataque de conjuro a distancia: 1d10 de daño de fuego. Enciende objetos inflamables que no se lleven puestos. El daño sube a 2d10 en nivel 5, 3d10 en 11 y 4d10 en 17.', 'Ranged spell attack: 1d10 Fire damage. Ignites flammable objects that aren’t worn or carried. Damage increases to 2d10 at level 5, 3d10 at 11 and 4d10 at 17.')),
   s(r('Descarga sobrenatural', 'Eldritch Blast'), 0, ACT, ft(120), 'V, S', INST, false, r('Un rayo de energía: ataque de conjuro a distancia, 1d10 de daño de fuerza. Lanzas 2 rayos en nivel 5, 3 en 11 y 4 en 17 (puedes repartirlos entre objetivos).', 'A beam of crackling energy: ranged spell attack, 1d10 Force damage. You create 2 beams at level 5, 3 at 11 and 4 at 17 (split among targets as you like).')),
@@ -135,6 +136,9 @@ export const SPELLS: SpellInfo[] = [
   s(r('Cono de frío', 'Cone of Cold'), 5, ACT, SELF, 'V, S, M', INST, false, r('Cono de 60 pies: salvación de Constitución o 8d8 de daño de frío (mitad si la supera).', '60-foot Cone: Constitution save or 8d8 Cold damage (half on a success).')),
   s(r('Inmovilizar monstruo', 'Hold Monster'), 5, ACT, ft(90), 'V, S, M', MIN1, true, r('Como Inmovilizar persona, pero afecta a cualquier criatura.', 'Like Hold Person, but affects any creature.')),
 ];
+
+/** Todos los conjuros: los escritos a mano (con resumen propio) y los generados del SRD 5.2 y del PHB 2024 */
+export const SPELLS: SpellInfo[] = [...HAND_SPELLS, ...GEN_SPELLS];
 
 const key = (n: string) => n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 

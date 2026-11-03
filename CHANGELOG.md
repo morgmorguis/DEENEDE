@@ -3,6 +3,28 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.17.0 · 3 nov 2026 — Todos los conjuros, rasgos según la clase y mejor importación
+
+**Conjuros**
+- **Base completa**: los 339 conjuros del SRD 5.2 y los del Player’s Handbook 2024 que no están en él (castigos, Hex, Armadura de Agathys, invocaciones de criaturas…): 392 en total, con las listas de cada clase. Nombre y resumen en español; en inglés, el texto oficial del SRD.
+- Cada clase tiene todos sus trucos de 2024 (bardo 13, clérigo 9, druida 13, hechicero 20, brujo 11, mago 20).
+
+**Rasgos de clase**
+- **Al cambiar de clase** (o quitar una de la multiclase) se quitan solos los rasgos y conjuros que ya no te corresponden, con un aviso de lo que se ha quitado. Lo escrito a mano que la app no reconoce se conserva.
+- **Límites con contador**: Estilo de combate, Invocaciones, Metamagia, opciones de clase, Subclase y Dotes («1/2»), en la hoja y en «Disponibles», que ya no deja pasar del máximo.
+
+**Subir de nivel**
+- Botón **ℹ️** en cada apartado y en cada rasgo nuevo que explica la regla: de dónde salen los PG, por qué ganas ese rasgo, las mejoras de característica, la subclase, los estilos, la metamagia, las invocaciones y los conjuros nuevos.
+
+**Importar fichas**
+- Texto y Word: nombre sin etiqueta («Ficha de Thalia»), subclase entre paréntesis, especie en la línea de clase, salvaciones y habilidades sin «:», **armas** («Hacha de batalla +6, 1d8+3 cortante»), **conjuros por nivel con sus espacios**, rasgos y **monedas**.
+- PDF con texto (Word, D&D Beyond…): se lee directamente sin OCR.
+- PDF rellenable de 2014: clase y subclase, competencias deducidas de los bonificadores y conjuros.
+- Fotos: la imagen se amplía y se le sube el contraste antes del OCR, se toleran letras mal leídas en los títulos y se leen mejor el nombre, la clase, el dado de golpe y la tabla de armas.
+
+**Ajustes**
+- Interruptor **🎨 Editor de aspecto (experimental)** para mostrar la pestaña oculta.
+
 ## 0.16.1 · 3 nov 2026 — Trucos de 2024 y editor de aspecto oculto
 
 - **Trucos de 2024 que faltaban**: Elementalismo, Resistencia, Destello estelar, Látigo de espinas y Palmada atronadora (druida), Estallido hechicero, Astilla mental, Toque de difuntos, Impacto certero, Protección contra armas, Amistad, Luces danzantes y Palabra radiante, cada uno en las listas de sus clases. Con esto, cada clase ya tiene todos sus trucos de 2024 en «Disponibles».

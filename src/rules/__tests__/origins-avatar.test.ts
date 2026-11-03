@@ -124,3 +124,46 @@ describe('trucos de 2024', () => {
     expect(names).not.toContain('Fire Bolt');
   });
 });
+
+import { SPELLS } from '../spells';
+import { inClassList } from '../progression';
+
+describe('base completa de conjuros', () => {
+  it('todos los trucos de 2024 de cada clase y más de 380 conjuros', () => {
+    const cantrips = (c: string) => SPELLS.filter((s) => s.level === 0 && inClassList(s.name.en, c)).length;
+    expect({ bardo: cantrips('bardo'), clerigo: cantrips('clerigo'), druida: cantrips('druida'), hechicero: cantrips('hechicero'), brujo: cantrips('brujo'), mago: cantrips('mago') })
+      .toEqual({ bardo: 13, clerigo: 9, druida: 13, hechicero: 20, brujo: 11, mago: 20 });
+    expect(SPELLS.length).toBeGreaterThan(380);
+    expect(SPELLS.every((s) => s.name.es && s.name.en && s.text.es && s.text.en)).toBe(true);
+  });
+});
+
+import { featureLimits, pruneForClass } from '../classFit';
+import { applyClass } from '../multiclass';
+import { L } from '../../i18n';
+
+describe('rasgos según la clase', () => {
+  const abil = { str: 16, dex: 14, con: 14, int: 10, wis: 12, cha: 10 };
+  it('al pasar de bárbaro a mago se quitan Furia y los conjuros que no son de mago; lo escrito a mano se queda', () => {
+    const b = createCharacter({ name: 'B', classId: 'barbaro', level: 3, species: 'Humano', background: 'Soldado', abilities: abil, skills: [] });
+    b.features.push({ id: 'x', name: 'Mi rasgo inventado', text: '' }, { id: 'y', name: 'Sentido del peligro', text: '' }, { id: 'z', name: 'Estilo de combate: Defensa', text: '' });
+    b.spells = [
+      { id: 's1', name: 'Curar heridas', level: 1, prepared: true, castingTime: '', range: '', concentration: false },
+      { id: 's2', name: 'Proyectil mágico', level: 1, prepared: true, castingTime: '', range: '', concentration: false },
+      { id: 's3', name: 'Mi conjuro casero', level: 1, prepared: true, castingTime: '', range: '', concentration: false },
+    ];
+    const r = pruneForClass(applyClass(b, 'mago', L, (k) => k));
+    const names = r.next.features.map((f) => f.name);
+    expect(names.some((n) => /furia|rage|sentido del peligro|estilo de combate/i.test(n))).toBe(false);
+    expect(names).toContain('Mi rasgo inventado');
+    expect(r.next.spells.map((s) => s.name)).toEqual(['Proyectil mágico', 'Mi conjuro casero']);
+    expect(r.removedFeatures.length).toBeGreaterThan(0);
+  });
+  it('límites: guerrero 1 → 1 estilo; brujo 5 → invocaciones según nivel; dotes 1 + mejoras', () => {
+    const f = createCharacter({ name: 'F', classId: 'guerrero', level: 1, species: 'Enano', background: 'Soldado', abilities: abil, skills: [] });
+    expect(featureLimits(f).find((l) => l.group === 'style')?.max).toBe(1);
+    const k = createCharacter({ name: 'K', classId: 'brujo', level: 5, species: 'Enano', background: 'Sabio', abilities: abil, skills: [] });
+    expect(featureLimits(k).find((l) => l.group === 'invocation')?.max).toBeGreaterThanOrEqual(3);
+    expect(featureLimits(k).find((l) => l.group === 'feat')?.max).toBe(2);
+  });
+});
