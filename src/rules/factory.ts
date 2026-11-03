@@ -79,6 +79,8 @@ export function blankCharacter(): Character {
     kills: [],
     multiclass: [],
     consumables: [],
+    items: [],
+    giftsReceived: [],
   };
 }
 
@@ -102,6 +104,8 @@ export function normalizeCharacter(raw: Partial<Character> & Record<string, unkn
   c.kills = Array.isArray(raw.kills) ? raw.kills : [];
   c.multiclass = Array.isArray(raw.multiclass) ? raw.multiclass : [];
   c.consumables = Array.isArray(raw.consumables) ? raw.consumables : [];
+  c.items = Array.isArray(raw.items) ? raw.items : [];
+  c.giftsReceived = Array.isArray(raw.giftsReceived) ? raw.giftsReceived : [];
   c.attunement = [0, 1, 2].map((i) => raw.attunement?.[i] ?? '');
   if (!c.classId && c.className) c.classId = classById(c.className)?.id ?? '';
   c.resources = (c.resources ?? []).map((r: Resource) => ({ ...r, key: r.key ?? LEGACY_RESOURCE_KEYS[r.name.toLowerCase()] }));

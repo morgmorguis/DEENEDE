@@ -1,4 +1,5 @@
 // Protocolo de la partida compartida (modo party): tipos que comparten la app y el servidor.
+import type { Coins5, ItemData } from '../rules/itemTypes';
 
 /** viewer: pantalla para la tele (solo mira, sin secretos) */
 export type Role = 'dm' | 'player' | 'viewer';
@@ -114,6 +115,22 @@ export interface LogEvent {
   ownerId?: string;
 }
 
+/** Oro u objetos que el DM da a un jugador (queda en el registro del DM) */
+export interface Gift {
+  id: string;
+  at: number;
+  /** Miembro que lo recibe */
+  toId: string;
+  /** Nombre del personaje (o del jugador) cuando se dio */
+  toName: string;
+  coins?: Partial<Coins5>;
+  items?: ItemData[];
+  note?: string;
+  /** Ya ha llegado a la ficha del jugador */
+  delivered: boolean;
+  deliveredAt?: number;
+}
+
 /** Estado visible de la vida: lo que ven los jugadores de los monstruos */
 export type HpState = 'unhurt' | 'hurt' | 'bloodied' | 'down' | 'unknown';
 
@@ -135,6 +152,8 @@ export interface RoomView {
   /** Lista de personajes del DM (vacía para los jugadores) */
   roster: RosterEntry[];
   log: LogEvent[];
+  /** Entregas de oro y objetos: el DM ve todas; cada jugador, las suyas */
+  gifts: Gift[];
   canUndo: boolean;
   /** Puedes pasar turno (DM o el dueño del turno actual) */
   canEndTurn: boolean;
@@ -151,6 +170,8 @@ export type Command =
   | { t: 'nextTurn' }
   | { t: 'undo' }
   | { t: 'ready'; value: boolean }
+  /** El jugador confirma que las entregas ya están en su ficha */
+  | { t: 'giftAck'; ids: string[] }
   // Solo el DM
   | { t: 'start' }
   | { t: 'end' }
@@ -162,7 +183,10 @@ export type Command =
   | { t: 'begin' }
   | { t: 'rosterSave'; entry: RosterEntry }
   | { t: 'rosterRemove'; id: string }
-  | { t: 'rosterToCombat'; id: string; count: number; hidden: boolean; rollHp?: boolean };
+  | { t: 'rosterToCombat'; id: string; count: number; hidden: boolean; rollHp?: boolean }
+  | { t: 'give'; toId: string; coins?: Partial<Coins5>; items?: ItemData[]; note?: string }
+  /** Anula una entrega que aún no ha llegado */
+  | { t: 'giftCancel'; id: string };
 
 export type ClientMessage =
   | { t: 'hello'; code: string; name: string; token?: string; dmKey?: string; viewer?: boolean }

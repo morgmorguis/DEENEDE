@@ -1,3 +1,4 @@
+import type { ItemData } from './rules/itemTypes';
 import type { AvatarLook } from './rules/avatar';
 export type Ability = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
@@ -228,6 +229,20 @@ export interface Character {
   look?: AvatarLook;
   /** Datos físicos del editor de personaje */
   physical?: Physical;
+  /** Objetos con rareza, valor y descripción (los que da el DM o se añaden desde el catálogo) */
+  items: OwnedItem[];
+  /** Ids de entregas del DM ya aplicadas a esta ficha (para no sumarlas dos veces) */
+  giftsReceived: string[];
+}
+
+/** Objeto en la ficha */
+export interface OwnedItem extends ItemData {
+  id: string;
+  /** Quién lo dio («DM») y cuándo */
+  from?: string;
+  at?: number;
+  /** Id de la entrega del DM */
+  gift?: string;
 }
 
 export interface Physical {

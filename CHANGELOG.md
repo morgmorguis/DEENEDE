@@ -3,6 +3,20 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.18.0 · 3 nov 2026 — Tesoro: el DM reparte oro y objetos
+
+**Para el DM (pestaña 💰 Tesoro)**
+- **Dar oro y objetos a un jugador concreto**: monedas (ppt, po, pe, pp, pc) con atajos +10/+25/+50/+100/+250 po, objetos y una nota.
+- **Catálogo** con los objetos más comunes: pociones de curación (todas), pociones y pergaminos de conjuro, armas, escudos y munición +1/+2/+3, bolsa de contención, capas, anillos, botas, varitas, piedras de mensaje, gemas y objetos de arte, armas, armaduras y equipo con los precios del Player’s Handbook 2024. Buscador en español e inglés y filtro por rareza.
+- **Plantilla para crear objetos**: nombre, rareza, tipo, valor, peso, cantidad, sintonización y descripción, con el precio orientativo de la DMG 2024 por rareza (consumibles a mitad). Se pueden guardar en **Mis plantillas** para reutilizarlos.
+- **Registro de entregas** guardado en el servidor: qué se dio, a quién y cuándo, si ya está en su ficha o pendiente (lo pendiente se puede anular) y el total por jugador (monedas, objetos y valor aproximado en oro).
+
+**Para los jugadores**
+- Lo que da el DM llega solo a la ficha con un aviso: **las monedas se suman al total** y los objetos aparecen en la nueva lista **Objetos** del recuadro Equipo. Si estabas desconectado, te llega al volver; nunca se suma dos veces.
+- **Objetos** en la hoja: rareza con color, cantidad, valor, descripción, editar y borrar, y **sintonizarse** (máximo 3, reglas 2024). También se pueden añadir desde el catálogo o la plantilla sin estar en una partida.
+- Valor total de tus monedas en oro bajo el recuadro Monedas.
+- En **Partida**, «Lo que te ha dado el DM».
+
 ## 0.17.0 · 3 nov 2026 — Todos los conjuros, rasgos según la clase y mejor importación
 
 **Conjuros**

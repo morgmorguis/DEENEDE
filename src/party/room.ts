@@ -2,7 +2,7 @@
 // comandos de cada cliente y envía a cada uno solo lo que puede ver (los jugadores nunca reciben
 // monstruos ocultos, vida exacta de monstruos ni notas del DM).
 import type {
-  Combatant, CombatantView, Command, Encounter, HpState, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
+  Combatant, CombatantView, Command, Encounter, Gift, HpState, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
 
 export interface StoredMember extends Member { token: string }
@@ -21,6 +21,8 @@ export interface Room {
   acted: boolean;
   /** Personajes que el DM tiene preparados (nunca se envían a los jugadores) */
   roster: RosterEntry[];
+  /** Registro de oro y objetos dados por el DM */
+  gifts: Gift[];
 }
 
 export interface Effect { to: string; ops: SheetOp[] }
@@ -28,12 +30,37 @@ export interface Result { room: Room; effects: Effect[]; error?: string }
 
 const MAX_LOG = 3000;
 const MAX_SNAPSHOTS = 40;
+const MAX_GIFTS = 2000;
+const COIN_KEYS = ['cp', 'sp', 'ep', 'gp', 'pp'] as const;
+const RARITIES = ['mundane', 'common', 'uncommon', 'rare', 'veryRare', 'legendary', 'artifact'];
+const TYPES = ['weapon', 'armor', 'potion', 'scroll', 'wondrous', 'ring', 'wand', 'gear', 'treasure', 'other'];
+const num = (x: unknown, max: number) => Math.max(0, Math.min(max, Math.round(Number(x) || 0)));
+
+/** Limpia lo que manda el DM: monedas enteras y positivas, objetos con nombre y campos acotados */
+export function cleanGift(cmd: Extract<Command, { t: 'give' }>): Pick<Gift, 'coins' | 'items' | 'note'> | null {
+  const coins: Gift['coins'] = {};
+  for (const k of COIN_KEYS) { const v = num(cmd.coins?.[k], 10_000_000); if (v) coins[k] = v; }
+  const items = (cmd.items ?? []).slice(0, 50).map((i) => ({
+    name: String(i.name ?? '').trim().slice(0, 120),
+    rarity: RARITIES.includes(i.rarity) ? i.rarity : 'common',
+    type: TYPES.includes(i.type) ? i.type : 'other',
+    description: String(i.description ?? '').slice(0, 4000),
+    value: Math.max(0, Math.min(10_000_000, Number(i.value) || 0)),
+    weight: Math.max(0, Math.min(10_000, Number(i.weight) || 0)),
+    attunement: !!i.attunement,
+    qty: Math.max(1, num(i.qty, 9999)),
+    ...(i.ref ? { ref: String(i.ref).slice(0, 60) } : {}),
+  })).filter((i) => i.name);
+  if (!Object.keys(coins).length && !items.length) return null;
+  const note = String(cmd.note ?? '').trim().slice(0, 500);
+  return { ...(Object.keys(coins).length ? { coins } : {}), ...(items.length ? { items } : {}), ...(note ? { note } : {}) };
+}
 
 export const rid = (n = 8) => Array.from({ length: n }, () => 'abcdefghijkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 32)]).join('');
 const code6 = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 
 export function createRoom(): Room {
-  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [] };
+  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [] };
 }
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -43,6 +70,7 @@ const d20 = () => 1 + Math.floor(Math.random() * 20);
 export function normalizeRoom(room: Room): Room {
   const r = room;
   r.roster ??= [];
+  r.gifts ??= [];
   r.encounter.phase ??= 'running';
   r.encounter.ready ??= [];
   return r;
@@ -286,6 +314,12 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       return { room: r, effects };
     }
 
+    case 'giftAck': {
+      const ids = new Set(cmd.ids);
+      for (const g of r.gifts) if (ids.has(g.id) && g.toId === me.id && !g.delivered) { g.delivered = true; g.deliveredAt = Date.now(); }
+      return { room: r, effects };
+    }
+
     case 'undo': {
       if (!running || !r.snapshots.length) return { room, effects: [], error: 'nothing-to-undo' };
       const { target, owner } = undoTarget(r);
@@ -330,6 +364,21 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const entry = { ...cmd.entry, id: cmd.entry.id || rid(), name: cmd.entry.name.trim() || 'PNJ' };
       const i = r.roster.findIndex((x) => x.id === entry.id);
       if (i >= 0) r.roster[i] = entry; else r.roster.push(entry);
+      return { room: r, effects };
+    }
+    case 'give': {
+      const to = r.members.find((m) => m.id === cmd.toId && m.role === 'player');
+      if (!to) return { room, effects: [], error: 'no-target' };
+      const clean = cleanGift(cmd);
+      if (!clean) return { room, effects: [], error: 'empty-gift' };
+      r.gifts.push({ id: rid(10), at: Date.now(), toId: to.id, toName: to.summary?.name || to.name, ...clean, delivered: false });
+      if (r.gifts.length > MAX_GIFTS) r.gifts.splice(0, r.gifts.length - MAX_GIFTS);
+      return { room: r, effects };
+    }
+    case 'giftCancel': {
+      const g = r.gifts.find((x) => x.id === cmd.id);
+      if (!g || g.delivered) return { room, effects: [], error: 'gift-delivered' };
+      r.gifts = r.gifts.filter((x) => x.id !== cmd.id);
       return { room: r, effects };
     }
     case 'rosterRemove': {
@@ -467,6 +516,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
       hiddenTurn: !!cur && cur.hidden && !dm,
     },
     log,
+    gifts: dm ? room.gifts : me.role === 'player' ? room.gifts.filter((g) => g.toId === me.id) : [],
     canUndo: !!target && (dm || owner === me.id),
     canEndTurn: e.active && phaseOf(e) === 'running' && !!cur && (dm || cur.ownerId === me.id),
   };

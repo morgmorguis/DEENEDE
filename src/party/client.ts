@@ -3,7 +3,9 @@
 import { create } from 'zustand';
 import { useStore } from '../store';
 import type { Character } from '../types';
-import type { ClientMessage, Command, PcSummary, Role, RoomView, ServerMessage } from './protocol';
+import type { ClientMessage, Command, Gift, PcSummary, Role, RoomView, ServerMessage } from './protocol';
+import { COIN_KEYS, coinsText, itemLine } from '../rules/items';
+import { uid } from '../rules/factory';
 import { armorClass, maxHp, passivePerception, speed } from '../rules/calc';
 import { classById, conditionName } from '../rules/srd';
 import { L, T } from '../i18n';
@@ -62,7 +64,29 @@ export const ERRORS: Record<string, [string, string]> = {
   'not-setup': ['El combate ya ha empezado.', 'The combat has already started.'],
   'not-running': ['Esperad a que todos estén listos.', 'Wait until everyone is ready.'],
   'need-initiative': ['Pon tu iniciativa antes de marcar Listo.', 'Enter your initiative before marking Ready.'],
+  'empty-gift': ['Añade monedas u objetos antes de dar.', 'Add coins or items before giving.'],
+  'gift-delivered': ['Esa entrega ya ha llegado a la ficha del jugador.', 'That gift has already reached the player’s sheet.'],
 };
+
+/** Suma a la ficha las monedas y objetos de una entrega del DM (los objetos iguales se apilan) */
+export function applyGift(c: Character, g: Gift, from = 'DM'): Character {
+  const next = structuredClone(c);
+  for (const k of COIN_KEYS) next.coins[k] = (next.coins[k] ?? 0) + Math.max(0, Math.round(g.coins?.[k] ?? 0));
+  for (const it of g.items ?? []) {
+    const same = next.items.find((x) => x.name === it.name && x.rarity === it.rarity && x.description === it.description && x.value === it.value);
+    if (same) same.qty += it.qty;
+    else next.items.push({ ...it, id: uid(), from, at: g.at, gift: g.id });
+  }
+  next.giftsReceived = [...next.giftsReceived, g.id].slice(-500);
+  return next;
+}
+
+/** Líneas para el aviso: «50 po», «2 × Poción de curación» */
+export const giftLines = (g: Pick<Gift, 'coins' | 'items' | 'note'>) => [
+  ...(g.coins && coinsText(g.coins) ? [`💰 ${coinsText(g.coins)}`] : []),
+  ...(g.items ?? []).map((i) => `🎁 ${itemLine(i)}`),
+  ...(g.note ? [`✉️ ${g.note}`] : []),
+];
 const errorText = (code: string) => (ERRORS[code] ? T(...ERRORS[code]) : code);
 
 export function summaryOf(c: Character): PcSummary {
@@ -89,6 +113,8 @@ let retryTimer: number | null = null;
 let attempts = 0;
 let unsubSheet: (() => void) | null = null;
 let lastSummary = '';
+/** Entregas ya sumadas en esta sesión (por si llega otro estado antes de confirmar) */
+const applying = new Set<string>();
 
 export const useParty = create<PartyState>((set, get) => {
   const out = (msg: ClientMessage) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); };
@@ -131,6 +157,26 @@ export const useParty = create<PartyState>((set, get) => {
     });
     const fresh = add.filter((d) => Date.now() - d.at < 60000);
     if (fresh.length) st.showToast(T(`☠️ ¡Golpe final! +${fresh.length} en tu kill count`, `☠️ Final blow! +${fresh.length} to your kill count`), fresh.map((d) => d.target ?? ''));
+  };
+
+  /** Entregas del DM: se suman a la ficha compartida una sola vez y se confirma al servidor */
+  const reconcileGifts = (view: RoomView) => {
+    if (view.you.role !== 'player') return;
+    const pending = (view.gifts ?? []).filter((g) => g.toId === view.you.id && !g.delivered);
+    if (!pending.length) return;
+    const st = useStore.getState();
+    const seen = new Set(st.characters.flatMap((c) => c.giftsReceived ?? []));
+    const fresh = pending.filter((g) => !seen.has(g.id) && !applying.has(g.id));
+    const c = sharedChar();
+    if (fresh.length && c) {
+      let next = c;
+      for (const g of fresh) { applying.add(g.id); next = applyGift(next, g); }
+      st.replace(next);
+      if (st.activeId === c.id) st.pushLog({ role: 'app', text: T('🎁 Entrega del DM', '🎁 Gift from the DM'), details: fresh.flatMap((g) => giftLines(g)) });
+      st.showToast(T(`🎁 El DM te da algo${c.id !== st.activeId ? ` (${c.name})` : ''}`, `🎁 The DM gives you something${c.id !== st.activeId ? ` (${c.name})` : ''}`), fresh.flatMap((g) => giftLines(g)));
+    }
+    const ack = pending.filter((g) => seen.has(g.id) || applying.has(g.id)).map((g) => g.id);
+    if (ack.length) out({ t: 'cmd', cmd: { t: 'giftAck', ids: ack } });
   };
 
   const applySheet = (msg: Extract<ServerMessage, { t: 'sheet' }>) => {
@@ -176,6 +222,7 @@ export const useParty = create<PartyState>((set, get) => {
       } else if (msg.t === 'state') {
         set({ view: msg.view });
         reconcileKills(msg.view);
+        reconcileGifts(msg.view);
       } else if (msg.t === 'sheet') {
         applySheet(msg);
       } else if (msg.t === 'error') {

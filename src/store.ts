@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Character, InitEntry, LogEntry, Note, NoteFolder } from './types';
 import { normalizeCharacter, sampleCharacter, uid } from './rules/factory';
 import { recoverAfterCombat } from './rules/consumables';
+import type { ItemData } from './rules/items';
 import { SELF_ID, applyCommand, runQuickRoll, sortOrder, type ApplyResult, type Command } from './rules/engine';
 import { activeReminders } from './rules/calc';
 import { DEFAULT_MODEL } from './config';
@@ -27,6 +28,8 @@ export interface Settings {
   lastBackupAt: number | null;
   /** Mostrar la pestaña experimental del editor de aspecto */
   avatarEditor?: boolean;
+  /** Plantillas de objetos creadas por el usuario (el DM las reutiliza al dar objetos) */
+  customItems?: ItemData[];
 }
 
 interface State {

@@ -129,7 +129,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.17</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.18</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -154,7 +154,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a href="#avisos">Avisos de la ficha</a></li>
       <li><a href="#nivel">Subir de nivel</a></li>
       <li><a href="#combate">Combate en solitario</a></li>
-      <li><a href="#municion">Munición y consumibles</a></li>
+      <li><a href="#municion">Objetos, munición y consumibles</a></li>
       <li><a href="#asistente">El asistente</a></li>
       <li><a href="#diario">Diario, voz y kill count</a></li>
       <li><a href="#importar">Importar una ficha</a></li>
@@ -163,6 +163,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a class="sub" href="#partida-jugar">Jugar como jugador</a></li>
       <li><a class="sub" href="#partida-dm">Pantalla del DM</a></li>
       <li><a class="sub" href="#partida-tele">Vista para la tele</a></li>
+      <li><a class="sub" href="#partida-tesoro">Tesoro: oro y objetos</a></li>
       <li><a href="#estilo">Colores, idioma y ajustes</a></li>
       <li><a href="#copia">Copia de seguridad</a></li>
       <li><a href="#dudas">Dudas frecuentes</a></li>
@@ -312,7 +313,9 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 8 -->
     <section class="chapter" id="municion">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 09</span><h2>Munición y consumibles</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 09</span><h2>Objetos, munición y consumibles</h2></div>
+      <p><b>Objetos.</b> En el recuadro Equipo, la lista <b>Objetos</b> guarda los objetos con su rareza (el punto de color), cantidad y valor, y el valor total arriba. Lo que te da el DM aparece aquí solo (con 🎁); también puedes añadirlos tú con <b>＋ Añadir objeto</b> desde el catálogo o la plantilla. Toca un objeto para ver su descripción, cambiar la cantidad, editarlo o borrarlo. Si requiere sintonización (◇), pulsa <b>✨ Sintonizarse</b> y ocupa uno de los 3 huecos de sintonización (el máximo de las reglas 2024). Bajo las monedas verás su valor total en oro.</p>
+      <figure><img class="phone" src="img/37-objetos-ficha.jpg" alt="Hoja: Objetos con valor 4200 po, poción de curación mayor y Espada de la luna rota, y monedas con 75 po en total" width="700" height="1516" loading="lazy" style="width: min(100%, 340px)"><figcaption>Objetos y monedas en la hoja.</figcaption></figure>
       <p>En la hoja, debajo del <b>Equipo</b>, apunta tu munición y consumibles con su cantidad. Si tu equipo dice «carcaj con 20 flechas, 2 pociones de curación», la app te ofrece añadirlos directamente.</p>
       <p>Normalmente la lista solo muestra lo que llevas. Pulsa <b>✏️ Editar</b> para añadir, sumar o restar y borrar, y <b>✓ Listo</b> para guardarlo y volver a la vista normal.</p>
       <p>En combate (también en la partida compartida) pulsa <b>✓ Usar 1</b> cada vez que gastes uno. Al terminar el combate se aplican las reglas 2024: recuperas <b>la mitad de la munición gastada</b> (redondeando abajo), recoges las armas arrojadizas y los consumibles quedan gastados.</p>
@@ -403,6 +406,22 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <h3 id="partida-tele">Vista para la tele</h3>
       <p>En la pantalla del DM, <b>📺 Vista para la tele</b> da un enlace (<code>…/?view=CÓDIGO</code>) para abrir en una tele, un portátil o una tablet en la mesa: el orden de turnos, los estados y lo último que ha pasado, en grande y sin nada oculto.</p>
       <figure><img class="shot" src="img/20-tele.jpg" alt="Vista para la tele con el orden de turnos, estados de los goblins y el registro" width="1200" height="675" loading="lazy"></figure>
+
+      <h3 id="partida-tesoro">Tesoro: oro y objetos</h3>
+      <p>En modo DM, la pestaña <b>💰 Tesoro</b> sirve para repartir el botín a un jugador concreto:</p>
+      <ol class="list">
+        <li>Elige <b>para quién</b> (los conectados salen primero, con 🟢).</li>
+        <li>Pon las <b>monedas</b> (ppt, po, pe, pp, pc) o usa los atajos <b>+10 po</b>, <b>+50 po</b>…</li>
+        <li><b>📦 Añadir objeto</b>: busca en el <b>catálogo</b> (pociones, pergaminos, armas y armaduras +1/+2/+3, anillos, capas, varitas, gemas y objetos de arte, equipo con los precios del manual de 2024) o pulsa <b>✏️ Crear</b> para hacer el tuyo con la <b>plantilla</b>: nombre, rareza, tipo, valor, peso, cantidad, si requiere sintonización y descripción. El botón 💡 pone el precio orientativo de la DMG 2024 según la rareza (los consumibles, a mitad). Marca <b>Guardar también como plantilla</b> para reutilizarlo en <b>Mis plantillas</b>.</li>
+        <li>Añade una nota si quieres («Botín de la cripta») y pulsa <b>🎁 Dar</b>.</li>
+      </ol>
+      <p>Al jugador le salta el aviso <b>«🎁 El DM te da algo»</b>: las monedas <b>se suman</b> a las de su hoja y los objetos aparecen en <b>Objetos</b>, dentro del recuadro Equipo (si ya tenía uno igual, sube la cantidad). Si estaba desconectado, le llega al volver a entrar, y nunca se suma dos veces.</p>
+      <p>Debajo, el <b>Registro de entregas</b> guarda en el servidor todo lo que has dado, con la fecha y el estado (<b>✅ En su ficha</b> o <b>⏳ Pendiente</b>; lo pendiente se puede anular). Cada jugador tiene su tarjeta con el total de monedas, objetos y el valor aproximado en oro; tócala para ver solo lo suyo. Los jugadores ven lo que les has dado a ellos en <b>Partida → Lo que te ha dado el DM</b>.</p>
+      <div class="pair">
+        <figure><img class="phone" src="img/34-tesoro-dar.jpg" alt="Pestaña Tesoro del DM: para Brakka, 50 po, poción de curación mayor y Espada de la luna rota, con nota" width="700" height="1516" loading="lazy"><figcaption>Preparando la entrega.</figcaption></figure>
+        <figure><img class="phone" src="img/35-objeto-crear.jpg" alt="Plantilla de objeto: nombre, rareza Raro, tipo, valor 4000 po, cantidad, sintonización y descripción" width="700" height="1516" loading="lazy"><figcaption>Crear un objeto propio.</figcaption></figure>
+        <figure><img class="phone" src="img/36-entrega-jugador.jpg" alt="Móvil del jugador con el aviso El DM te da algo y la lista de lo recibido" width="700" height="1516" loading="lazy"><figcaption>Lo que ve el jugador.</figcaption></figure>
+      </div>
     </section>
 
     <!-- 13 -->

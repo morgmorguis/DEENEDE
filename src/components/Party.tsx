@@ -10,6 +10,7 @@ import { Modal, Pips, Section } from './common';
 import { CONDITIONS } from '../rules/srd';
 import { encounterDifficulty } from '../party/difficulty';
 import { Consumables } from './Consumables';
+import { MyGifts } from './Treasure';
 import { L, T, locale } from '../i18n';
 
 const STATE_LABEL: Record<HpState, [string, string, string]> = {
@@ -607,6 +608,7 @@ export function PartyTab() {
             </div>
           </Section>
           <SharedCombat view={view} />
+          <MyGifts view={view} />
           <CombatLog view={view} />
         </>
       )}

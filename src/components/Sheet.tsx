@@ -29,6 +29,7 @@ import { useAvatarEditor } from '../features';
 import { spellCounts, spellLimits, spellUse } from '../rules/spellLimits';
 import { confirmDelete } from './Confirm';
 import { Consumables } from './Consumables';
+import { CoinsTotal, ItemsBox } from './Treasure';
 import { OriginPicker } from './OriginPicker';
 import { hitDiceText } from '../rules/multiclass';
 import { featureSuggestions, spellSuggestions } from '../rules/suggest';
@@ -521,6 +522,7 @@ export function SheetTab() {
             <Box title={T('Idiomas', 'Languages')}><Area title={T('Idiomas', 'Languages')} rows={2} value={c.languages} onChange={(v) => set((x) => { x.languages = v; })} /></Box>
             <Box title={T('Equipo', 'Equipment')}>
               <Area title={T('Equipo', 'Equipment')} rows={6} value={c.inventory} onChange={(v) => set((x) => { x.inventory = v; })} />
+              <ItemsBox />
               <Consumables mode="sheet" />
               <span className="p-mini">{T('Sintonización con objetos mágicos', 'Magic Item Attunement')}</span>
               {[0, 1, 2].map((i) => (
@@ -539,6 +541,7 @@ export function SheetTab() {
                   </label>
                 ))}
               </div>
+              <CoinsTotal />
             </Box>
           </div>
         </div>

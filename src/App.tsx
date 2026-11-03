@@ -13,6 +13,7 @@ import { classById } from './rules/srd';
 import { InfoBubble } from './components/InfoBubble';
 import { PartyTab, TvView } from './components/Party';
 import { DmRosterTab } from './components/DmRoster';
+import { TreasureTab } from './components/Treasure';
 import { TransitionFx, useFx } from './components/Transition';
 import { ConfirmHost } from './components/Confirm';
 import { AvatarTab } from './components/Avatar';
@@ -21,7 +22,7 @@ import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
 import { applyScene } from './scenes';
 
-type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'roster' | 'assistant' | 'rules' | 'settings';
+type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'roster' | 'treasure' | 'assistant' | 'rules' | 'settings';
 
 export default function App() {
   const c = useChar();
@@ -61,6 +62,7 @@ export default function App() {
   useEffect(() => {
     if (!avatarOn && tab === 'avatar') setTab('sheet');
     if (dmMode && (tab === 'sheet' || tab === 'avatar' || tab === 'combat' || tab === 'assistant')) setTab('party');
+    if (!dmMode && (tab === 'roster' || tab === 'treasure')) setTab('party');
   }, [dmMode, tab, avatarOn]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -76,6 +78,7 @@ export default function App() {
   const tabs: { id: Tab; icon: string; label: string; short?: string }[] = dmMode ? [
     { id: 'party', icon: sharedCombat ? '🔴' : '🎲', label: T('Partida', 'Game') },
     { id: 'roster', icon: '📋', label: T('Personajes', 'Characters') },
+    { id: 'treasure', icon: '💰', label: T('Tesoro', 'Treasure') },
     { id: 'rules', icon: '📚', label: T('Reglas', 'Rules') },
     { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
   ] : [
@@ -130,6 +133,7 @@ export default function App() {
         {tab === 'combat' && <CombatTab />}
         {tab === 'party' && <PartyTab />}
         {tab === 'roster' && <DmRosterTab />}
+        {tab === 'treasure' && <TreasureTab />}
         {tab === 'assistant' && <AssistantTab />}
         {tab === 'rules' && <RulesTab />}
         {tab === 'settings' && <SettingsTab />}
