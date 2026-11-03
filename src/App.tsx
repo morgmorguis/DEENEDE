@@ -16,6 +16,7 @@ import { DmRosterTab } from './components/DmRoster';
 import { TransitionFx, useFx } from './components/Transition';
 import { ConfirmHost } from './components/Confirm';
 import { AvatarTab } from './components/Avatar';
+import { FEATURES } from './features';
 import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
 import { applyScene } from './scenes';
@@ -77,7 +78,7 @@ export default function App() {
     { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
   ] : [
     { id: 'sheet', icon: '🧙', label: T('Hoja', 'Sheet') },
-    { id: 'avatar', icon: '🎨', label: T('Aspecto', 'Looks') },
+    ...(FEATURES.avatarEditor ? [{ id: 'avatar' as Tab, icon: '🎨', label: T('Aspecto', 'Looks') }] : []),
     { id: 'combat', icon: '⚔️', label: T('Combate', 'Combat') },
     { id: 'party', icon: partyOnline ? (sharedCombat ? '🔴' : '🟢') : '🎲', label: T('Partida', 'Game') },
     { id: 'assistant', icon: '💬', label: T('Asistente', 'Assistant'), short: T('Chat', 'Chat') },
@@ -123,7 +124,7 @@ export default function App() {
 
       <main className="content">
         {tab === 'sheet' && <SheetTab />}
-        {tab === 'avatar' && <AvatarTab />}
+        {FEATURES.avatarEditor && tab === 'avatar' && <AvatarTab />}
         {tab === 'combat' && <CombatTab />}
         {tab === 'party' && <PartyTab />}
         {tab === 'roster' && <DmRosterTab />}

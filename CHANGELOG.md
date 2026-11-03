@@ -3,6 +3,11 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.16.1 · 3 nov 2026 — Trucos de 2024 y editor de aspecto oculto
+
+- **Trucos de 2024 que faltaban**: Elementalismo, Resistencia, Destello estelar, Látigo de espinas y Palmada atronadora (druida), Estallido hechicero, Astilla mental, Toque de difuntos, Impacto certero, Protección contra armas, Amistad, Luces danzantes y Palabra radiante, cada uno en las listas de sus clases. Con esto, cada clase ya tiene todos sus trucos de 2024 en «Disponibles».
+- El **editor de aspecto** (pestaña 🎨 Aspecto) queda **oculto** mientras se rehace; el código se conserva. Los retratos que ya hubieras puesto en la hoja se mantienen y puedes seguir subiendo una imagen propia.
+
 ## 0.16.0 · 3 nov 2026 — Pósteres de fantasía oscura, retrato de busto y límite de conjuros
 
 **Conjuros**

@@ -39,7 +39,7 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
 - **Munición y consumibles**: lista con cantidades (se detectan en el texto del equipo: «20 flechas, 2 pociones»). En combate marcas «Usar 1» y al terminar se recupera la mitad de la munición gastada (reglas 2024), se recogen las armas arrojadizas y los consumibles se descuentan.
 - Varios personajes y creación guiada por clase (PG, salvaciones, espacios y recursos automáticos).
 - **Origen y habilidades a nivel 1** (botón 🎓 en la hoja): trasfondo de las reglas 2024 y solo las habilidades que puedes escoger según clase, especie y dotes, con los **conflictos** marcados (si dos fuentes dan la misma, tienes que elegir otra). También pericia del pícaro, estilo de combate y órdenes del clérigo y del druida.
-- **Editor de aspecto** (pestaña 🎨 Aspecto): personaje de **cuerpo entero estilo fantasía oscura de los 90** (luz lateral, sombras, grano y un póster de fondo): 10 rostros, 10 complexiones, 10 peinados, barbas y **10 ropajes por clase** con su arma, todo con colores a elegir y rasgos de especie. En la hoja se pone **el busto**; también datos físicos y descripción.
+- **Editor de aspecto** (pestaña 🎨 Aspecto): **oculto de momento** (`src/features.ts` → `avatarEditor`) mientras se rehace; el código sigue en `src/components/Avatar.tsx` y `src/rules/avatar.ts`.
 - **Límite de conjuros**: trucos y preparados según las tablas de clase de 2024, con contador y aviso, y un **icono de usos** en cada conjuro (♾️ a voluntad, ✨ espacios con 🌙/⛺, 1×🌙 de especie).
 - **Borrar con confirmación**: papelera en rasgos, armas, conjuros y munición, con aviso «¿Seguro que quieres borrar…?».
 - **Manual dentro de la app** (Ajustes → 📖 Abrir el manual), también sin internet.

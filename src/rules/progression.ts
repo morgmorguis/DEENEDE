@@ -478,6 +478,8 @@ const LISTS: Record<string, string> = {
   'Chill Touch': 'SKW', 'Acid Splash': 'SW', 'Poison Spray': 'DSKW', 'Mage Hand': 'BSKW', 'Prestidigitation': 'BSKW', 'Light': 'BCSW',
   'Guidance': 'CD', 'Thaumaturgy': 'C', 'Minor Illusion': 'BSKW', 'Message': 'BDSW', 'Mending': 'BCDSW', 'Spare the Dying': 'CD',
   'Druidcraft': 'D', 'Produce Flame': 'D', 'Shillelagh': 'D',
+  'Elementalism': 'DSW', 'Resistance': 'CD', 'Starry Wisp': 'BD', 'Thorn Whip': 'D', 'Thunderclap': 'BDSW', 'Sorcerous Burst': 'S', 'Mind Sliver': 'SKW',
+  'Toll the Dead': 'CKW', 'True Strike': 'BSKW', 'Blade Ward': 'BSKW', 'Friends': 'BSKW', 'Dancing Lights': 'BSW', 'Word of Radiance': 'C',
   'Magic Missile': 'SW', 'Shield': 'SW', 'Cure Wounds': 'BCDPR', 'Healing Word': 'BCD', 'Bless': 'CP', 'Bane': 'BCK', 'Guiding Bolt': 'C',
   'Thunderwave': 'BDSW', 'Burning Hands': 'SW', 'Sleep': 'BSW', 'Charm Person': 'BDSKW', 'Detect Magic': 'BCDPRSW', 'Mage Armor': 'SW',
   'Hunter’s Mark': 'R', 'Hex': 'K', 'Shield of Faith': 'CP', 'Faerie Fire': 'BD', 'Entangle': 'DR', 'Command': 'BCP', 'Sanctuary': 'C',

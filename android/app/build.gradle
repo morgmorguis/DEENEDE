@@ -9,7 +9,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // En CI cada compilación tiene un número mayor, así Android acepta la actualización
         versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger())
-        versionName "0.16.0"
+        versionName "0.16.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

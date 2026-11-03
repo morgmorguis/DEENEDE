@@ -24,6 +24,7 @@ import { BackgroundField, ClassField, SpeciesField, SubclassField } from './Iden
 import { SuggestInput } from './Suggest';
 import { physicalLine } from '../rules/avatar';
 import { AvailablePicker } from './Available';
+import { FEATURES } from '../features';
 import { spellCounts, spellLimits, spellUse } from '../rules/spellLimits';
 import { confirmDelete } from './Confirm';
 import { Consumables } from './Consumables';
@@ -504,7 +505,7 @@ export function SheetTab() {
               ) : (
                 <>
                   <button className="p-upload" onClick={uploadPortrait}>🖼️ {T('Subir imagen del personaje', 'Upload character image')}</button>
-                  <p className="hint">{T('O créalo en la pestaña 🎨 Aspecto.', 'Or make one in the 🎨 Looks tab.')}</p>
+                  {FEATURES.avatarEditor && <p className="hint">{T('O créalo en la pestaña 🎨 Aspecto.', 'Or make one in the 🎨 Looks tab.')}</p>}
                 </>
               )}
               {physicalLine(c.physical) && <p className="p-phys muted">{physicalLine(c.physical)}</p>}

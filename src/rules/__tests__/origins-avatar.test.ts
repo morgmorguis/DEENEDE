@@ -115,3 +115,12 @@ describe('límite de conjuros y usos', () => {
     expect(spellUse(mk('brujo', 3), { id: 'c', name: 'Hex', level: 1, prepared: true, castingTime: '', range: '', concentration: false }).icon).toMatch(/⛺/);
   });
 });
+
+describe('trucos de 2024', () => {
+  it('un druida de nivel 1 puede elegir Elementalismo y los demás trucos de druida', () => {
+    const d = createCharacter({ name: 'D', classId: 'druida', level: 1, species: 'Humano', background: 'Ermitaño', abilities: { str: 10, dex: 14, con: 14, int: 10, wis: 16, cha: 10 }, skills: [] });
+    const names = spellSuggestions({ ...d, spells: [] }, '', 0, true).filter((x) => x.spell.level === 0).map((x) => x.spell.name.en);
+    for (const n of ['Elementalism', 'Resistance', 'Starry Wisp', 'Thorn Whip', 'Thunderclap', 'Druidcraft', 'Guidance', 'Produce Flame', 'Shillelagh']) expect(names).toContain(n);
+    expect(names).not.toContain('Fire Bolt');
+  });
+});
