@@ -1,6 +1,7 @@
 import type { Ability, Character, DamageType, RollScope } from '../types';
 import { CONDITIONS, SKILLS, abilityShort, conditionName, effectName } from './srd';
 import { L, T } from '../i18n';
+import { activeRules, adjValue, rulesBonus, type RollTarget } from './bonuses';
 
 export const mod = (score: number) => Math.floor((score - 10) / 2);
 export const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
@@ -113,16 +114,36 @@ export function maxHp(c: Character): number {
   return c.hp.max + c.effects.reduce((a, e) => a + (e.mods.maxHp ?? 0), 0);
 }
 
+/** Competente en esta salvación (marcada en la hoja o por un rasgo, como Superviviente disciplinado) */
+export const saveProficient = (c: Character, a: Ability) => c.saveProf.includes(a) || activeRules(c, { kind: 'save', ability: a }).some((r) => r.prof);
+
 export function saveBonus(c: Character, a: Ability): number {
-  const m = abilityMods(c)[a];
-  return m + (c.saveProf.includes(a) ? profBonus(c.level) : 0);
+  const t: RollTarget = { kind: 'save', ability: a };
+  return abilityMods(c)[a] + (saveProficient(c, a) ? profBonus(c.level) : 0) + rulesBonus(c, t) + adjValue(c, t).value;
 }
 
 export function skillBonus(c: Character, skillId: string): number {
   const s = SKILLS.find((x) => x.id === skillId)!;
   const p = c.skillProf[skillId] ?? 0;
-  return abilityMods(c)[s.ability] + p * profBonus(c.level);
+  const t: RollTarget = { kind: 'skill', id: skillId };
+  return abilityMods(c)[s.ability] + p * profBonus(c.level) + rulesBonus(c, t) + adjValue(c, t).value;
 }
+
+/** Prueba de característica sin habilidad */
+export function checkBonus(c: Character, a: Ability): number {
+  const t: RollTarget = { kind: 'check', ability: a };
+  return abilityMods(c)[a] + rulesBonus(c, t) + adjValue(c, t).value;
+}
+
+/** Iniciativa: prueba de Destreza + Alerta, Emboscador temible… y lo añadido a mano */
+export function initiativeBonus(c: Character): number {
+  const t: RollTarget = { kind: 'init' };
+  return abilityMods(c).dex + rulesBonus(c, t) + adjValue(c, t).value;
+}
+
+/** Tirada de la hoja → a qué reglas mira */
+export const targetOf = (r: RollKind): RollTarget =>
+  r.kind === 'check' ? (r.skill ? { kind: 'skill', id: r.skill } : { kind: 'check', ability: r.ability }) : r.kind === 'save' ? { kind: 'save', ability: r.ability } : r.kind === 'initiative' ? { kind: 'init' } : { kind: 'attack' };
 
 export function attackBonus(c: Character, ability: Ability, proficient: boolean, extra = 0): number {
   return abilityMods(c)[ability] + (proficient ? profBonus(c.level) : 0) + extra;
@@ -163,6 +184,8 @@ export interface RollContext {
   disadvantage: string[];
   autoFail: string[];
   penalties: string[];
+  /** Recordatorios de rasgos que dependen de la situación (no se aplican solos) */
+  notes: string[];
 }
 
 export function rollContext(c: Character, r: RollKind): RollContext {
@@ -209,7 +232,13 @@ export function rollContext(c: Character, r: RollKind): RollContext {
     if (key && e.mods.advantage?.includes(key)) adv.push(effectName(e));
     if (key && e.mods.disadvantage?.includes(key)) dis.push(effectName(e));
   }
-  return { advantage: adv, disadvantage: dis, autoFail, penalties };
+  // Rasgos de clase, especie y dotes
+  const notes: string[] = [];
+  for (const rule of activeRules(c, targetOf(r))) {
+    if (rule.note) notes.push(`${rule.source}: ${rule.text}`);
+    else if (rule.adv && !adv.includes(rule.source)) adv.push(rule.source);
+  }
+  return { advantage: adv, disadvantage: dis, autoFail, penalties, notes };
 }
 
 /** Hace una tirada d20 completa aplicando ventaja/desventaja, agotamiento y bonificadores de efectos */
@@ -217,8 +246,19 @@ export function rollD20(c: Character, r: RollKind, bonus: number, label: string)
   const ctx = rollContext(c, r);
   const scope: RollScope = r.kind === 'attack' ? 'attack' : r.kind === 'save' ? 'save' : r.kind === 'initiative' ? 'initiative' : 'check';
   const extras = c.effects.flatMap((e) => (e.mods.bonus?.[scope] ? [{ expr: e.mods.bonus[scope]!, name: effectName(e) }] : []));
-  const a = rand(20);
-  const b = rand(20);
+  const rules = activeRules(c, targetOf(r));
+  const lucky = rules.find((x) => x.rerollOnes);
+  const ruleLines: string[] = [];
+  // Suerte del mediano: los 1 se repiten
+  const d20 = () => {
+    const n = rand(20);
+    if (n !== 1 || !lucky) return n;
+    const again = rand(20);
+    ruleLines.push(T(`${lucky.source}: un 1 se repite → ${again}`, `${lucky.source}: a 1 is rerolled → ${again}`));
+    return again;
+  };
+  const a = d20();
+  const b = d20();
   const hasAdv = ctx.advantage.length > 0;
   const hasDis = ctx.disadvantage.length > 0;
   let natural = a;
@@ -232,8 +272,14 @@ export function rollD20(c: Character, r: RollKind, bonus: number, label: string)
   } else if (hasAdv && hasDis) {
     diceText = T(`d20[${a}] (ventaja y desventaja se anulan)`, `d20[${a}] (advantage and disadvantage cancel out)`);
   }
+  // Talento fiable: un 9 o menos cuenta como 10
+  const floor = rules.find((x) => x.minNatural);
+  if (floor?.minNatural && natural < floor.minNatural) {
+    ruleLines.push(T(`${floor.source}: el ${natural} cuenta como ${floor.minNatural}`, `${floor.source}: the ${natural} counts as ${floor.minNatural}`));
+    natural = floor.minNatural;
+  }
   let total = natural + bonus - 2 * c.exhaustion;
-  const lines = [`🎲 ${label}: ${diceText} ${fmt(bonus)}`];
+  const lines = [`🎲 ${label}: ${diceText} ${fmt(bonus)}`, ...ruleLines];
   if (c.exhaustion) lines.push(`${T('Agotamiento', 'Exhaustion')}: −${2 * c.exhaustion}`);
   for (const x of extras) {
     const res = rollExpr(x.expr);
@@ -243,6 +289,13 @@ export function rollD20(c: Character, r: RollKind, bonus: number, label: string)
   if (hasAdv) lines.push(`${T('Ventaja por', 'Advantage from')}: ${ctx.advantage.join(', ')}`);
   if (hasDis) lines.push(`${T('Desventaja por', 'Disadvantage from')}: ${ctx.disadvantage.join(', ')}`);
   ctx.autoFail.forEach((f) => lines.push(`⚠️ ${f}`));
+  // Poder indomable: el total no baja de tu puntuación de Fuerza
+  const minT = rules.find((x) => x.minTotal);
+  if (minT?.minTotal && total < minT.minTotal) {
+    lines.push(T(`${minT.source}: ${total} → ${minT.minTotal}`, `${minT.source}: ${total} → ${minT.minTotal}`));
+    total = minT.minTotal;
+  }
+  ctx.notes.forEach((n) => lines.push(`📌 ${n}`));
   if (natural === 20 && r.kind === 'attack') lines.push(T('¡20 natural: crítico!', 'Natural 20: critical hit!'));
   if (natural === 1 && r.kind === 'attack') lines.push(T('1 natural: fallo automático.', 'Natural 1: automatic miss.'));
   lines.push(`Total: ${total}`);

@@ -6,7 +6,7 @@ import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordi
 import { CSS } from '@dnd-kit/utilities';
 import { useChar, useStore } from '../store';
 import type { InitEntry } from '../types';
-import { abilityMods, fmt, rollContext } from '../rules/calc';
+import { fmt, initiativeBonus, rollContext } from '../rules/calc';
 import { uid } from '../rules/factory';
 import { Modal, NumberInput } from './common';
 import { T } from '../i18n';
@@ -16,17 +16,18 @@ export function InitiativePrompt({ onClose }: { onClose: () => void }) {
   const c = useChar();
   const run = useStore((s) => s.runCommands);
   const [value, setValue] = useState('');
-  const dex = abilityMods(c).dex;
+  const dex = initiativeBonus(c);
   const ctx = rollContext(c, { kind: 'initiative' });
   const n = Number(value);
   return (
     <Modal title={T('Tirada de iniciativa', 'Initiative roll')} onClose={onClose}>
-      <p>{T(`Tira 1d20 ${fmt(dex)} (Destreza) y escribe el total, o deja que la app tire por ti.`, `Roll 1d20 ${fmt(dex)} (Dexterity) and enter the total, or let the app roll for you.`)}</p>
-      {(ctx.advantage.length > 0 || ctx.disadvantage.length > 0 || ctx.penalties.length > 0) && (
+      <p>{T(`Tira 1d20 ${fmt(dex)} y escribe el total, o deja que la app tire por ti.`, `Roll 1d20 ${fmt(dex)} and enter the total, or let the app roll for you.`)}</p>
+      {(ctx.advantage.length > 0 || ctx.disadvantage.length > 0 || ctx.penalties.length > 0 || ctx.notes.length > 0) && (
         <div className="reminders">
           {ctx.advantage.map((x) => <div key={x}>✅ {T('Ventaja por', 'Advantage from')} {x}</div>)}
           {ctx.disadvantage.map((x) => <div key={x}>⬇️ {T('Desventaja por', 'Disadvantage from')} {x}</div>)}
           {ctx.penalties.map((x) => <div key={x}>➖ {x}</div>)}
+          {ctx.notes.map((x) => <div key={x}>📌 {x}</div>)}
         </div>
       )}
       <label className="field">{T('He sacado (total)', 'My result (total)')}

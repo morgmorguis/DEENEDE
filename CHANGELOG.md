@@ -3,6 +3,21 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.19.0 · 4 nov 2026 — Bonificadores de clase, especie y dotes
+
+**Habilidades, salvaciones e iniciativa con las reglas 2024**
+- Además de competencia o pericia, se suman solos los rasgos de tu clase, subclase, especie y dotes (marcados con ✦ en la hoja):
+  - **Clérigo Taumaturgo**: + SAB (mín. +1) a Arcanos y Religión. **Druida Mago**: + SAB a Arcanos y Naturaleza.
+  - **Bardo 2** Aprendiz de todo: + mitad de la competencia en habilidades sin competencia.
+  - **Paladín 6** Aura de protección: + CAR a las salvaciones. **Monje 14** y **pícaro 15**: competencia en salvaciones.
+  - **Errante feérico**: + SAB a las pruebas de Carisma. **Acechador en la penumbra**: + SAB a la iniciativa. Dote **Alerta**: + competencia a la iniciativa.
+  - **Ventaja**: Sentido del peligro (bárbaro 2), Instinto salvaje (bárbaro 7), Atleta excepcional (Campeón), Asesinar (Asesino), Astucia gnoma, Conocimiento primigenio en Furia.
+  - Al tirar: **Talento fiable** (pícaro 7: un 9 o menos cuenta como 10), **Suerte del mediano** (repite los 1) y **Poder indomable** (bárbaro 18).
+  - Recordatorios de lo que depende de la situación: Valiente, Linaje feérico, Resistencia enana, Constitución poderosa, Mente táctica, Indomable, Afortunado, Lanzador de guerra, Mente sobrenatural, Presagio, Mareas del caos…
+- Al tocar una habilidad, salvación, característica o la iniciativa se ve el cálculo completo. Cada regla se puede **desmarcar**, y **＋ Añadir otro bonificador** suma un número y/o el modificador de una característica (p. ej. «+ SAB») con una nota.
+- Las pruebas de característica sin habilidad y la iniciativa (también en la partida compartida) usan estos bonificadores.
+- La especie se reconoce también en femenino («Enana», «Alta elfa», «Mediana»…).
+
 ## 0.18.0 · 3 nov 2026 — Tesoro: el DM reparte oro y objetos
 
 **Para el DM (pestaña 💰 Tesoro)**

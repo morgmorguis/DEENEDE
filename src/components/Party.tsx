@@ -5,7 +5,7 @@ import { useChar, useStore } from '../store';
 import { useParty } from '../party/client';
 import type { ActKind, CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
 import { MONSTERS, searchMonsters, type MonsterInfo } from '../party/monsters';
-import { rollExpr, fmt } from '../rules/calc';
+import { rollExpr, fmt, initiativeBonus } from '../rules/calc';
 import { Modal, Pips, Section } from './common';
 import { CONDITIONS } from '../rules/srd';
 import { encounterDifficulty } from '../party/difficulty';
@@ -414,7 +414,7 @@ function SetupPanel({ view }: { view: RoomView }) {
   const myPc = e.order.find((x) => x.kind === 'pc' && x.ownerId === view.you.id);
   const [init, setInit] = useState(myPc?.initiative != null ? String(myPc.initiative) : '');
   const meReady = e.ready.includes(view.you.id);
-  const dex = Math.floor((c.abilities.dex - 10) / 2);
+  const dex = initiativeBonus(c);
   const waiting = e.needed.filter((id) => !e.ready.includes(id)).map((id) => view.members.find((m) => m.id === id)).filter(Boolean);
   const pcs = e.order.filter((x) => x.kind === 'pc');
   const nameOf = (id: string) => view.members.find((m) => m.id === id);

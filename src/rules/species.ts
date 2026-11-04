@@ -149,8 +149,10 @@ const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 
 /** Reconoce la especie a partir del texto de la ficha («Elfo», «High Elf», «Dracónido rojo»…) */
 export function findSpecies(text: string): { species?: SpeciesInfo; lineage?: Lineage } {
-  const k = fold(text);
-  if (!k) return {};
+  const k0 = fold(text);
+  if (!k0) return {};
+  // También en femenino: «Enana», «Elfa», «Alta elfa», «Mediana», «Dracónida roja»…
+  const k = `${k0} | ${k0.replace(/([a-z]+)a\b/g, '$1o')}`;
   for (const sp of SPECIES_INFO) {
     for (const ln of sp.lineages ?? []) if ([ln.name.es, ln.name.en].some((n) => k.includes(fold(n).split(' (')[0]))) return { species: sp, lineage: ln };
   }

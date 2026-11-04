@@ -1047,3 +1047,15 @@ button.plain { background: none; border: 0; padding: 0; color: inherit; text-ali
 .gift-status.ok { color: var(--green); }
 .gift-lines { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 2px; }
 .gift-lines li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* ---------- Bonificadores por rasgos ---------- */
+.tag.plus { background: var(--gold); color: #1b1208; }
+.p-row-name .tag.plus { color: #1b1208; background: #c9a24a; }
+.rule-list { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.rule-list.notes { border-style: dashed; }
+.rule-item { display: flex; gap: 8px; align-items: flex-start; }
+.rule-item input { width: 20px; height: 20px; min-height: 0; margin-top: 2px; accent-color: var(--gold); flex-shrink: 0; }
+.rule-item.off, .rule-list .off { opacity: .5; }
+.adj-box { display: grid; gap: 6px; }
+.adj-row { flex-wrap: wrap; }
+.adj-row select { flex: 1; min-width: 150px; }

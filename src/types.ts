@@ -233,6 +233,17 @@ export interface Character {
   items: OwnedItem[];
   /** Ids de entregas del DM ya aplicadas a esta ficha (para no sumarlas dos veces) */
   giftsReceived: string[];
+  /** Bonificadores añadidos a mano a una tirada: 'skill:religion', 'save:wis', 'check:dex', 'init' */
+  bonusAdj?: Record<string, BonusAdj>;
+  /** Reglas automáticas (de clase, especie o dote) que el jugador ha desactivado */
+  rulesOff?: string[];
+}
+
+/** Bonificador propio: número fijo + modificador de una característica (p. ej. «+ SAB» de un rasgo) */
+export interface BonusAdj {
+  flat: number;
+  ability?: Ability | null;
+  note?: string;
 }
 
 /** Objeto en la ficha */

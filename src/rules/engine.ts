@@ -1,6 +1,6 @@
 import type { Ability, Character, ConditionId, DamageType, Effect, InitEntry } from '../types';
 import {
-  armorClass, abilityMods, damageDefenses, fmt, maxHp, rollD20, rollExpr, saveBonus, skillBonus,
+  armorClass, abilityMods, checkBonus, damageDefenses, fmt, initiativeBonus, maxHp, rollD20, rollExpr, saveBonus, skillBonus,
 } from './calc';
 import {
   CONDITIONS, EFFECT_PRESETS, SHORT_REST_ONE_USE, SKILLS, abilityName, abilityShort, damageTypeName, effectMatches,
@@ -431,12 +431,12 @@ export function applyCommand(input: Character, cmd: Command): ApplyResult {
       return done(input, r.lines);
     }
     case 'rollAbility': {
-      const r = rollD20(input, { kind: 'check', ability: cmd.ability }, abilityMods(input)[cmd.ability], T(`Prueba de ${abilityName(cmd.ability)}`, `${abilityName(cmd.ability)} check`));
+      const r = rollD20(input, { kind: 'check', ability: cmd.ability }, checkBonus(input, cmd.ability), T(`Prueba de ${abilityName(cmd.ability)}`, `${abilityName(cmd.ability)} check`));
       return done(input, r.lines);
     }
     case 'rollInitiative': {
       const c = clone(input);
-      const r = rollD20(input, { kind: 'initiative' }, abilityMods(input).dex, T('Iniciativa', 'Initiative'));
+      const r = rollD20(input, { kind: 'initiative' }, initiativeBonus(input), T('Iniciativa', 'Initiative'));
       setSelfInitiative(c, r.total);
       return done(c, r.lines);
     }

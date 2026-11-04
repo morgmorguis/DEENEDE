@@ -2,15 +2,16 @@ import { createPortal } from 'react-dom';
 import { useState, type ReactNode } from 'react';
 import { useChar, useStore } from '../store';
 import {
-  abilityMods, activeReminders, armorClass, attackBonus, fmt, maxHp, mod, passivePerception, profBonus, rollContext, saveBonus,
-  skillBonus, speed, spellAttack, spellSaveDc,
+  abilityMods, activeReminders, armorClass, attackBonus, checkBonus, fmt, initiativeBonus, maxHp, mod, passivePerception, profBonus, rollContext, saveBonus,
+  saveProficient, skillBonus, speed, spellAttack, spellSaveDc, targetOf, type RollKind,
 } from '../rules/calc';
+import { activeRules, adjKey, adjText, adjValue, ruleMods, type RollTarget } from '../rules/bonuses';
 import {
   ABILITIES, CLASSES, CONDITIONS, DAMAGE_TYPES, EFFECT_PRESETS, MASTERIES, SIZES, SKILLS, SPECIES, abilityName, abilityShort,
   damageTypeName, effectName, effectNotes, findMastery, resourceName,
 } from '../rules/srd';
 import { uid } from '../rules/factory';
-import type { Ability, Attack, Character, ConditionId, DamageType, ProfLevel, Spell } from '../types';
+import type { Ability, Attack, BonusAdj, Character, ConditionId, DamageType, ProfLevel, Spell } from '../types';
 import { Modal, NumberInput, Pips, pickFiles, useRoll } from './common';
 import { HpModal } from './Hp';
 import { Editor } from './Editor';
@@ -80,6 +81,9 @@ function Diamond({ on, onClick, label }: { on: boolean; onClick: () => void; lab
   return <button className={`p-diamond ${on ? 'on' : ''}`} onClick={onClick} aria-label={label} aria-pressed={on} />;
 }
 
+/** Algún rasgo (o un bonificador propio) suma o cambia esta tirada */
+const hasExtra = (c: Character, t: RollTarget) => adjValue(c, t).value !== 0 || activeRules(c, t).some((r) => !r.note && (r.bonus || r.minNatural || r.prof));
+
 function ProfDot({ level, onClick, label }: { level: ProfLevel; onClick: () => void; label: string }) {
   return <button className={`p-dot ${level === 2 ? 'exp' : level === 1 ? 'on' : ''}`} onClick={onClick} aria-label={label} />;
 }
@@ -115,7 +119,7 @@ export function SheetTab() {
   const [levelUp, setLevelUp] = useState(false);
   const [origin, setOrigin] = useState(false);
   const [hpOpen, setHpOpen] = useState(false);
-  const [statInfo, setStatInfo] = useState<{ ability: Ability; skill?: string; save?: boolean } | null>(null);
+  const [statInfo, setStatInfo] = useState<{ ability: Ability; skill?: string; save?: boolean; init?: boolean } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
   const [condOpen, setCondOpen] = useState(false);
   const [effOpen, setEffOpen] = useState(false);
@@ -142,7 +146,7 @@ export function SheetTab() {
     else if (opts.skill) {
       const s = SKILLS.find((x) => x.id === opts.skill)!;
       roll(c, { kind: 'check', ability, skill: s.id }, skillBonus(c, s.id), L(s.name));
-    } else roll(c, { kind: 'check', ability }, m[ability], T(`Prueba de ${abilityName(ability)}`, `${abilityName(ability)} check`));
+    } else roll(c, { kind: 'check', ability }, checkBonus(c, ability), T(`Prueba de ${abilityName(ability)}`, `${abilityName(ability)} check`));
   };
 
   const cycleSkill = (id: string) => set((x) => { x.skillProf[id] = (((x.skillProf[id] ?? 0) + 1) % 3) as ProfLevel; });
@@ -166,10 +170,11 @@ export function SheetTab() {
           <NumberInput className="p-ab-score" value={c.abilities[a]} min={1} max={30} ariaLabel={T(`Puntuación de ${abilityName(a)}`, `${abilityName(a)} score`)} onChange={(n) => set((x) => { x.abilities[a] = Math.max(1, Math.min(30, n)); })} />
         </div>
         <div className="p-row save">
-          <ProfDot level={c.saveProf.includes(a) ? 1 : 0} onClick={() => toggleSave(a)} label={T('Competencia en salvación', 'Saving throw proficiency')} />
+          <ProfDot level={saveProficient(c, a) ? 1 : 0} onClick={() => toggleSave(a)} label={T('Competencia en salvación', 'Saving throw proficiency')} />
           <span className="p-bonus">{fmt(saveBonus(c, a))}</span>
           <button className="p-row-name" {...longPress({ type: 'save', ability: a })} onClick={() => tapStat(a, { save: true })}>
             {T('Tirada de salvación', 'Saving Throw')}
+            {hasExtra(c, { kind: 'save', ability: a }) && <i className="tag plus" title={T('Suma un rasgo o un bonificador propio', 'A feature or custom bonus adds to it')}>✦</i>}
             {saveCtx.autoFail.length > 0 && <i className="tag bad">✕</i>}
             {saveCtx.advantage.length > 0 && <i className="tag good">V</i>}
             {saveCtx.disadvantage.length > 0 && <i className="tag bad">D</i>}
@@ -183,6 +188,7 @@ export function SheetTab() {
               <span className="p-bonus">{fmt(skillBonus(c, s.id))}</span>
               <button className="p-row-name" {...longPress({ type: 'skill', id: s.id })} onClick={() => tapStat(a, { skill: s.id })}>
                 {L(s.name)}
+                {hasExtra(c, { kind: 'skill', id: s.id }) && <i className="tag plus" title={T('Suma un rasgo o un bonificador propio', 'A feature or custom bonus adds to it')}>✦</i>}
                 {ctx.autoFail.length > 0 && <i className="tag bad">!</i>}
                 {ctx.advantage.length > 0 && <i className="tag good">V</i>}
                 {ctx.disadvantage.length > 0 && <i className="tag bad">D</i>}
@@ -290,7 +296,7 @@ export function SheetTab() {
         <div className="p-strip">
           <Box title={T('Bonif. competencia', 'Proficiency Bonus')}><div className="p-big">{fmt(pb)}</div></Box>
           <Box title={T('Iniciativa', 'Initiative')}>
-            <button className="p-big" onClick={() => (tapToRoll ? run(T('Tiro iniciativa', 'Roll initiative'), [{ type: 'rollInitiative' }]) : setInfo({ title: T('Iniciativa', 'Initiative'), lines: [T(`Prueba de Destreza: ${fmt(m.dex)}.`, `Dexterity check: ${fmt(m.dex)}.`), ...rollContext(c, { kind: 'initiative' }).disadvantage.map((d) => T(`Desventaja por ${d}`, `Disadvantage from ${d}`))] }))}>{fmt(m.dex)}</button>
+            <button className="p-big" onClick={() => (tapToRoll ? run(T('Tiro iniciativa', 'Roll initiative'), [{ type: 'rollInitiative' }]) : setStatInfo({ ability: 'dex', init: true }))}>{fmt(initiativeBonus(c))}</button>
           </Box>
           <Box title={T('Velocidad', 'Speed')}><button className="p-big" onClick={() => setInfo({ title: `${T('Velocidad', 'Speed')} ${spd.value}`, lines: spd.parts })}>{spd.value}</button></Box>
           <Box title={T('Tamaño', 'Size')}><input className="p-big-input" list="dl-sizes" value={c.size} onChange={(e) => set((x) => { x.size = e.target.value; })} /></Box>
@@ -581,47 +587,112 @@ export function SheetTab() {
   );
 }
 
-/** Información de una característica, salvación o habilidad: qué cubre, cómo se calcula y qué te afecta ahora */
-function StatInfoModal({ ability, skill, save, onClose }: { ability: Ability; skill?: string; save?: boolean; onClose: () => void }) {
+/** Información de una característica, salvación, habilidad o la iniciativa: qué cubre, cómo se calcula (con los
+ *  rasgos de clase, especie y dotes que suman) y un bonificador propio para lo que la app no sepa */
+function StatInfoModal({ ability, skill, save, init, onClose }: { ability: Ability; skill?: string; save?: boolean; init?: boolean; onClose: () => void }) {
   const c = useChar();
+  const update = useStore((s) => s.update);
   const tapToRoll = useStore((s) => s.settings.tapToRoll);
   const roll = useRoll();
   const m = abilityMods(c);
   const pb = profBonus(c.level);
   const s = skill ? SKILLS.find((x) => x.id === skill) : undefined;
-  const kind = save ? { kind: 'save' as const, ability } : { kind: 'check' as const, ability, skill };
+  const kind: RollKind = init ? { kind: 'initiative' } : save ? { kind: 'save', ability } : { kind: 'check', ability, skill };
+  const target = targetOf(kind);
+  const key = adjKey(target);
   const ctx = rollContext(c, kind);
-  const p = s ? c.skillProf[s.id] ?? 0 : save ? (c.saveProf.includes(ability) ? 1 : 0) : 0;
-  const total = s ? skillBonus(c, s.id) : save ? saveBonus(c, ability) : m[ability];
-  const title = s ? L(s.name) : save ? T(`Salvación de ${abilityName(ability)}`, `${abilityName(ability)} saving throw`) : abilityName(ability);
+  const rules = ruleMods(c, target);
+  const { value: adjVal, adj } = adjValue(c, target);
+  const ruleProf = save && !c.saveProf.includes(ability) && rules.some((r) => r.prof && !r.off);
+  const p = s ? c.skillProf[s.id] ?? 0 : save ? (saveProficient(c, ability) ? 1 : 0) : 0;
+  const total = init ? initiativeBonus(c) : s ? skillBonus(c, s.id) : save ? saveBonus(c, ability) : checkBonus(c, ability);
+  const title = init ? T('Iniciativa', 'Initiative') : s ? L(s.name) : save ? T(`Salvación de ${abilityName(ability)}`, `${abilityName(ability)} saving throw`) : abilityName(ability);
+  const [editAdj, setEditAdj] = useState(!!adj);
+
+  const setAdj = (patch: Partial<BonusAdj> | null) => update((x) => {
+    const all = { ...(x.bonusAdj ?? {}) };
+    if (patch === null) delete all[key];
+    else all[key] = { ...{ flat: 0, ability: null, note: '' }, ...all[key], ...patch };
+    x.bonusAdj = all;
+  });
+  const toggleRule = (id: string) => update((x) => {
+    const off = new Set(x.rulesOff ?? []);
+    if (off.has(id)) off.delete(id); else off.add(id);
+    x.rulesOff = [...off];
+  });
 
   const doRoll = () => {
     roll(c, kind, total, title);
     onClose();
   };
+  const effective = rules.filter((r) => !r.note);
+  const notes = rules.filter((r) => r.note);
 
   return (
     <Modal title={title} onClose={onClose}>
       {s && <p>{L(s.desc)}</p>}
       {s && <p className="muted"><i>{T('Ejemplos', 'Examples')}:</i> {L(s.examples)}</p>}
-      {!s && !save && (
+      {init && <p>{T('La iniciativa es una prueba de Destreza que decide el orden de los turnos.', 'Initiative is a Dexterity check that sets the turn order.')}</p>}
+      {!s && !save && !init && (
         <p>{T(`Puntuación ${c.abilities[ability]} → modificador ${fmt(mod(c.abilities[ability]))}. Se usa en las pruebas de ${abilityName(ability)} y en estas habilidades: `, `Score ${c.abilities[ability]} → modifier ${fmt(mod(c.abilities[ability]))}. Used for ${abilityName(ability)} checks and these skills: `)}
           {SKILLS.filter((x) => x.ability === ability).map((x) => L(x.name)).join(', ') || '—'}.</p>
       )}
       <div className="calc">
-        <div>{T('Modificador de', 'Modifier from')} {abilityName(ability)}: {fmt(m[ability])}</div>
-        {(s || save) && <div>{T('Competencia', 'Proficiency')}: {p === 0 ? T('no', 'no') : p === 1 ? `${T('sí', 'yes')} (${fmt(pb)})` : `${T('pericia', 'expertise')} (${fmt(2 * pb)})`}</div>}
+        <div>{T('Modificador de', 'Modifier from')} {abilityName(init ? 'dex' : ability)}: {fmt(m[init ? 'dex' : ability])}</div>
+        {(s || save) && <div>{T('Competencia', 'Proficiency')}: {p === 0 ? T('no', 'no') : p === 1 ? `${T('sí', 'yes')} (${fmt(pb)})${ruleProf ? ` · ${rules.find((r) => r.prof)?.source}` : ''}` : `${T('pericia', 'expertise')} (${fmt(2 * pb)})`}</div>}
+        {effective.filter((r) => !r.off && r.bonus).map((r) => <div key={r.id}>{r.source}: {fmt(r.bonus!)}</div>)}
+        {adj && adjVal !== 0 && <div>{adj.note || T('Otro bonificador', 'Other bonus')} ({adjText(adj)}): {fmt(adjVal)}</div>}
         <div><b>{T('Bonificador total', 'Total bonus')}: {fmt(total)}</b></div>
       </div>
+
+      {effective.length > 0 && (
+        <div className="rule-list">
+          <b>{T('Por tu clase, especie o dotes (reglas 2024)', 'From your class, species or feats (2024 rules)')}</b>
+          {effective.map((r) => (
+            <label key={r.id} className={`rule-item ${r.off ? 'off' : ''}`}>
+              <input type="checkbox" checked={!r.off} onChange={() => toggleRule(r.id)} />
+              <span><b>{r.source}</b>{r.bonus ? ` ${fmt(r.bonus)}` : r.adv ? ` · ${T('ventaja', 'advantage')}` : r.prof ? ` · ${T('competencia', 'proficiency')}` : ''}<br /><small className="muted">{r.text}</small></span>
+            </label>
+          ))}
+          <p className="hint">{T('Se aplican solas. Desmarca una si en tu mesa no se usa o no la tienes.', 'They apply automatically. Untick one if your table doesn’t use it or you don’t have it.')}</p>
+        </div>
+      )}
+
+      <div className="adj-box">
+        {!editAdj ? (
+          <button className="btn small" onClick={() => setEditAdj(true)}>＋ {T('Añadir otro bonificador', 'Add another bonus')}</button>
+        ) : (
+          <>
+            <b>{T('Otro bonificador (objetos, rasgos, reglas de la casa…)', 'Other bonus (items, features, house rules…)')}</b>
+            <div className="row adj-row">
+              <NumberInput value={adj?.flat ?? 0} min={-20} max={20} ariaLabel={T('Bonificador fijo', 'Flat bonus')} onChange={(n) => setAdj({ flat: n })} />
+              <span>+</span>
+              <select value={adj?.ability ?? ''} aria-label={T('Modificador de característica', 'Ability modifier')} onChange={(e) => setAdj({ ability: (e.target.value || null) as Ability | null })}>
+                <option value="">{T('— sin característica', '— no ability')}</option>
+                {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as Ability[]).map((a) => <option key={a} value={a}>{T('mod. de', 'mod.')} {abilityShort(a)} ({fmt(m[a])})</option>)}
+              </select>
+            </div>
+            <input value={adj?.note ?? ''} placeholder={T('De dónde sale (p. ej. Piedra de la suerte)', 'Where it comes from (e.g. Stone of Good Luck)')} onChange={(e) => setAdj({ note: e.target.value })} />
+            {adj && <button className="link" onClick={() => { setAdj(null); setEditAdj(false); }}>{T('Quitar este bonificador', 'Remove this bonus')}</button>}
+          </>
+        )}
+      </div>
+
       {(ctx.advantage.length + ctx.disadvantage.length + ctx.autoFail.length + ctx.penalties.length) > 0 ? (
         <div className="reminders">
-          <b>{T('Limitaciones actuales', 'Current limitations')}:</b>
+          <b>{T('Ahora mismo', 'Right now')}:</b>
           {ctx.advantage.map((x) => <div key={x}>✅ {T('Ventaja por', 'Advantage from')} {x}</div>)}
           {ctx.disadvantage.map((x) => <div key={x}>⬇️ {T('Desventaja por', 'Disadvantage from')} {x}</div>)}
           {ctx.autoFail.map((x) => <div key={x}>⛔ {x}</div>)}
           {ctx.penalties.map((x) => <div key={x}>➖ {x}</div>)}
         </div>
       ) : <p className="muted">{T('Ahora mismo no tienes nada que afecte a esta tirada.', 'Nothing is affecting this roll right now.')}</p>}
+      {notes.length > 0 && (
+        <div className="rule-list notes">
+          <b>📌 {T('Según la situación', 'Depending on the situation')}</b>
+          {notes.map((r) => <div key={r.id} className={r.off ? 'off' : ''}><b>{r.source}:</b> <small>{r.text}</small></div>)}
+        </div>
+      )}
       {tapToRoll
         ? <button className="btn primary full" onClick={doRoll}>🎲 {T('Tirar', 'Roll')} {title}</button>
         : <p className="hint">{T('Puedes activar las tiradas de dados al tocar en Ajustes.', 'You can turn on dice rolls on tap in Settings.')}</p>}
