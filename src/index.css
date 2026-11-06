@@ -1103,3 +1103,17 @@ button.plain { background: none; border: 0; padding: 0; color: inherit; text-ali
 .rule .rule-no { color: var(--red); }
 .rule .rule-warn { color: #b8862c; }
 .rule .rule-you { font-weight: 600; }
+
+/* ---------- Monedas ---------- */
+.coin-label { background: none; border: 0; padding: 0; font: inherit; font-weight: 800; color: inherit; text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }
+.coins-foot { margin-top: 4px; align-items: baseline; flex-wrap: wrap; }
+.coins-foot .coins-total { margin: 0; }
+.coin-cards { display: grid; gap: 6px; }
+.coin-card { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+.coin-card.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.coin-card p { margin: 2px 0; }
+.coin-emoji { font-size: 1.2rem; }
+.coin-table { width: 100%; border-collapse: collapse; font-size: .85rem; text-align: center; }
+.coin-table th, .coin-table td { border-bottom: 1px solid var(--line); padding: 4px 2px; }
+.coin-table tbody th { text-align: left; white-space: nowrap; }
+.coin-name { font-size: 9px; font-weight: 600; color: var(--ink2); text-transform: lowercase; }

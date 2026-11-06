@@ -3,6 +3,13 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.21.1 · 6 nov 2026 — Monedas explicadas
+
+- En el recuadro **Monedas**, cada casilla lleva su nombre (cobre, plata, electro, oro, platino) y al tocar la abreviatura (PC, PP, PE, PO, PPT) o «ℹ️ ¿Qué vale cada moneda?» se abre la explicación: qué es cada pieza, cuánto vale, ejemplos de lo que se compra con ella (una antorcha 1 pc, raciones 5 pp, espada larga 15 po…), la tabla de equivalencias y el peso (50 monedas = 1 libra).
+- **Cambiar monedas** sin comisión (p. ej. 200 pc → 2 po), solo cuando sale exacto.
+- Junto al total en oro se muestra cuánto pesan tus monedas.
+- En Reglas, nueva entrada «Monedas y dinero».
+
 ## 0.21.0 · 6 nov 2026 — Vida máxima temporal, todo explicado y reglas de armas
 
 **Vida máxima temporal**

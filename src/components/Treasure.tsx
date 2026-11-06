@@ -8,7 +8,7 @@ import type { Gift, RoomView } from '../party/protocol';
 import type { OwnedItem } from '../types';
 import {
   COIN_KEYS, ITEM_TYPES, NO_COINS, RARITIES, RARITY, blankItem, coinLabel, coinName, coinsInGold, coinsText, fromCatalog, hasCoins,
-  itemLine, searchCatalog, suggestedValue, valueText, BASE_ARMORS, CATALOG_MODS, equippable, type Coins5, type ItemData, type ItemMods, type ItemType, type Rarity,
+  itemLine, searchCatalog, suggestedValue, valueText, BASE_ARMORS, COIN_INFO, COIN_IN_CP, coinsWeight, exchangeCoins, CATALOG_MODS, equippable, type Coins5, type ItemData, type ItemMods, type ItemType, type Rarity,
 } from '../rules/items';
 import type { AbilityKey } from '../rules/itemTypes';
 import { attackFromItem, needsAttunement } from '../rules/gear';
@@ -324,8 +324,78 @@ export function ItemsBox() {
 /** «≈ 123 po en total» bajo las monedas */
 export function CoinsTotal() {
   const c = useChar();
+  const [info, setInfo] = useState<keyof Coins5 | 'all' | null>(null);
   const g = coinsInGold(c.coins);
-  return g > 0 ? <p className="hint coins-total">≈ {valueText(Math.round(g * 100) / 100)} {T('en total', 'in total')}</p> : null;
+  const w = coinsWeight(c.coins);
+  return (
+    <>
+      <div className="row coins-foot">
+        <button className="p-link" onClick={() => setInfo('all')}>ℹ️ {T('¿Qué vale cada moneda?', 'What is each coin worth?')}</button>
+        <span className="grow" />
+        {g > 0 && <span className="hint coins-total">≈ {valueText(Math.round(g * 100) / 100)} {T('en total', 'in total')}{w >= 0.5 ? ` · ${Math.round(w * 10) / 10} lb` : ''}</span>}
+      </div>
+      {info && createPortal(<CoinInfoModal focus={info === 'all' ? undefined : info} onClose={() => setInfo(null)} />, document.body)}
+    </>
+  );
+}
+
+/** Abrir la explicación de una moneda desde fuera (etiquetas del recuadro Monedas) */
+export function CoinLabel({ k }: { k: keyof Coins5 }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="coin-label" title={`${L(COIN_INFO[k].metal)} · ${L(COIN_INFO[k].text)}`} onClick={(e) => { e.preventDefault(); setOpen(true); }}>{coinLabel(k).toUpperCase()}</button>
+      {open && createPortal(<CoinInfoModal focus={k} onClose={() => setOpen(false)} />, document.body)}
+    </>
+  );
+}
+
+const ORDER: (keyof Coins5)[] = ['cp', 'sp', 'ep', 'gp', 'pp'];
+
+/** Qué es cada moneda, equivalencias, ejemplos de precios, peso y un cambista sin comisión */
+export function CoinInfoModal({ focus, onClose }: { focus?: keyof Coins5; onClose: () => void }) {
+  const c = useChar();
+  const update = useStore((s) => s.update);
+  const [from, setFrom] = useState<keyof Coins5>(focus ?? 'cp');
+  const [to, setTo] = useState<keyof Coins5>('gp');
+  const [amount, setAmount] = useState(0);
+  const result = exchangeCoins(c.coins, from, to, amount);
+  const gets = amount > 0 ? (amount * COIN_IN_CP[from]) / COIN_IN_CP[to] : 0;
+  const list = focus ? [focus, ...ORDER.filter((k) => k !== focus)] : ORDER;
+  return (
+    <Modal title={focus ? L(COIN_INFO[focus].metal) : T('Las monedas', 'Coins')} onClose={onClose}>
+      <div className="coin-cards">
+        {list.map((k) => (
+          <div key={k} className={`coin-card ${k === focus ? 'on' : ''}`}>
+            <div className="row"><span className="coin-emoji" aria-hidden>{COIN_INFO[k].emoji}</span><b className="grow">{L(COIN_INFO[k].metal)} <span className="muted">({coinLabel(k)})</span></b><span className="small">{T('tienes', 'you have')} <b>{c.coins[k] ?? 0}</b></span></div>
+            <p className="small">{L(COIN_INFO[k].text)}</p>
+            <p className="small muted">💰 {L(COIN_INFO[k].examples)}</p>
+          </div>
+        ))}
+      </div>
+      <table className="coin-table">
+        <thead><tr><th></th>{ORDER.map((k) => <th key={k}>{coinLabel(k)}</th>)}</tr></thead>
+        <tbody>
+          {ORDER.map((a) => (
+            <tr key={a}><th>1 {coinLabel(a)} =</th>{ORDER.map((b) => { const v = COIN_IN_CP[a] / COIN_IN_CP[b]; return <td key={b} className={a === b ? 'muted' : ''}>{v >= 1 ? v : `1/${1 / v}`}</td>; })}</tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="hint">{T('Se lee por filas: 1 po = 10 pp = 100 pc. 50 monedas (de cualquier tipo) pesan 1 libra.', 'Read across: 1 gp = 10 sp = 100 cp. 50 coins (of any kind) weigh 1 pound.')}</p>
+      <div className="equip-box">
+        <b>🔄 {T('Cambiar monedas', 'Exchange coins')}</b>
+        <div className="row adj-row">
+          <NumberInput value={amount} min={0} max={c.coins[from] ?? 0} onChange={(n) => setAmount(Math.max(0, Math.min(c.coins[from] ?? 0, n)))} />
+          <select value={from} onChange={(e) => setFrom(e.target.value as keyof Coins5)}>{ORDER.map((k) => <option key={k} value={k}>{L(COIN_INFO[k].metal)}</option>)}</select>
+          <span>→</span>
+          <select value={to} onChange={(e) => setTo(e.target.value as keyof Coins5)}>{ORDER.map((k) => <option key={k} value={k}>{L(COIN_INFO[k].metal)}</option>)}</select>
+        </div>
+        {amount > 0 && <p className="small">{result ? T(`Recibes ${gets} ${coinLabel(to)}.`, `You get ${gets} ${coinLabel(to)}.`) : from === to ? T('Elige monedas distintas.', 'Pick different coins.') : T(`No sale exacto: ${amount} ${coinLabel(from)} son ${gets} ${coinLabel(to)}. Cambia una cantidad que dé un número entero.`, `Not exact: ${amount} ${coinLabel(from)} is ${gets} ${coinLabel(to)}. Exchange an amount that gives a whole number.`)}</p>}
+        <button className="btn primary full" disabled={!result} onClick={() => { if (result) { update((x) => { x.coins = result; }); setAmount(0); } }}>🔄 {T('Cambiar', 'Exchange')}</button>
+        <p className="hint">{T('Sin comisión. En la partida, un cambista o un banco pueden cobrar una parte: pregunta al DM.', 'No fee. In the game, a moneychanger or bank may take a cut: ask your DM.')}</p>
+      </div>
+    </Modal>
+  );
 }
 
 // ---------- Pestaña «Tesoro» del DM ----------

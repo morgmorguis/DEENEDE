@@ -31,7 +31,8 @@ import { useAvatarEditor } from '../features';
 import { spellCounts, spellLimits, spellUse } from '../rules/spellLimits';
 import { confirmDelete } from './Confirm';
 import { Consumables } from './Consumables';
-import { CoinsTotal, ItemsBox } from './Treasure';
+import { CoinLabel, CoinsTotal, ItemsBox } from './Treasure';
+import { coinName } from '../rules/items';
 import { OriginPicker } from './OriginPicker';
 import { hitDiceText } from '../rules/multiclass';
 import { featureSuggestions, spellSuggestions } from '../rules/suggest';
@@ -554,8 +555,9 @@ export function SheetTab() {
               <div className="p-coins">
                 {(['cp', 'sp', 'ep', 'gp', 'pp'] as const).map((k) => (
                   <label key={k}>
-                    <span>{{ cp: T('PC', 'CP'), sp: T('PP', 'SP'), ep: T('PE', 'EP'), gp: T('PO', 'GP'), pp: T('PPT', 'PP') }[k]}</span>
+                    <CoinLabel k={k} />
                     <NumberInput value={c.coins[k]} min={0} onChange={(n) => set((x) => { x.coins[k] = Math.max(0, n); })} />
+                    <small className="coin-name">{coinName(k)}</small>
                   </label>
                 ))}
               </div>

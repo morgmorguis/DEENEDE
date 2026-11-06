@@ -5,6 +5,7 @@ import { norm } from '../rules/parser';
 import { ACTIONS, CONDITIONS, COST_NAMES, EFFECT_PRESETS, EXHAUSTION_INFO, MASTERIES, RULES, SKILLS, abilityShort } from '../rules/srd';
 import { L, T } from '../i18n';
 import { CAN_DO, OTHER_ATTACKS, WEAPONS, WEAPON_PROPS, weaponLines } from '../rules/weapons';
+import { COIN_INFO, COIN_KEYS, coinLabel } from '../rules/items';
 
 interface Entry {
   group: string;
@@ -35,6 +36,12 @@ export function RulesTab() {
     }),
     ...ACTIONS.map((a) => ({ group: T('Acciones', 'Actions'), title: L(a.name), sub: L(COST_NAMES[a.cost]), lines: [L(a.text)] })),
     ...RULES.map((r) => ({ group: T('Reglas', 'Rules'), title: L(r.name), lines: r.text.map(L) })),
+    { group: T('Reglas', 'Rules'), title: T('Monedas y dinero', 'Coins and money'), sub: T('pc · pp · pe · po · ppt', 'cp · sp · ep · gp · pp'), lines: [
+      T('1 pieza de platino (ppt) = 10 de oro (po) = 100 de plata (pp) = 1000 de cobre (pc). 1 pieza de electro (pe) = media de oro = 5 de plata.', '1 platinum piece (pp) = 10 gold (gp) = 100 silver (sp) = 1,000 copper (cp). 1 electrum piece (ep) = half a gold = 5 silver.'),
+      ...COIN_KEYS.map((k) => `${COIN_INFO[k].emoji} ${L(COIN_INFO[k].metal)} (${coinLabel(k)}): ${L(COIN_INFO[k].text)} ${L(COIN_INFO[k].examples)}`),
+      T('50 monedas de cualquier tipo pesan 1 libra.', '50 coins of any kind weigh 1 pound.'),
+      T('Los precios del equipo y de los objetos mágicos se dan en oro. En la hoja, toca el nombre de una moneda para ver qué es y cambiar unas por otras.', 'Gear and magic item prices are given in gold. On the sheet, tap a coin’s name to see what it is and exchange coins.'),
+    ] },
     ...CAN_DO.map((x) => ({ group: T('Puedes / no puedes', 'Can / can’t'), title: L(x.name), lines: x.lines.map(L) })),
     ...WEAPONS.map((wp) => ({
       group: T('Armas', 'Weapons'), title: L(wp.name),

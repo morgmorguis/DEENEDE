@@ -16,6 +16,39 @@ export const coinsInGold = (c: Partial<Coins5>) => (c.pp ?? 0) * 10 + (c.gp ?? 0
 export const hasCoins = (c?: Partial<Coins5>) => !!c && COIN_KEYS.some((k) => (c[k] ?? 0) > 0);
 export const coinsText = (c: Partial<Coins5>) => COIN_KEYS.filter((k) => (c[k] ?? 0) > 0).reverse().map((k) => `${c[k]} ${coinLabel(k)}`).join(', ');
 
+/** Valor de cada moneda en piezas de cobre (1 po = 100 pc) */
+export const COIN_IN_CP: Record<keyof Coins5, number> = { cp: 1, sp: 10, ep: 50, gp: 100, pp: 1000 };
+
+/** Explicación de cada moneda (reglas 2024) con ejemplos de lo que se compra con ella */
+export const COIN_INFO: Record<keyof Coins5, { emoji: string; metal: Tr; text: Tr; examples: Tr }> = {
+  cp: { emoji: '🟤', metal: { es: 'Pieza de cobre', en: 'Copper piece' },
+    text: { es: 'La moneda más pequeña. 10 de cobre hacen 1 de plata y 100 hacen 1 de oro.', en: 'The smallest coin. 10 copper make 1 silver and 100 make 1 gold.' },
+    examples: { es: 'Una antorcha o un trozo de tiza: 1 pc. Un tazón de sopa barata, una jarra de cerveza en una taberna humilde.', en: 'A torch or a piece of chalk: 1 cp. A bowl of cheap soup, a mug of ale in a humble tavern.' } },
+  sp: { emoji: '⚪', metal: { es: 'Pieza de plata', en: 'Silver piece' },
+    text: { es: 'Vale 10 de cobre. 10 de plata hacen 1 de oro. Es la moneda de las compras del día a día.', en: 'Worth 10 copper. 10 silver make 1 gold. It’s the coin of everyday purchases.' },
+    examples: { es: 'Un frasco de aceite: 1 pp. Raciones para un día: 5 pp. Una jabalina: 5 pp. Una clava: 1 pp.', en: 'A flask of oil: 1 sp. Rations for a day: 5 sp. A javelin: 5 sp. A club: 1 sp.' } },
+  ep: { emoji: '🟡', metal: { es: 'Pieza de electro', en: 'Electrum piece' },
+    text: { es: 'Aleación de oro y plata que vale media pieza de oro (5 de plata, 50 de cobre). Es rara: suele aparecer en tesoros antiguos y muchos comerciantes la miran con desconfianza.', en: 'An alloy of gold and silver worth half a gold piece (5 silver, 50 copper). It’s rare: it usually turns up in old hoards and many merchants are wary of it.' },
+    examples: { es: 'Normalmente se cambia por oro o plata antes de gastarla.', en: 'It’s usually exchanged for gold or silver before spending it.' } },
+  gp: { emoji: '🟨', metal: { es: 'Pieza de oro', en: 'Gold piece' },
+    text: { es: 'La moneda de referencia: los precios de armas, armaduras, equipo y objetos mágicos se dan en oro. Vale 10 de plata o 100 de cobre.', en: 'The standard coin: prices of weapons, armor, gear and magic items are given in gold. Worth 10 silver or 100 copper.' },
+    examples: { es: 'Cuerda de 50 pies: 1 po. Útiles de sanador: 5 po. Espada larga: 15 po. Poción de curación: 50 po. Cota de mallas: 75 po. Armadura de placas: 1500 po.', en: 'Rope (50 ft): 1 gp. Healer’s Kit: 5 gp. Longsword: 15 gp. Potion of Healing: 50 gp. Chain Mail: 75 gp. Plate Armor: 1,500 gp.' } },
+  pp: { emoji: '⬜', metal: { es: 'Pieza de platino', en: 'Platinum piece' },
+    text: { es: 'La moneda de más valor: 1 de platino = 10 de oro. Se usa para grandes compras, sobornos importantes o tesoros de dragón.', en: 'The most valuable coin: 1 platinum = 10 gold. Used for big purchases, important bribes or dragon hoards.' },
+    examples: { es: 'Un objeto mágico poco común ronda los 400 po (40 ppt); uno raro, 4000 po (400 ppt).', en: 'An uncommon magic item is around 400 gp (40 pp); a rare one, 4,000 gp (400 pp).' } },
+};
+
+/** Peso de las monedas: 50 monedas pesan 1 libra (reglas 2024) */
+export const coinsWeight = (c: Partial<Coins5>) => COIN_KEYS.reduce((s, k) => s + (c[k] ?? 0), 0) / 50;
+
+/** Cambia monedas de un tipo a otro sin pérdidas; devuelve null si no hay bastantes o no salen exactas */
+export function exchangeCoins(c: Coins5, from: keyof Coins5, to: keyof Coins5, amount: number): Coins5 | null {
+  if (amount <= 0 || amount > c[from] || from === to) return null;
+  const cp = amount * COIN_IN_CP[from];
+  if (cp % COIN_IN_CP[to] !== 0) return null;
+  return { ...c, [from]: c[from] - amount, [to]: c[to] + cp / COIN_IN_CP[to] };
+}
+
 /** «50 po», «5 pp», «1 pc» */
 export function valueText(gp: number): string {
   if (!gp) return '—';

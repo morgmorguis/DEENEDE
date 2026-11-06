@@ -82,3 +82,15 @@ describe('equipo', () => {
     expect(cleanMods({ weapon: { dice: 'rm -rf', type: 'x' } })).toBeUndefined();
   });
 });
+
+describe('monedas', () => {
+  it('cambio exacto sin pérdidas', async () => {
+    const { exchangeCoins, coinsWeight } = await import('../items');
+    const purse = { cp: 250, sp: 3, ep: 1, gp: 0, pp: 0 };
+    expect(exchangeCoins(purse, 'cp', 'gp', 200)).toEqual({ cp: 50, sp: 3, ep: 1, gp: 2, pp: 0 });
+    expect(exchangeCoins(purse, 'ep', 'sp', 1)).toEqual({ cp: 250, sp: 8, ep: 0, gp: 0, pp: 0 });
+    expect(exchangeCoins(purse, 'cp', 'gp', 150)).toBeNull();
+    expect(exchangeCoins(purse, 'gp', 'cp', 1)).toBeNull();
+    expect(coinsWeight({ cp: 50, gp: 50 })).toBe(2);
+  });
+});
