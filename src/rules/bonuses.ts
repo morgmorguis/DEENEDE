@@ -5,6 +5,7 @@ import type { Ability, BonusAdj, Character } from '../types';
 import { SKILLS, abilityShort } from './srd';
 import { classLevels } from './multiclass';
 import { findSpecies } from './species';
+import { abilityScores, activeGear, armorTrained, wornArmor } from './gear';
 import { T } from '../i18n';
 
 /** A qué tirada afecta */
@@ -24,6 +25,10 @@ export interface RuleMod {
   text: string;
   bonus?: number;
   adv?: boolean;
+  /** Desventaja (armadura sin entrenamiento, Sigilo con armadura pesada…) */
+  dis?: boolean;
+  /** Sale de un objeto equipado (se marca con un «+» de otro color) */
+  item?: boolean;
   /** Da competencia (salvaciones) */
   prof?: boolean;
   /** Un d20 de 9 o menos cuenta como 10 (Talento fiable) */
@@ -49,7 +54,7 @@ export const adjKey = (t: RollTarget) => (t.kind === 'skill' ? `skill:${t.id}` :
 export function adjValue(c: Character, t: RollTarget): { value: number; adj?: BonusAdj } {
   const adj = c.bonusAdj?.[adjKey(t)];
   if (!adj) return { value: 0 };
-  return { value: (adj.flat || 0) + (adj.ability ? mod(c.abilities[adj.ability]) : 0), adj };
+  return { value: (adj.flat || 0) + (adj.ability ? mod(abilityScores(c).scores[adj.ability]) : 0), adj };
 }
 
 export const adjText = (adj: BonusAdj) => [adj.flat ? `${adj.flat > 0 ? '+' : ''}${adj.flat}` : '', adj.ability ? `+ ${abilityShort(adj.ability)}` : ''].filter(Boolean).join(' ');
@@ -59,7 +64,8 @@ const ALL_ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 /** Todas las reglas que pueden afectar a esta tirada (también las desactivadas, marcadas con off) */
 export function ruleMods(c: Character, t: RollTarget): RuleMod[] {
   const out: RuleMod[] = [];
-  const m = (a: Ability) => mod(c.abilities[a]);
+  const scores = abilityScores(c).scores;
+  const m = (a: Ability) => mod(scores[a]);
   const pb = pbOf(c.level);
   const lv = new Map<string, { level: number; sub: string }>();
   for (const e of classLevels(c)) lv.set(e.cls.id, { level: e.level, sub: fold(e.subclass ?? '') });
@@ -108,7 +114,7 @@ export function ruleMods(c: Character, t: RollTarget): RuleMod[] {
       ...(raging && diff >= 0 ? { bonus: diff, adv: true } : { note: true }),
     });
   }
-  if (cl('barbaro') >= 18 && ability === 'str' && (t.kind === 'check' || t.kind === 'save' || (skill && skill.ability === 'str'))) push({ id: 'indomitable_might', source: T('Poder indomable (bárbaro 18)', 'Indomitable Might (Barbarian 18)'), text: T(`Si el total de una prueba o salvación de Fuerza es menor que tu puntuación de Fuerza (${c.abilities.str}), usas la puntuación.`, `If your total for a Strength check or saving throw is less than your Strength score (${c.abilities.str}), use the score instead.`), minTotal: c.abilities.str });
+  if (cl('barbaro') >= 18 && ability === 'str' && (t.kind === 'check' || t.kind === 'save' || (skill && skill.ability === 'str'))) push({ id: 'indomitable_might', source: T('Poder indomable (bárbaro 18)', 'Indomitable Might (Barbarian 18)'), text: T(`Si el total de una prueba o salvación de Fuerza es menor que tu puntuación de Fuerza (${scores.str}), usas la puntuación.`, `If your total for a Strength check or saving throw is less than your Strength score (${scores.str}), use the score instead.`), minTotal: scores.str });
   // Guerrero
   if (isCheck && t.kind !== 'init' && cl('guerrero') >= 2) push({ id: 'tactical_mind', note: true, source: T('Mente táctica (guerrero 2)', 'Tactical Mind (Fighter 2)'), text: T('Si fallas una prueba de característica, puedes gastar un uso de Tomar aliento para sumar 1d10 (si sigues fallando, no se gasta).', 'If you fail an ability check, you can expend a use of Second Wind to add 1d10 (it isn’t expended if you still fail).') });
   if (t.kind === 'save' && cl('guerrero') >= 9) push({ id: 'indomitable', note: true, source: T('Indomable (guerrero 9)', 'Indomitable (Fighter 9)'), text: T(`Si fallas una salvación, puedes repetirla con un bonificador igual a tu nivel de guerrero (+${cl('guerrero')}).`, `If you fail a saving throw, you can reroll it with a bonus equal to your Fighter level (+${cl('guerrero')}).`) });
@@ -145,6 +151,19 @@ export function ruleMods(c: Character, t: RollTarget): RuleMod[] {
   if (sp === 'elfo' && t.kind === 'save') push({ id: 'fey_ancestry', note: true, source: T('Linaje feérico (elfo)', 'Fey Ancestry (Elf)'), text: T('Ventaja en las salvaciones para evitar o acabar con el estado Hechizado.', 'Advantage on saving throws to avoid or end the Charmed condition.') });
   if (sp === 'enano' && t.kind === 'save') push({ id: 'dwarven_resilience', note: true, source: T('Resistencia enana (enano)', 'Dwarven Resilience (Dwarf)'), text: T('Ventaja en las salvaciones para evitar o acabar con el estado Envenenado.', 'Advantage on saving throws to avoid or end the Poisoned condition.') });
   if (sp === 'goliat' && skill && ['atletismo', 'acrobacias'].includes(skill.id)) push({ id: 'powerful_build', note: true, source: T('Constitución poderosa (goliat)', 'Powerful Build (Goliath)'), text: T('Ventaja en las pruebas para librarte de un agarre.', 'Advantage on any ability check you make to end the Grappled condition.') });
+
+  // ---------- Objetos equipados ----------
+  for (const i of activeGear(c)) {
+    if (t.kind === 'save' && i.mods.saves) push({ id: `item:${i.id}`, item: true, source: i.name, text: T(`+${i.mods.saves} a las tiradas de salvación mientras lo llevas.`, `+${i.mods.saves} to saving throws while you wear it.`), bonus: i.mods.saves });
+    if (isCheck && i.mods.checks) push({ id: `item:${i.id}`, item: true, source: i.name, text: T(`+${i.mods.checks} a las pruebas de característica mientras lo llevas.`, `+${i.mods.checks} to ability checks while you carry it.`), bonus: i.mods.checks });
+  }
+  const { armor } = wornArmor(c);
+  const a = armor?.mods.armor;
+  if (a && armor) {
+    if (skill?.id === 'sigilo' && a.stealthDis) push({ id: `item:${armor.id}:stealth`, item: true, source: armor.name, text: T('Esta armadura da desventaja en las pruebas de Destreza (Sigilo).', 'This armor gives Disadvantage on Dexterity (Stealth) checks.'), dis: true });
+    // Sin entrenamiento: desventaja en pruebas, salvaciones y ataques de FUE o DES (y no puedes lanzar conjuros)
+    if (!armorTrained(c, a.kind) && (t.kind === 'attack' || ability === 'str' || ability === 'dex')) push({ id: `item:${armor.id}:untrained`, item: true, source: armor.name, text: T('No tienes entrenamiento con esta armadura: desventaja en pruebas, salvaciones y ataques de Fuerza o Destreza, y no puedes lanzar conjuros.', 'You lack training with this armor: Disadvantage on Strength or Dexterity checks, saves and attack rolls, and you can’t cast spells.'), dis: true });
+  }
 
   const off = new Set(c.rulesOff ?? []);
   return out.map((r) => (off.has(r.id) ? { ...r, off: true } : r));

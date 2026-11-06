@@ -4,6 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,600;0,700;1,400&family=Alegreya+SC:wght@500;700&family=Press+Start+2P&display=swap">
 <style>
+  .gear-demo { background: #2f8fd8; color: #fff; border-radius: 4px; padding: 0 5px; }
 /* Maquetación: cabecera tipo portada de manual de los 90, índice fijo a la izquierda en pantallas
    anchas y capítulos con capturas de la app en marcos de móvil. Oscuro primero (como la app) y
    variante clara de pergamino. */
@@ -129,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.19</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.20</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -156,6 +157,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a href="#nivel">Subir de nivel</a></li>
       <li><a href="#combate">Combate en solitario</a></li>
       <li><a href="#municion">Objetos, munición y consumibles</a></li>
+      <li><a class="sub" href="#equipar">Equipar objetos</a></li>
       <li><a href="#asistente">El asistente</a></li>
       <li><a href="#diario">Diario, voz y kill count</a></li>
       <li><a href="#importar">Importar una ficha</a></li>
@@ -166,7 +168,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a class="sub" href="#partida-tele">Vista para la tele</a></li>
       <li><a class="sub" href="#partida-tesoro">Tesoro: oro y objetos</a></li>
       <li><a href="#estilo">Colores, idioma y ajustes</a></li>
-      <li><a href="#copia">Copia de seguridad</a></li>
+      <li><a href="#copia">Archivo de guardado</a></li>
       <li><a href="#dudas">Dudas frecuentes</a></li>
     </ol>
   </nav>
@@ -334,6 +336,21 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <div class="chapter-head"><span class="chapter-num">Capítulo 09</span><h2>Objetos, munición y consumibles</h2></div>
       <p><b>Objetos.</b> En el recuadro Equipo, la lista <b>Objetos</b> guarda los objetos con su rareza (el punto de color), cantidad y valor, y el valor total arriba. Lo que te da el DM aparece aquí solo (con 🎁); también puedes añadirlos tú con <b>＋ Añadir objeto</b> desde el catálogo o la plantilla. Toca un objeto para ver su descripción, cambiar la cantidad, editarlo o borrarlo. Si requiere sintonización (◇), pulsa <b>✨ Sintonizarse</b> y ocupa uno de los 3 huecos de sintonización (el máximo de las reglas 2024). Bajo las monedas verás su valor total en oro.</p>
       <figure><img class="phone" src="img/37-objetos-ficha.jpg" alt="Hoja: Objetos con valor 4200 po, poción de curación mayor y Espada de la luna rota, y monedas con 75 po en total" width="700" height="1516" loading="lazy" style="width: min(100%, 340px)"><figcaption>Objetos y monedas en la hoja.</figcaption></figure>
+      <h3 id="equipar">Equipar objetos</h3>
+      <div class="split">
+        <div>
+          <p>Toca un objeto y pulsa <b>🛡️ Equipar</b>. Lo que hace se aplica solo a la hoja y se marca con un <b class="gear-demo">+</b> azul que explica qué objeto lo da (mantén pulsado o toca el valor):</p>
+          <ul class="list">
+            <li><b>Armaduras</b>: la CA pasa a ser la de la armadura (ligera + DES, intermedia + DES máx. 2, pesada sin DES). Las pesadas piden Fuerza 13 o 15 (si no, −10 pies) y algunas dan desventaja en Sigilo. Sin entrenamiento con esa armadura tienes desventaja en pruebas, salvaciones y ataques de FUE y DES.</li>
+            <li><b>Escudo</b>: +2 CA (o +3 si es +1). Solo una armadura y un escudo a la vez.</li>
+            <li><b>Objetos mágicos</b>: capa y anillo de protección (+1 CA y salvaciones), piedra de la suerte, brazales de defensa, guanteletes de poder de ogro (FUE 19), diadema del intelecto (INT 19), amuleto de salud (CON 19, que también sube tus PG). Los que requieren sintonización solo funcionan sintonizados.</li>
+            <li><b>Armas</b>: al equipar un arma se crea su fila en <i>Armas y trucos de daño</i> con su daño y maestría; un <b>arma +1</b> se aplica a la fila que elijas.</li>
+          </ul>
+          <p>Con <b>✏️ Editar → ⚙️ Efectos al equipar</b> (también en la plantilla del DM) defines lo que hace cualquier objeto: armadura base, CA, salvaciones, pruebas, una característica fija o sumada, velocidad, ataque y daño.</p>
+          <p><b>Dotes y rasgos con números</b> también se suman solos con un + dorado: <b>Duro</b> (+2 PG por nivel), <b>Dureza enana</b> (+1 PG por nivel), <b>Veloz</b> (+10 pies), estilo <b>Defensa</b> (+1 CA con armadura) y <b>Tiro con arco</b> (+2 a distancia). Si ya los tenías sumados a mano, desmárcalos tocando el + junto a PG o la velocidad.</p>
+        </div>
+        <figure><img class="phone" src="img/39-equipar.jpg" alt="Guanteletes de poder de ogro equipados y sintonizados: FUE pasa a ser 19" width="700" height="1516" loading="lazy"><figcaption>Objeto equipado con su efecto.</figcaption></figure>
+      </div>
       <p>En la hoja, debajo del <b>Equipo</b>, apunta tu munición y consumibles con su cantidad. Si tu equipo dice «carcaj con 20 flechas, 2 pociones de curación», la app te ofrece añadirlos directamente.</p>
       <p>Normalmente la lista solo muestra lo que llevas. Pulsa <b>✏️ Editar</b> para añadir, sumar o restar y borrar, y <b>✓ Listo</b> para guardarlo y volver a la vista normal.</p>
       <p>En combate (también en la partida compartida) pulsa <b>✓ Usar 1</b> cada vez que gastes uno. Al terminar el combate se aplican las reglas 2024: recuperas <b>la mitad de la munición gastada</b> (redondeando abajo), recoges las armas arrojadizas y los consumibles quedan gastados.</p>
@@ -356,11 +373,11 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <div class="chapter-head"><span class="chapter-num">Capítulo 11</span><h2>Diario, voz y kill count</h2></div>
       <div class="split">
         <div>
-          <p>El botón 📜 abre el <b>diario</b> desde cualquier pantalla. Tiene carpetas (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees) y notas rápidas.</p>
+          <p>El botón 📜 abre el <b>diario</b> desde cualquier pantalla. Tiene categorías (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees) y notas rápidas. Al escribir una nota eliges su <b>Categoría</b> o creas una con <b>＋ Nueva</b>; lo que estás escribiendo se guarda en el dispositivo aunque cierres la app. Abajo, <b>💾 Guardar archivo</b> crea el archivo de guardado con fichas y notas (capítulo 15).</p>
           <p><b>Grabar sesión:</b> deja el móvil en la mesa y la app transcribe lo que se dice. Al parar, puedes corregir la transcripción y guardarla tal cual o, con una clave de Claude, convertirla en una crónica escrita como un relato.</p>
           <p><b>Kill count:</b> los enemigos a los que tu personaje da el golpe final se apuntan solos, en el combate de la app y en la partida compartida. Si el DM deshace ese turno, la baja se quita. Solo cuentan tus bajas; también puedes añadirlas a mano.</p>
         </div>
-        <figure><img class="phone" src="img/12-diario.jpg" alt="Diario con el apartado Kill count abierto, el grabador y las carpetas" width="700" height="1515" loading="lazy"><figcaption>Diario con el kill count.</figcaption></figure>
+        <figure><img class="phone" src="img/40-notas-categoria.jpg" alt="Diario: nota guardada en la categoría Pistas, selector de categoría y botón Guardar archivo" width="700" height="1425" loading="lazy"><figcaption>Nota con categoría.</figcaption></figure>
       </div>
     </section>
 
@@ -414,6 +431,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <ul class="list">
         <li><b>Monstruos del SRD 5.2</b> con buscador; grupos («3 goblins») con PG medios o tirados e iniciativa automática.</li>
         <li><b>Ocultos:</b> no llegan a los móviles de los jugadores hasta que los revelas.</li>
+        <li><b>Vida de los compañeros:</b> por defecto cada jugador solo ve su propia vida; de los demás ve su estado (herido, ensangrentado…). Marca <b>❤️ Los jugadores ven la vida de sus compañeros</b> en la sección Party para mostrarla.</li>
         <li><b>Personajes</b> (pestaña propia en modo DM): aliados y enemigos de la campaña con nivel o VD, vida, CA, iniciativa y notas, listos para meterlos en el combate.</li>
         <li><b>Condiciones con duración</b> por criatura, que bajan solas al acabar su turno; <b>contadores</b> como acciones legendarias (vuelven en su turno) y resistencias legendarias.</li>
         <li><b>Dificultad del encuentro</b> con el presupuesto de PX de 2024, y quién se está concentrando o haciendo salvaciones contra la muerte.</li>
@@ -434,6 +452,8 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
         <li>Añade una nota si quieres («Botín de la cripta») y pulsa <b>🎁 Dar</b>.</li>
       </ol>
       <p>Al jugador le salta el aviso <b>«🎁 El DM te da algo»</b>: las monedas <b>se suman</b> a las de su hoja y los objetos aparecen en <b>Objetos</b>, dentro del recuadro Equipo (si ya tenía uno igual, sube la cantidad). Si estaba desconectado, le llega al volver a entrar, y nunca se suma dos veces.</p>
+      <p><b>Botines preparados:</b> antes de la partida, sin conexión, en <b>Partida → ¿Eres el DM? Prepara el botín</b> creas lotes (monedas, objetos y nota). Ya conectado, en Tesoro → <b>Botines preparados</b> pulsas <b>Usar</b> y los das a quien quieras; con <b>💾 Guardar para luego</b> guardas lo que tengas en el formulario.</p>
+      <p><b>Intercambio entre jugadores:</b> dentro o fuera de combate, en <b>Partida → 🤝 Dar a un compañero</b> (o desde un objeto de la hoja) cada jugador da monedas u objetos de su ficha a otro: se restan de la suya y se suman a la del compañero, aunque esté desconectado. El DM lo ve en su registro.</p>
       <p>Debajo, el <b>Registro de entregas</b> guarda en el servidor todo lo que has dado, con la fecha y el estado (<b>✅ En su ficha</b> o <b>⏳ Pendiente</b>; lo pendiente se puede anular). Cada jugador tiene su tarjeta con el total de monedas, objetos y el valor aproximado en oro; tócala para ver solo lo suyo. Los jugadores ven lo que les has dado a ellos en <b>Partida → Lo que te ha dado el DM</b>.</p>
       <div class="pair">
         <figure><img class="phone" src="img/34-tesoro-dar.jpg" alt="Pestaña Tesoro del DM: para Brakka, 50 po, poción de curación mayor y Espada de la luna rota, con nota" width="700" height="1516" loading="lazy"><figcaption>Preparando la entrega.</figcaption></figure>
@@ -470,10 +490,11 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 14 -->
     <section class="chapter" id="copia">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 15</span><h2>Copia de seguridad</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 15</span><h2>Archivo de guardado</h2></div>
       <div class="split">
         <div>
-          <p><b>Ajustes → Copia de seguridad</b> guarda tus fichas con todo su progreso y su diario en un archivo. En Android se guarda en <i>Documentos/DiEnDi</i> y se abre el menú Compartir para enviarlo a Drive o al correo.</p>
+          <p><b>Ajustes → Archivo de guardado</b> (o <b>💾 Guardar archivo</b> en el diario) guarda en un archivo tus fichas con todo su progreso, objetos y monedas, sus <b>notas con sus categorías</b>, el historial, tus plantillas de objetos y los botines preparados. En Android se guarda en <i>Documentos/DiEnDi</i> y se abre el menú Compartir para enviarlo a Drive, al correo o a WhatsApp.</p>
+          <p><b>Es multiplataforma:</b> el mismo archivo <code>.json</code> sirve en Android, en la app de Windows y en el navegador. Guárdalo en uno y ábrelo en otro.</p>
           <p><b>Restaurar copia</b> permite añadir las fichas (las que ya tienes se actualizan) o reemplazarlo todo. Sirve para reinstalar sin perder nada o para pasar tus personajes a otro móvil o al PC.</p>
         </div>
         <figure><img class="shot" src="img/14-copia.jpg" alt="Apartado Copia de seguridad con Exportar todo, Solo Brakka y Restaurar copia" width="700" height="581" loading="lazy"></figure>

@@ -27,12 +27,14 @@ export function TransitionFx() {
     if (!fx) return;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const t = setTimeout(stop, reduced ? 900 : DURATION);
-    navigator.vibrate?.(fx.kind === 'combat' ? [60, 40, 60, 40, 120] : [40, 30, 40]);
-    return () => clearTimeout(t);
+    // Por si el temporizador se retrasa (WebView en segundo plano), nunca más de 4 s
+    const safety = setTimeout(stop, 4000);
+    try { navigator.vibrate?.(fx.kind === 'combat' ? [60, 40, 60, 40, 120] : [40, 30, 40]); } catch { /* sin vibración */ }
+    return () => { clearTimeout(t); clearTimeout(safety); };
   }, [fx, stop]);
   if (!fx) return null;
   return (
-    <div key={fx.key} className={`fx fx-${fx.kind}`} onClick={stop} role="alert" aria-label={fx.title}>
+    <div key={fx.key} className={`fx fx-${fx.kind}`} onClick={stop} onAnimationEnd={(e) => { if (e.target === e.currentTarget) stop(); }} role="alert" aria-label={fx.title}>
       <div className="fx-flash" />
       <div className="fx-bars"><span /><span /><span /><span /><span /><span /><span /><span /></div>
       {fx.kind === 'levelup' && (

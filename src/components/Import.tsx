@@ -7,6 +7,7 @@ import { ABILITIES, SKILLS } from '../rules/srd';
 import { L, T } from '../i18n';
 import { validate } from '../rules/flags';
 import { FlagList } from './Flags';
+import { askOk } from './Confirm';
 
 type Step = 'pick' | 'reading' | 'preview';
 type Method = 'offline' | 'claude';
@@ -158,8 +159,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
           )}
           {error && <p className="error">⚠️ {error}</p>}
           <button className="btn primary full" onClick={() => { addCharacter(result.char); onClose(); }}>➕ {T('Crear como nuevo personaje', 'Create as a new character')}</button>
-          <button className="btn full" onClick={() => {
-            if (!confirm(T(`¿Reemplazar la ficha de ${current.name}? Se conservan sus notas y su retrato.`, `Replace ${current.name}’s sheet? Notes and portrait are kept.`))) return;
+          <button className="btn full" onClick={async () => {
+            if (!(await askOk(T(`¿Reemplazar la ficha de ${current.name}? Se conservan sus notas y su retrato.`, `Replace ${current.name}’s sheet? Notes and portrait are kept.`)))) return;
             replace({ ...result.char, id: current.id, notes: current.notes, noteFolders: current.noteFolders, portrait: result.char.portrait ?? current.portrait });
             onClose();
           }}>♻️ {T(`Reemplazar la ficha de ${current.name}`, `Replace ${current.name}’s sheet`)}</button>

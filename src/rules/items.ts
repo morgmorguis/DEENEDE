@@ -4,8 +4,8 @@
 // (los consumibles, como pociones y pergaminos, a mitad de precio).
 import { L, T, type Tr } from '../i18n';
 
-export type { Rarity, ItemType, ItemData, Coins5 } from './itemTypes';
-import type { Rarity, ItemType, ItemData, Coins5 } from './itemTypes';
+export type { Rarity, ItemType, ItemData, Coins5, ItemMods } from './itemTypes';
+import type { Rarity, ItemType, ItemData, Coins5, ItemMods } from './itemTypes';
 
 export const NO_COINS: Coins5 = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
 export const COIN_KEYS = ['cp', 'sp', 'ep', 'gp', 'pp'] as const;
@@ -68,6 +68,8 @@ export const ITEM_CATALOG: CatalogEntry[] = [
   e('weapon-1', 'Arma +1', 'Weapon, +1', 'uncommon', 'weapon', 400, '+1 a las tiradas de ataque y daño con esta arma mágica (indica cuál en el nombre).', '+1 to attack and damage rolls with this magic weapon (name which weapon).'),
   e('weapon-2', 'Arma +2', 'Weapon, +2', 'rare', 'weapon', 4000, '+2 a las tiradas de ataque y daño con esta arma mágica.', '+2 to attack and damage rolls with this magic weapon.'),
   e('weapon-3', 'Arma +3', 'Weapon, +3', 'veryRare', 'weapon', 40000, '+3 a las tiradas de ataque y daño con esta arma mágica.', '+3 to attack and damage rolls with this magic weapon.'),
+  e('armor-1', 'Armadura +1', 'Armor, +1', 'rare', 'armor', 4000, '+1 a la CA. Elige la armadura base en «Efectos al equipar» (p. ej. Cota de mallas +1).', '+1 to AC. Choose the base armor in “Effects when equipped” (e.g. Chain Mail +1).'),
+  e('armor-2', 'Armadura +2', 'Armor, +2', 'veryRare', 'armor', 40000, '+2 a la CA. Elige la armadura base en «Efectos al equipar».', '+2 to AC. Choose the base armor in “Effects when equipped”.'),
   e('shield-1', 'Escudo +1', 'Shield, +1', 'uncommon', 'armor', 400, 'Mientras lo llevas, +1 a la CA además del bonificador normal del escudo.', 'While holding it, +1 to AC on top of the shield’s normal bonus.', 6),
   e('ammo-1', 'Munición +1 (10)', 'Ammunition, +1 (10)', 'uncommon', 'weapon', 200, '+1 a las tiradas de ataque y daño; cada pieza deja de ser mágica al impactar.', '+1 to attack and damage rolls; each piece stops being magical once it hits.'),
   e('bag-of-holding', 'Bolsa de contención', 'Bag of Holding', 'uncommon', 'wondrous', 400, 'Su interior es mayor que su exterior: hasta 500 libras sin pesar más de 5. Sacar algo es una acción de Utilizar.', 'Its interior is larger than its outside: up to 500 lb while it weighs only 5. Retrieving an item takes a Utilize action.', 5),
@@ -107,11 +109,17 @@ export const ITEM_CATALOG: CatalogEntry[] = [
   e('light-crossbow', 'Ballesta ligera', 'Light Crossbow', 'mundane', 'weapon', 25, '1d8 perforante. Munición (80/320), carga, a dos manos.', '1d8 Piercing. Ammunition (80/320), Loading, Two-Handed.', 5),
   e('arrows', 'Flechas (20)', 'Arrows (20)', 'mundane', 'gear', 1, 'Munición para arcos.', 'Ammunition for bows.', 1),
   e('bolts', 'Virotes (20)', 'Bolts (20)', 'mundane', 'gear', 1, 'Munición para ballestas.', 'Ammunition for crossbows.', 1.5),
+  e('padded-armor', 'Armadura acolchada', 'Padded Armor', 'mundane', 'armor', 5, 'Armadura ligera: CA 11 + mod. Destreza; desventaja en Sigilo.', 'Light armor: AC 11 + Dex modifier; Disadvantage on Stealth.', 8),
   e('leather-armor', 'Armadura de cuero', 'Leather Armor', 'mundane', 'armor', 10, 'Armadura ligera: CA 11 + mod. Destreza.', 'Light armor: AC 11 + Dex modifier.', 10),
   e('studded-leather', 'Armadura de cuero tachonado', 'Studded Leather Armor', 'mundane', 'armor', 45, 'Armadura ligera: CA 12 + mod. Destreza.', 'Light armor: AC 12 + Dex modifier.', 13),
+  e('hide-armor', 'Armadura de pieles', 'Hide Armor', 'mundane', 'armor', 10, 'Armadura intermedia: CA 12 + mod. Destreza (máx. 2).', 'Medium armor: AC 12 + Dex modifier (max 2).', 12),
   e('chain-shirt', 'Camisote de mallas', 'Chain Shirt', 'mundane', 'armor', 50, 'Armadura intermedia: CA 13 + mod. Destreza (máx. 2).', 'Medium armor: AC 13 + Dex modifier (max 2).', 20),
   e('breastplate', 'Coraza', 'Breastplate', 'mundane', 'armor', 400, 'Armadura intermedia: CA 14 + mod. Destreza (máx. 2).', 'Medium armor: AC 14 + Dex modifier (max 2).', 20),
+  e('scale-mail', 'Cota de escamas', 'Scale Mail', 'mundane', 'armor', 50, 'Armadura intermedia: CA 14 + mod. Destreza (máx. 2); desventaja en Sigilo.', 'Medium armor: AC 14 + Dex modifier (max 2); Disadvantage on Stealth.', 45),
+  e('half-plate', 'Semiplacas', 'Half Plate Armor', 'mundane', 'armor', 750, 'Armadura intermedia: CA 15 + mod. Destreza (máx. 2); desventaja en Sigilo.', 'Medium armor: AC 15 + Dex modifier (max 2); Disadvantage on Stealth.', 40),
+  e('ring-mail', 'Cota de anillas', 'Ring Mail', 'mundane', 'armor', 30, 'Armadura pesada: CA 14; desventaja en Sigilo.', 'Heavy armor: AC 14; Disadvantage on Stealth.', 40),
   e('chain-mail', 'Cota de mallas', 'Chain Mail', 'mundane', 'armor', 75, 'Armadura pesada: CA 16. Fuerza 13; desventaja en Sigilo.', 'Heavy armor: AC 16. Strength 13; Stealth Disadvantage.', 55),
+  e('splint-armor', 'Armadura de bandas', 'Splint Armor', 'mundane', 'armor', 200, 'Armadura pesada: CA 17. Fuerza 15; desventaja en Sigilo.', 'Heavy armor: AC 17. Strength 15; Disadvantage on Stealth.', 60),
   e('plate-armor', 'Armadura de placas', 'Plate Armor', 'mundane', 'armor', 1500, 'Armadura pesada: CA 18. Fuerza 15; desventaja en Sigilo.', 'Heavy armor: AC 18. Strength 15; Stealth Disadvantage.', 65),
   e('shield', 'Escudo', 'Shield', 'mundane', 'armor', 10, '+2 a la CA.', '+2 to AC.', 6),
   // Equipo de aventurero
@@ -138,10 +146,36 @@ export const ITEM_CATALOG: CatalogEntry[] = [
   e('art-750', 'Objeto de arte (750 po)', 'Art object (750 gp)', 'mundane', 'treasure', 750, 'Corona de plata, ídolo de oro, tapiz de seda…', 'Silver crown, gold idol, silk tapestry…'),
 ];
 
+const armor = (base: number, kind: 'light' | 'medium' | 'heavy', extra: { str?: number; stealthDis?: boolean } = {}): ItemMods => ({ armor: { base, kind, dexMax: kind === 'light' ? null : kind === 'medium' ? 2 : 0, ...extra } });
+const weapon = (dice: string, type: string, mastery: string, extra: { finesse?: boolean; ranged?: boolean; range?: string } = {}): ItemMods => ({ weapon: { dice, type, mastery, ...extra } });
+
+/** Efectos al equipar de las entradas del catálogo (reglas 2024) */
+export const CATALOG_MODS: Record<string, ItemMods> = {
+  'padded-armor': armor(11, 'light', { stealthDis: true }), 'leather-armor': armor(11, 'light'), 'studded-leather': armor(12, 'light'),
+  'hide-armor': armor(12, 'medium'), 'chain-shirt': armor(13, 'medium'), 'scale-mail': armor(14, 'medium', { stealthDis: true }), breastplate: armor(14, 'medium'), 'half-plate': armor(15, 'medium', { stealthDis: true }),
+  'ring-mail': armor(14, 'heavy', { stealthDis: true }), 'chain-mail': armor(16, 'heavy', { str: 13, stealthDis: true }), 'splint-armor': armor(17, 'heavy', { str: 15, stealthDis: true }), 'plate-armor': armor(18, 'heavy', { str: 15, stealthDis: true }),
+  shield: { shield: 2 }, 'shield-1': { shield: 3 }, 'armor-1': { ac: 1 }, 'armor-2': { ac: 2 },
+  'weapon-1': { attack: 1, damage: 1 }, 'weapon-2': { attack: 2, damage: 2 }, 'weapon-3': { attack: 3, damage: 3 },
+  'cloak-of-protection': { ac: 1, saves: 1 }, 'ring-of-protection': { ac: 1, saves: 1 }, 'stone-good-luck': { checks: 1, saves: 1 },
+  'gauntlets-ogre-power': { abilitySet: { str: 19 } }, 'headband-intellect': { abilitySet: { int: 19 } }, 'amulet-of-health': { abilitySet: { con: 19 } },
+  'bracers-of-defense': { acNoArmor: 2 },
+  dagger: weapon('1d4', 'perforante', 'nick', { finesse: true, range: '20/60' }), shortsword: weapon('1d6', 'perforante', 'vex', { finesse: true }), longsword: weapon('1d8', 'cortante', 'sap'),
+  rapier: weapon('1d8', 'perforante', 'vex', { finesse: true }), battleaxe: weapon('1d8', 'cortante', 'topple'), greataxe: weapon('1d12', 'cortante', 'cleave'), greatsword: weapon('2d6', 'cortante', 'graze'),
+  mace: weapon('1d6', 'contundente', 'sap'), quarterstaff: weapon('1d6', 'contundente', 'topple'), spear: weapon('1d6', 'perforante', 'sap', { range: '20/60' }),
+  shortbow: weapon('1d6', 'perforante', 'vex', { ranged: true, range: '80/320' }), longbow: weapon('1d8', 'perforante', 'slow', { ranged: true, range: '150/600' }), 'light-crossbow': weapon('1d8', 'perforante', 'slow', { ranged: true, range: '80/320' }),
+};
+
 /** Pasa una entrada del catálogo al idioma actual */
 export const fromCatalog = (c: CatalogEntry, qty = 1): ItemData => ({
   name: L(c.name), rarity: c.rarity, type: c.type, description: L(c.text), value: c.value, weight: c.weight, attunement: c.attunement, qty, ref: c.id,
+  ...(CATALOG_MODS[c.id] ? { mods: structuredClone(CATALOG_MODS[c.id]) } : {}),
 });
+
+/** Armaduras base para elegir en «Efectos al equipar» */
+export const BASE_ARMORS = ITEM_CATALOG.filter((x) => CATALOG_MODS[x.id]?.armor);
+
+/** El objeto se puede equipar (tiene efectos o es arma, armadura, anillo o maravilloso) */
+export const equippable = (i: Pick<ItemData, 'type' | 'mods'>) => !!i.mods || ['weapon', 'armor', 'ring', 'wondrous', 'wand'].includes(i.type);
 
 const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 export const searchCatalog = (q: string) => {

@@ -22,6 +22,14 @@ export interface PcSummary {
   concentration?: string | null;
   /** A 0 PG: salvaciones contra la muerte */
   deathSaves?: { success: number; fail: number } | null;
+  /** La vida está oculta para quien recibe la vista (el DM no deja ver la vida de los compañeros) */
+  hpHidden?: boolean;
+}
+
+/** Ajustes de la mesa que decide el DM */
+export interface RoomSettings {
+  /** Los jugadores ven la vida exacta de sus compañeros (por defecto no: solo su estado) */
+  showPartyHp: boolean;
 }
 
 /** Condición o efecto con duración en rondas (null = hasta que se quite) */
@@ -123,6 +131,9 @@ export interface Gift {
   toId: string;
   /** Nombre del personaje (o del jugador) cuando se dio */
   toName: string;
+  /** Si lo da otro jugador (intercambio); sin esto, lo da el DM */
+  fromId?: string;
+  fromName?: string;
   coins?: Partial<Coins5>;
   items?: ItemData[];
   note?: string;
@@ -154,6 +165,7 @@ export interface RoomView {
   log: LogEvent[];
   /** Entregas de oro y objetos: el DM ve todas; cada jugador, las suyas */
   gifts: Gift[];
+  settings: RoomSettings;
   canUndo: boolean;
   /** Puedes pasar turno (DM o el dueño del turno actual) */
   canEndTurn: boolean;
@@ -172,6 +184,8 @@ export type Command =
   | { t: 'ready'; value: boolean }
   /** El jugador confirma que las entregas ya están en su ficha */
   | { t: 'giftAck'; ids: string[] }
+  /** El DM da a un jugador; un jugador da de lo suyo a un compañero */
+  | { t: 'give'; toId: string; coins?: Partial<Coins5>; items?: ItemData[]; note?: string }
   // Solo el DM
   | { t: 'start' }
   | { t: 'end' }
@@ -184,7 +198,7 @@ export type Command =
   | { t: 'rosterSave'; entry: RosterEntry }
   | { t: 'rosterRemove'; id: string }
   | { t: 'rosterToCombat'; id: string; count: number; hidden: boolean; rollHp?: boolean }
-  | { t: 'give'; toId: string; coins?: Partial<Coins5>; items?: ItemData[]; note?: string }
+  | { t: 'roomSettings'; patch: Partial<RoomSettings> }
   /** Anula una entrega que aún no ha llegado */
   | { t: 'giftCancel'; id: string };
 

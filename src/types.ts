@@ -57,6 +57,8 @@ export interface Attack {
   extraBonus: number;
   mastery?: string;
   notes?: string;
+  /** Objeto equipado del que sale esta fila de ataque */
+  itemId?: string;
 }
 
 export interface Spell {
@@ -254,6 +256,10 @@ export interface OwnedItem extends ItemData {
   at?: number;
   /** Id de la entrega del DM */
   gift?: string;
+  /** Lo llevas puesto o en la mano: aplica sus efectos (si requiere sintonización, también hay que sintonizarlo) */
+  equipped?: boolean;
+  /** Arma mágica sin datos de arma: a qué fila de ataque se aplica su bonificador */
+  attackId?: string;
 }
 
 export interface Physical {

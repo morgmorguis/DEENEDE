@@ -11,6 +11,7 @@ import { ManualViewer } from './Manual';
 import { DEFAULT_MODEL } from '../config';
 import { L, T, getLang } from '../i18n';
 import { translateCharacter } from '../rules/glossary';
+import { askOk } from './Confirm';
 
 export function SettingsTab() {
   const characters = useStore((s) => s.characters);
@@ -102,7 +103,7 @@ export function SettingsTab() {
             <button className="grow link-left" onClick={() => setActive(c.id)}>
               <b>{c.name}</b> <span className="muted small">{c.species} {classById(c.classId) ? L(classById(c.classId)!.name) : c.className} {c.level}</span>
             </button>
-            <button className="icon-btn" aria-label={T(`Borrar ${c.name}`, `Delete ${c.name}`)} onClick={() => { if (confirm(T(`¿Borrar a ${c.name}? No se puede deshacer.`, `Delete ${c.name}? This can’t be undone.`))) remove(c.id); }}>🗑️</button>
+            <button className="icon-btn" aria-label={T(`Borrar ${c.name}`, `Delete ${c.name}`)} onClick={async () => { if (await askOk(T(`¿Borrar a ${c.name}? No se puede deshacer.`, `Delete ${c.name}? This can’t be undone.`))) remove(c.id); }}>🗑️</button>
           </div>
         ))}
         <button className="btn full mt" onClick={() => setImporting(true)}>📥 {T('Importar desde foto, PDF o Word', 'Import from photo, PDF or Word')}</button>

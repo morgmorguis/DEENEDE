@@ -3,6 +3,32 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.20.0 · 6 nov 2026 — Equipo, intercambios y archivo de guardado
+
+**Equipar objetos**
+- En **Objetos**, toca un objeto y pulsa **🛡️ Equipar**: armaduras (CA según tipo y DES, requisito de Fuerza, desventaja en Sigilo, desventaja sin entrenamiento), escudos, capa y anillo de protección, piedra de la suerte, brazales de defensa, guanteletes de poder de ogro, diadema del intelecto, amuleto de salud (sube los PG)… Los que requieren sintonización solo funcionan sintonizados.
+- Lo que cambia un objeto se marca con un **+ azul** en CA, características, salvaciones, habilidades, velocidad, PG y ataques, con el objeto que lo da.
+- Al equipar un arma se crea su fila de ataque (daño, tipo, alcance y maestría); las **armas +1/+2/+3** suman a la fila que elijas.
+- **⚙️ Efectos al equipar** en la plantilla de objetos (también para el DM): armadura base, CA, salvaciones, pruebas, característica fija o sumada, velocidad, ataque y daño. Nuevas armaduras en el catálogo (acolchada, pieles, escamas, semiplacas, anillas, bandas) y armadura +1/+2.
+
+**Dotes y rasgos con números**
+- Se suman solos (con un + dorado): **Duro** (+2 PG por nivel), **Dureza enana** (+1 PG por nivel), **Veloz** (+10 pies), estilo **Defensa** (+1 CA con armadura), **Tiro con arco** (+2 a distancia) y Maestro en armaduras intermedias. Si ya estaban sumados a mano, se desmarcan tocando el + de los PG o la velocidad.
+
+**Partida**
+- **La vida de los compañeros está oculta por defecto**: cada jugador ve su vida y, de los demás, solo su estado. El DM puede mostrarla con una casilla.
+- **Intercambio entre jugadores**, dentro o fuera de combate: «🤝 Dar a un compañero» quita monedas u objetos de tu ficha y los suma a la del otro (aunque esté desconectado). El DM lo ve en su registro.
+- **Botines preparados del DM**: se preparan sin conexión (Partida → Prepara el botín) y luego se usan en Tesoro con un toque; también «💾 Guardar para luego».
+
+**Notas y guardado**
+- Al escribir una nota eliges su **categoría** o creas una nueva; los diálogos para crear y renombrar ya no usan las ventanas del navegador (que no funcionaban en Android).
+- El borrador de la nota se guarda en el dispositivo aunque se cierre la app.
+- **Archivo de guardado multiplataforma**: el mismo `.json` en Android, Windows y el navegador, con fichas, notas y categorías, historial, plantillas de objetos y botines. Botón **💾 Guardar archivo** también en el diario.
+
+**Arreglos**
+- **Pantalla en negro al entrar en combate en Android**: la transición «¡COMBATE!» ya no usa el desenfoque que fallaba en algunos móviles, y se cierra sola en 4 segundos como mucho.
+- Si una pantalla falla, ahora se muestra el error con un botón para volver y otro para copiarlo, en vez de quedarse en negro.
+- Todos los «¿Seguro?» usan el diálogo propio de la app.
+
 ## 0.19.0 · 4 nov 2026 — Bonificadores de clase, especie y dotes
 
 **Habilidades, salvaciones e iniciativa con las reglas 2024**

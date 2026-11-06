@@ -134,3 +134,8 @@ export function pickFiles(accept: string, multiple: boolean): Promise<File[]> {
     input.click();
   });
 }
+
+/** «+» de color de objeto/equipo (azul) o de rasgo (dorado), con su explicación al pasar o mantener */
+export function GearPlus({ title, item = true }: { title?: string; item?: boolean }) {
+  return <sup className={`gear-plus ${item ? '' : 'trait'}`} title={title} aria-label={title}>+</sup>;
+}

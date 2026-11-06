@@ -69,7 +69,7 @@ export const ERRORS: Record<string, [string, string]> = {
 };
 
 /** Suma a la ficha las monedas y objetos de una entrega del DM (los objetos iguales se apilan) */
-export function applyGift(c: Character, g: Gift, from = 'DM'): Character {
+export function applyGift(c: Character, g: Gift, from = g.fromName ?? 'DM'): Character {
   const next = structuredClone(c);
   for (const k of COIN_KEYS) next.coins[k] = (next.coins[k] ?? 0) + Math.max(0, Math.round(g.coins?.[k] ?? 0));
   for (const it of g.items ?? []) {
@@ -172,8 +172,10 @@ export const useParty = create<PartyState>((set, get) => {
       let next = c;
       for (const g of fresh) { applying.add(g.id); next = applyGift(next, g); }
       st.replace(next);
-      if (st.activeId === c.id) st.pushLog({ role: 'app', text: T('🎁 Entrega del DM', '🎁 Gift from the DM'), details: fresh.flatMap((g) => giftLines(g)) });
-      st.showToast(T(`🎁 El DM te da algo${c.id !== st.activeId ? ` (${c.name})` : ''}`, `🎁 The DM gives you something${c.id !== st.activeId ? ` (${c.name})` : ''}`), fresh.flatMap((g) => giftLines(g)));
+      const who = [...new Set(fresh.map((g) => g.fromName ?? 'DM'))].join(', ');
+      const dmOnly = fresh.every((g) => !g.fromName);
+      if (st.activeId === c.id) st.pushLog({ role: 'app', text: dmOnly ? T('🎁 Entrega del DM', '🎁 Gift from the DM') : T(`🎁 Te dan: ${who}`, `🎁 Given by: ${who}`), details: fresh.flatMap((g) => giftLines(g)) });
+      st.showToast(dmOnly ? T(`🎁 El DM te da algo${c.id !== st.activeId ? ` (${c.name})` : ''}`, `🎁 The DM gives you something${c.id !== st.activeId ? ` (${c.name})` : ''}`) : T(`🎁 ${who} te da algo`, `🎁 ${who} gives you something`), fresh.flatMap((g) => giftLines(g)));
     }
     const ack = pending.filter((g) => seen.has(g.id) || applying.has(g.id)).map((g) => g.id);
     if (ack.length) out({ t: 'cmd', cmd: { t: 'giftAck', ids: ack } });
@@ -188,7 +190,7 @@ export const useParty = create<PartyState>((set, get) => {
       if (op.op === 'damage') st.runCommands(T(`${op.from} me hace ${op.amount} de daño`, `${op.from} deals ${op.amount} damage to me`), [{ type: 'damage', amount: op.amount, damageType: null, critical: false }]);
       if (op.op === 'heal') st.runCommands(T(`${op.from} me cura ${op.amount}`, `${op.from} heals me ${op.amount}`), [{ type: 'heal', amount: op.amount }]);
       if (op.op === 'setHp') {
-        st.update((x) => { x.hp.current = Math.max(0, Math.min(x.hp.max, op.hp)); x.hp.temp = Math.max(0, op.temp); if (x.hp.current > 0) { x.dead = false; x.conditions = x.conditions.filter((k) => k !== 'inconsciente'); } });
+        st.update((x) => { x.hp.current = Math.max(0, Math.min(maxHp(x), op.hp)); x.hp.temp = Math.max(0, op.temp); if (x.hp.current > 0) { x.dead = false; x.conditions = x.conditions.filter((k) => k !== 'inconsciente'); } });
         st.showToast(T('↩️ El último turno se ha deshecho', '↩️ The last turn was undone'), [T(`Tu vida vuelve a ${op.hp}${op.temp ? ` (+${op.temp} temp.)` : ''}.`, `Your HP goes back to ${op.hp}${op.temp ? ` (+${op.temp} temp)` : ''}.`)]);
       }
     }

@@ -2,19 +2,18 @@ import type { Ability, Character, DamageType, RollScope } from '../types';
 import { CONDITIONS, SKILLS, abilityShort, conditionName, effectName } from './srd';
 import { L, T } from '../i18n';
 import { activeRules, adjValue, rulesBonus, type RollTarget } from './bonuses';
+import { abilityScores, acFromGear, attackExtras, hpExtras, speedExtras } from './gear';
+import type { Attack } from '../types';
 
 export const mod = (score: number) => Math.floor((score - 10) / 2);
 export const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 export const profBonus = (level: number) => 2 + Math.floor((Math.max(1, level) - 1) / 4);
 
-export const abilityMods = (c: Character): Record<Ability, number> => ({
-  str: mod(c.abilities.str),
-  dex: mod(c.abilities.dex),
-  con: mod(c.abilities.con),
-  int: mod(c.abilities.int),
-  wis: mod(c.abilities.wis),
-  cha: mod(c.abilities.cha),
-});
+/** Modificadores con las puntuaciones efectivas (objetos como los guanteletes de poder de ogro incluidos) */
+export const abilityMods = (c: Character): Record<Ability, number> => {
+  const s = abilityScores(c).scores;
+  return { str: mod(s.str), dex: mod(s.dex), con: mod(s.con), int: mod(s.int), wis: mod(s.wis), cha: mod(s.cha) };
+};
 
 // ---------- Dados ----------
 
@@ -55,10 +54,13 @@ export const isDiceExpr = (s: string) => /^\s*[+-]?\s*(\d*d\d+|\d+)(\s*[+-]\s*(\
 
 // ---------- Estadísticas derivadas ----------
 
-export function armorClass(c: Character): { value: number; parts: string[] } {
+export function armorClass(c: Character): { value: number; parts: string[]; gear: string[] } {
   const m = abilityMods(c);
-  let base = c.baseAc;
-  const parts = [`${T('Base', 'Base')} ${c.baseAc}${c.acNote ? ` (${c.acNote})` : ''}`];
+  const g = acFromGear(c, m.dex);
+  const gear: string[] = [];
+  let base = g.base ?? c.baseAc;
+  const parts = [g.base != null ? g.baseText : `${T('Base', 'Base')} ${c.baseAc}${c.acNote ? ` (${c.acNote})` : ''}`];
+  if (g.base != null) gear.push(g.baseText);
   for (const e of c.effects) {
     if (e.mods.acBase != null) {
       const alt = e.mods.acBase + m.dex;
@@ -69,9 +71,16 @@ export function armorClass(c: Character): { value: number; parts: string[] } {
     }
   }
   let value = base;
-  if (c.shield) {
-    value += 2;
-    parts.push(T('+2 escudo', '+2 Shield'));
+  const shield = Math.max(c.shield ? 2 : 0, g.shield);
+  if (shield) {
+    value += shield;
+    parts.push(T(`+${shield} escudo`, `+${shield} Shield`));
+    if (g.shield) gear.push(T(`+${shield} escudo`, `+${shield} Shield`));
+  }
+  for (const x of g.extras) {
+    value += x.value;
+    parts.push(x.text);
+    gear.push(x.text);
   }
   for (const e of c.effects) {
     if (e.mods.ac) {
@@ -83,14 +92,17 @@ export function armorClass(c: Character): { value: number; parts: string[] } {
     value = 17;
     parts.push(T('Piel robliza: mínimo 17', 'Barkskin: minimum 17'));
   }
-  return { value, parts };
+  return { value, parts, gear };
 }
 
-export function speed(c: Character): { value: number; parts: string[] } {
+export function speed(c: Character): { value: number; parts: string[]; gear: string[] } {
   const parts = [`${T('Base', 'Base')} ${c.speed} ${T('pies', 'ft')}`];
+  const extra = speedExtras(c);
+  const gear = extra.map((x) => x.text);
   const zero = c.conditions.filter((x) => ['agarrado', 'apresado', 'paralizado', 'petrificado', 'inconsciente'].includes(x));
-  if (zero.length) return { value: 0, parts: [...parts, `0: ${zero.map(conditionName).join(', ')}`] };
+  if (zero.length) return { value: 0, parts: [...parts, `0: ${zero.map(conditionName).join(', ')}`], gear };
   let v = c.speed;
+  for (const x of extra) { v += x.value; parts.push(x.text); }
   for (const e of c.effects) {
     if (e.mods.speed) {
       v += e.mods.speed;
@@ -107,11 +119,21 @@ export function speed(c: Character): { value: number; parts: string[] } {
       parts.push(`×${e.mods.speedMult} ${effectName(e)}`);
     }
   }
-  return { value: Math.max(0, v), parts };
+  return { value: Math.max(0, v), parts, gear };
 }
 
 export function maxHp(c: Character): number {
-  return c.hp.max + c.effects.reduce((a, e) => a + (e.mods.maxHp ?? 0), 0);
+  return c.hp.max + c.effects.reduce((a, e) => a + (e.mods.maxHp ?? 0), 0) + hpExtras(c).reduce((a, x) => a + x.value, 0);
+}
+
+/** Bonificador de ataque de una fila de armas (con arma mágica y estilo de combate) */
+export function weaponAttack(c: Character, a: Attack): number {
+  return attackBonus(c, a.ability, a.proficient, a.extraBonus + attackExtras(c, a).attack.reduce((s, x) => s + x.value, 0));
+}
+
+/** Lo que se suma a los dados de daño: modificador de característica y arma mágica */
+export function weaponDamageFlat(c: Character, a: Attack): number {
+  return abilityMods(c)[a.ability] + attackExtras(c, a).damage.reduce((s, x) => s + x.value, 0);
 }
 
 /** Competente en esta salvación (marcada en la hoja o por un rasgo, como Superviviente disciplinado) */
@@ -237,6 +259,7 @@ export function rollContext(c: Character, r: RollKind): RollContext {
   for (const rule of activeRules(c, targetOf(r))) {
     if (rule.note) notes.push(`${rule.source}: ${rule.text}`);
     else if (rule.adv && !adv.includes(rule.source)) adv.push(rule.source);
+    else if (rule.dis && !dis.includes(rule.source)) dis.push(rule.source);
   }
   return { advantage: adv, disadvantage: dis, autoFail, penalties, notes };
 }

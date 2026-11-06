@@ -10,6 +10,7 @@ import { BACKGROUNDS, findBackground } from '../rules/origins';
 import type { Character } from '../types';
 import { Modal } from './common';
 import { L, T } from '../i18n';
+import { askOk } from './Confirm';
 
 const CUSTOM = '__custom';
 
@@ -36,11 +37,11 @@ export function ClassField() {
   const [multi, setMulti] = useState(false);
   const extra = classLevels(c).filter((e) => !e.primary);
   const value = custom ? CUSTOM : c.classId;
-  const change = (v: string) => {
+  const change = async (v: string) => {
     if (v === CUSTOM) { setCustom(true); update((x) => { x.classId = ''; }); return; }
     setCustom(false);
     if (!v) return;
-    if (c.classId && c.classId !== v && !confirm(T('¿Cambiar de clase? Se pondrán su dado de golpe, salvaciones, competencias, recursos, espacios y rasgos, y se quitarán los rasgos y conjuros de la clase anterior que ya no puedas tener (lo que escribiste a mano y la app no reconoce se conserva).', 'Change class? Its hit die, saves, proficiencies, resources, slots and features will be applied, and features and spells of the old class you can no longer have will be removed (custom entries the app doesn’t recognise are kept).'))) return;
+    if (c.classId && c.classId !== v && !(await askOk(T('¿Cambiar de clase? Se pondrán su dado de golpe, salvaciones, competencias, recursos, espacios y rasgos, y se quitarán los rasgos y conjuros de la clase anterior que ya no puedas tener (lo que escribiste a mano y la app no reconoce se conserva).', 'Change class? Its hit die, saves, proficiencies, resources, slots and features will be applied, and features and spells of the old class you can no longer have will be removed (custom entries the app doesn’t recognise are kept).')))) return;
     const r = pruneForClass(withClass(c, v));
     replace(r.next);
     const lines = pruneSummary(removedBetween(c, r.next));

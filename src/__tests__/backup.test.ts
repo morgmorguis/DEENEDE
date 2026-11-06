@@ -26,3 +26,24 @@ describe('copia de seguridad', () => {
     expect(mergeCharacters([a, b], [a2], 'replace')).toHaveLength(1);
   });
 });
+
+describe('archivo de guardado multiplataforma', () => {
+  it('lleva notas, historial, plantillas y botines y se recupera igual', async () => {
+    const { sampleCharacter } = await import('../rules/factory');
+    const a = sampleCharacter();
+    a.notes = [{ id: 'n1', title: 'Pista', body: 'El posadero miente', kind: 'note', createdAt: 1, folderId: a.noteFolders[0]?.id ?? null }];
+    const file = buildBackup([a], {
+      log: { [a.id]: [{ id: 'l1', at: 1, role: 'user', text: 'tiro sigilo', undo: a }], otro: [] },
+      customItems: [{ name: 'Espada lunar', rarity: 'rare', type: 'weapon', description: '', value: 4000, qty: 1 }],
+      lootBundles: [{ id: 'b1', name: 'Cofre', coins: { cp: 0, sp: 0, ep: 0, gp: 50, pp: 0 }, items: [], note: '' }],
+    });
+    expect(file.version).toBe(2);
+    expect(Object.keys(file.log!)).toEqual([a.id]);
+    expect(file.log![a.id][0].undo).toBeUndefined();
+    const back = parseBackup(JSON.stringify(file));
+    expect(back.characters[0].notes[0].body).toBe('El posadero miente');
+    expect(back.extras.customItems?.[0].name).toBe('Espada lunar');
+    expect(back.extras.lootBundles?.[0].coins.gp).toBe(50);
+    expect(back.extras.log?.[a.id]).toHaveLength(1);
+  });
+});

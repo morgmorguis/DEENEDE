@@ -39,9 +39,23 @@ describe('entregas del DM', () => {
     expect(viewFor(s.room, s.p2)!.gifts.map((g) => g.coins)).toEqual([{ pp: 1 }]);
   });
 
-  it('solo el DM puede dar y no se dan entregas vacías ni monedas negativas', () => {
+  it('un jugador da a un compañero (intercambio) pero no a sí mismo; el DM lo ve en el registro', () => {
     const s = setup();
-    expect(apply(s.room, s.p1, { t: 'give', toId: s.p2, coins: { gp: 10 } }).error).toBe('not-allowed');
+    expect(apply(s.room, s.p1, { t: 'give', toId: s.p1, coins: { gp: 10 } }).error).toBe('no-target');
+    s.run(s.p1, { t: 'give', toId: s.p2, coins: { gp: 10 }, items: [potion()] });
+    const g = s.room.gifts[0];
+    expect(g).toMatchObject({ fromId: s.p1, toId: s.p2, coins: { gp: 10 } });
+    expect(viewFor(s.room, s.p1)!.gifts).toHaveLength(1);
+    expect(viewFor(s.room, s.p2)!.gifts).toHaveLength(1);
+    expect(viewFor(s.room, s.dm)!.gifts[0].fromName).toBeTruthy();
+    // El jugador no puede anular entregas
+    expect(apply(s.room, s.p1, { t: 'giftCancel', id: g.id }).error).toBe('not-allowed');
+    // Al recibirla se apunta quién la dio
+    expect(applyGift(blankCharacter(), g).items[0].from).toBe(g.fromName);
+  });
+
+  it('no se dan entregas vacías ni monedas negativas', () => {
+    const s = setup();
     expect(apply(s.room, s.dm, { t: 'give', toId: s.p1, coins: { gp: -5 } }).error).toBe('empty-gift');
     expect(apply(s.room, s.dm, { t: 'give', toId: s.dm, coins: { gp: 5 } }).error).toBe('no-target');
     s.run(s.dm, { t: 'give', toId: s.p1, coins: { gp: 2.6, cp: -3 }, items: [{ ...potion(), name: '  ', qty: 1 }, { ...potion(), qty: 0 }] });
@@ -107,5 +121,30 @@ describe('catálogo de objetos', () => {
   it('valor de las monedas en oro (1 ppt = 10 po, 1 pe = ½ po)', () => {
     expect(coinsInGold({ pp: 1, gp: 2, ep: 2, sp: 5, cp: 50 })).toBeCloseTo(14);
     expect(valueText(0.5)).toBe('5 pp');
+  });
+});
+
+describe('vida de los compañeros', () => {
+  it('por defecto cada jugador solo ve su propia vida; el DM puede mostrar la de todos', () => {
+    let room: Room = createRoom();
+    const dm = join(room, 'DM', undefined, room.dmKey); room = dm.room;
+    const a = join(room, 'Ana'); room = a.room;
+    const b = join(room, 'Leo'); room = b.room;
+    const sum = (name: string) => ({ name, species: 'Humano', className: 'Guerrero', level: 3, hp: 20, hpMax: 30, temp: 0, ac: 16, speed: 30, passive: 12, conditions: [] });
+    room = apply(room, a.member.id, { t: 'summary', summary: sum('Thalia') }).room;
+    room = apply(room, b.member.id, { t: 'summary', summary: sum('Brakka') }).room;
+    room = apply(room, dm.member.id, { t: 'start' }).room;
+    const v = viewFor(room, a.member.id)!;
+    expect(v.encounter.order.find((c) => c.name === 'Thalia')!.hp).toBe(20);
+    const other = v.encounter.order.find((c) => c.name === 'Brakka')!;
+    expect(other.hp).toBeNull();
+    expect(other.state).toBe('hurt');
+    expect(v.members.find((m) => m.id === b.member.id)!.summary!.hpHidden).toBe(true);
+    expect(v.members.find((m) => m.id === a.member.id)!.summary!.hpHidden).toBeUndefined();
+    expect(viewFor(room, dm.member.id)!.encounter.order.find((c) => c.name === 'Brakka')!.hp).toBe(20);
+    // Solo el DM cambia el ajuste
+    expect(apply(room, a.member.id, { t: 'roomSettings', patch: { showPartyHp: true } }).error).toBe('not-allowed');
+    room = apply(room, dm.member.id, { t: 'roomSettings', patch: { showPartyHp: true } }).room;
+    expect(viewFor(room, a.member.id)!.encounter.order.find((c) => c.name === 'Brakka')!.hp).toBe(20);
   });
 });

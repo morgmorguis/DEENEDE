@@ -7,6 +7,7 @@ import { MONSTERS } from '../party/monsters';
 import { fmt } from '../rules/calc';
 import { Modal, Section } from './common';
 import { L, T } from '../i18n';
+import { askOk } from './Confirm';
 
 const empty = (kind: RosterEntry['kind']): RosterEntry => ({ id: '', name: '', kind, level: '', hpMax: null, ac: null, initBonus: 0, notes: '' });
 
@@ -39,7 +40,7 @@ function EntryModal({ entry, onClose }: { entry: RosterEntry; onClose: () => voi
       </div>
       <label className="field">{T('Notas (ataques, secretos, motivaciones…)', 'Notes (attacks, secrets, motives…)')}<textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>
       <div className="row">
-        {entry.id && <button className="btn danger" onClick={() => { if (confirm(T(`¿Borrar a ${entry.name}?`, `Delete ${entry.name}?`))) { send({ t: 'rosterRemove', id: entry.id }); onClose(); } }}>{T('Borrar', 'Delete')}</button>}
+        {entry.id && <button className="btn danger" onClick={async () => { if (await askOk(T(`¿Borrar a ${entry.name}?`, `Delete ${entry.name}?`))) { send({ t: 'rosterRemove', id: entry.id }); onClose(); } }}>{T('Borrar', 'Delete')}</button>}
         <button className="btn primary grow" disabled={!f.name.trim()} onClick={() => { send({ t: 'rosterSave', entry: f }); onClose(); }}>{T('Guardar', 'Save')}</button>
       </div>
     </Modal>

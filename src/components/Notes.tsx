@@ -4,6 +4,8 @@ import { startRecording, type Recorder } from '../speech';
 import type { Note, NoteFolder } from '../types';
 import { DEFAULT_FOLDERS } from '../rules/srd';
 import { L, T, locale } from '../i18n';
+import { askOk, askText } from './Confirm';
+import { exportEverything } from '../backup';
 
 const folderLabel = (f: NoteFolder) => {
   const d = f.key ? DEFAULT_FOLDERS.find((x) => x.key === f.key) : undefined;
@@ -18,7 +20,11 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
   const renameFolder = useStore((s) => s.renameFolder);
   const deleteFolder = useStore((s) => s.deleteFolder);
   const [folderId, setFolderId] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
+  // El borrador se guarda en el dispositivo: no se pierde si Android cierra la app o cambias de pestaña
+  const draftKey = `di-en-di-draft-${c.id}`;
+  const [draft, setDraftState] = useState(() => { try { return localStorage.getItem(draftKey) ?? ''; } catch { return ''; } });
+  const setDraft = (v: string) => { setDraftState(v); try { if (v) localStorage.setItem(draftKey, v); else localStorage.removeItem(draftKey); } catch { /* sin almacenamiento */ } };
+  const [target, setTarget] = useState<string | null | undefined>(undefined);
   const [rec, setRec] = useState<Recorder | null>(null);
   const [live, setLive] = useState('');
   const [transcript, setTranscript] = useState<string | null>(null);
@@ -80,8 +86,8 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
     }
   };
 
-  const newFolder = () => {
-    const name = prompt(T('Nombre de la carpeta', 'Folder name'));
+  const newFolder = async () => {
+    const name = await askText(T('Nombre de la categoría', 'Category name'), '', T('Pistas, PNJ, misiones…', 'Clues, NPCs, quests…'));
     if (name?.trim()) setFolderId(addFolder(name.trim()));
   };
 
@@ -145,8 +151,8 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
           {folder && (
             <div className="row folder-actions">
               <span className="grow"><b>{folderLabel(folder)}</b></span>
-              <button className="btn small" onClick={() => { const n = prompt(T('Nuevo nombre', 'New name'), folder.key ? folderLabel(folder).replace(/^\S+\s/, '') : folder.name); if (n?.trim()) renameFolder(folder.id, n.trim()); }}>✏️ {T('Renombrar', 'Rename')}</button>
-              <button className="btn small danger" onClick={() => { if (confirm(T('¿Borrar la carpeta? Las notas no se borran: pasan a «Todas».', 'Delete this folder? Notes are kept under “All”.'))) { deleteFolder(folder.id); setFolderId(null); } }}>🗑️</button>
+              <button className="btn small" onClick={async () => { const n = await askText(T('Nuevo nombre', 'New name'), folder.key ? folderLabel(folder).replace(/^\S+\s/, '') : folder.name); if (n?.trim()) renameFolder(folder.id, n.trim()); }}>✏️ {T('Renombrar', 'Rename')}</button>
+              <button className="btn small danger" onClick={async () => { if (await askOk(T('¿Borrar la carpeta? Las notas no se borran: pasan a «Todas».', 'Delete this folder? Notes are kept under “All”.'))) { deleteFolder(folder.id); setFolderId(null); } }}>🗑️</button>
             </div>
           )}
 
@@ -154,15 +160,32 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
             <textarea placeholder={folder?.key === 'names'
               ? T('Nombre y quién es: «Bram, posadero del Grifo, nos debe 20 po»', 'Name and who they are: “Bram, innkeeper at the Griffin, owes us 20 gp”')
               : T('Nota rápida: nombres, pistas, deudas, misiones…', 'Quick note: names, clues, debts, quests…')} value={draft} onChange={(e) => setDraft(e.target.value)} />
+            <div className="row note-target">
+              <label className="grow small">{T('Categoría', 'Category')}
+                <select value={(target === undefined ? folderId : target) ?? ''} onChange={(e) => setTarget(e.target.value || null)}>
+                  <option value="">{T('Sin categoría', 'No category')}</option>
+                  {c.noteFolders.map((f) => <option key={f.id} value={f.id}>{folderLabel(f)}</option>)}
+                </select>
+              </label>
+              <button className="btn small" onClick={async () => { const name = await askText(T('Nombre de la categoría', 'Category name'), '', T('Pistas, PNJ, misiones…', 'Clues, NPCs, quests…')); if (name?.trim()) setTarget(addFolder(name.trim())); }}>＋ {T('Nueva', 'New')}</button>
+            </div>
             <button className="btn" disabled={!draft.trim()} onClick={() => {
               const [first, ...rest] = draft.trim().split('\n');
-              addNote({ title: first.slice(0, 80), body: rest.length ? rest.join('\n') : first.length > 80 ? first : '', kind: 'note', folderId });
+              const dest = target === undefined ? folderId : target;
+              addNote({ title: first.slice(0, 80), body: rest.length ? rest.join('\n') : first.length > 80 ? first : '', kind: 'note', folderId: dest });
               setDraft('');
-            }}>{T('Guardar nota', 'Save note')}{folder ? ` → ${folderLabel(folder)}` : ''}</button>
+              setTarget(undefined);
+            }}>💾 {T('Guardar nota', 'Save note')}</button>
           </div>
 
           {notes.length === 0 && <p className="muted">{T('Aún no hay notas aquí.', 'No notes here yet.')}</p>}
           {notes.map((n) => <NoteItem key={n.id} note={n} folders={c.noteFolders} />)}
+          <button className="btn full mt" onClick={async () => {
+            try {
+              const where = await exportEverything();
+              useStore.getState().showToast(T('💾 Archivo de guardado creado', '💾 Save file created'), [where ? T(`En ${where}.`, `In ${where}.`) : T('Fichas, notas e historial. Ábrelo en otro dispositivo con Ajustes → Restaurar copia.', 'Sheets, notes and history. Open it on another device with Settings → Restore backup.')]);
+            } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+          }}>💾 {T('Guardar archivo (fichas y notas)', 'Save file (sheets and notes)')}</button>
         </div>
       </div>
       {open && <div className="drawer-backdrop" onClick={onToggle} />}
@@ -198,7 +221,7 @@ function NoteItem({ note, folders }: { note: Note; folders: NoteFolder[] }) {
         </select>
         <button className="btn small" onClick={() => setEditing(!editing)}>{editing ? T('Listo', 'Done') : T('Editar', 'Edit')}</button>
         <button className="btn small" onClick={() => void navigator.clipboard?.writeText(`${note.title}\n\n${note.body}`)}>{T('Copiar', 'Copy')}</button>
-        <button className="btn small danger" onClick={() => { if (confirm(T('¿Borrar esta nota?', 'Delete this note?'))) deleteNote(note.id); }}>{T('Borrar', 'Delete')}</button>
+        <button className="btn small danger" onClick={async () => { if (await askOk(T('¿Borrar esta nota?', 'Delete this note?'))) deleteNote(note.id); }}>{T('Borrar', 'Delete')}</button>
       </div>
     </details>
   );
@@ -235,7 +258,7 @@ function KillCount() {
             <li key={k.id}>
               <span className="grow">{k.name}</span>
               <span className="muted small">{new Date(k.at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })} · {sourceLabel(k.source)}</span>
-              <button className="icon-btn" aria-label={T(`Quitar ${k.name}`, `Remove ${k.name}`)} onClick={() => { if (confirm(T(`¿Quitar «${k.name}» del kill count?`, `Remove “${k.name}” from the kill count?`))) removeKill(k.id); }}>✕</button>
+              <button className="icon-btn" aria-label={T(`Quitar ${k.name}`, `Remove ${k.name}`)} onClick={async () => { if (await askOk(T(`¿Quitar «${k.name}» del kill count?`, `Remove “${k.name}” from the kill count?`))) removeKill(k.id); }}>✕</button>
             </li>
           ))}
         </ul>

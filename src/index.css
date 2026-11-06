@@ -419,7 +419,7 @@ p { margin: 6px 0; line-height: 1.45; }
 .p-abilities { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: start; }
 .p-col { display: grid; gap: 6px; }
 .p-ability { padding: 6px 6px 6px; }
-.p-ab-top { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px; }
+.p-ab-top { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px; }
 .p-ab-mod { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--rule); background: #fff; font-size: 21px; font-weight: 800; font-family: Georgia, serif; color: var(--ink); padding: 0; }
 .p-ab-score { width: 40px !important; height: 26px; text-align: center; border: 1.5px solid var(--rule) !important; border-radius: 13px !important; font-weight: 700; font-size: 14px !important; }
 .p-row { display: grid; grid-template-columns: 18px 26px 1fr; align-items: center; gap: 2px; border-top: 1px dotted #c8c1b5; min-height: 30px; }
@@ -744,11 +744,12 @@ p { margin: 6px 0; line-height: 1.45; }
 
 /* ---------- Transición «¡COMBATE!» / «¡SUBES DE NIVEL!» ---------- */
 .fx { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; overflow: hidden; cursor: pointer; animation: fx-veil 2.6s forwards; }
+/* Sin backdrop-filter: en algunos WebView de Android el desenfoque a pantalla completa deja todo en negro */
 @keyframes fx-veil {
-  0% { backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); background: transparent; }
-  30% { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); background: rgba(0, 0, 0, .3); }
-  85% { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); background: rgba(0, 0, 0, .55); opacity: 1; }
-  100% { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); background: rgba(0, 0, 0, .55); opacity: 0; }
+  0% { background: transparent; }
+  30% { background: rgba(0, 0, 0, .35); }
+  85% { background: rgba(0, 0, 0, .6); opacity: 1; }
+  100% { background: rgba(0, 0, 0, .6); opacity: 0; }
 }
 .fx-flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: fx-flash .7s steps(1) forwards; }
 .fx-levelup .fx-flash { background: #ffd34d; }
@@ -1059,3 +1060,25 @@ button.plain { background: none; border: 0; padding: 0; color: inherit; text-ali
 .adj-box { display: grid; gap: 6px; }
 .adj-row { flex-wrap: wrap; }
 .adj-row select { flex: 1; min-width: 150px; }
+
+/* ---------- Error en una pantalla ---------- */
+.crash { display: grid; gap: 10px; }
+.crash-text { white-space: pre-wrap; font-size: 11px; background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-height: 40vh; overflow: auto; }
+
+/* ---------- «+» de objetos equipados y rasgos ---------- */
+.gear-plus { display: inline-block; margin-left: 2px; padding: 0 3px; border-radius: 4px; background: #2f8fd8; color: #fff; font-size: .6em; font-weight: 800; line-height: 1.3; vertical-align: super; font-family: system-ui, sans-serif; }
+.gear-plus.trait { background: #c9a24a; color: #1b1208; }
+.gear-plus-btn { background: none; border: 0; padding: 0 0 0 4px; font: inherit; color: #2f8fd8; font-weight: 800; }
+.p-row-name .tag.gear, .tag.gear { background: #2f8fd8; color: #fff; }
+.gear-line { color: #2f8fd8; }
+.paper .gear-line { color: #1f6fae; }
+.p-ab-eff { position: absolute; right: 4px; top: 2px; font-size: 11px; font-weight: 800; color: #1f6fae; }
+.item-eq { font-size: .7rem; font-weight: 700; color: #fff; background: #2f8fd8; border-radius: 4px; padding: 0 5px; }
+.item-eq.warn { background: #b8862c; }
+.equip-box { border: 1px solid #2f8fd8; border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }
+.note-target { align-items: flex-end; }
+.note-target label { display: grid; gap: 2px; }
+.bundles summary { cursor: pointer; padding: 6px 0; }
+.gift-row.trade { border-left-color: #2f8fd8; }
+.item-row input[type=checkbox] { width: 20px; height: 20px; min-height: 0; flex: 0 0 auto; padding: 0; accent-color: var(--gold); }
+.item-row .num-input, .item-row input[type=number] { width: 70px; flex: 0 0 auto; }

@@ -4,7 +4,7 @@ import { normalizeCharacter } from '../factory';
 import { sampleCharacter, createCharacter } from '../factory';
 import { parseInput } from '../parser';
 import { applyCommand, type Command } from '../engine';
-import { armorClass, profBonus, speed } from '../calc';
+import { armorClass, maxHp, profBonus, speed } from '../calc';
 import type { Character } from '../../types';
 
 const run = (c: Character, text: string) => {
@@ -82,7 +82,7 @@ describe('parser', () => {
     expect(r.c.dead).toBe(false);
     c = sampleCharacter();
     c.hp.current = 5;
-    expect(run(c, `me hacen ${5 + c.hp.max} de daño`).c.dead).toBe(true);
+    expect(run(c, `me hacen ${5 + maxHp(c)} de daño`).c.dead).toBe(true);
   });
   it('condiciones y negación', () => {
     let c = sampleCharacter();
@@ -128,7 +128,9 @@ describe('parser', () => {
     c.hp.current = 3;
     c.exhaustion = 1;
     c = run(c, 'hacemos un descanso largo').c;
-    expect(c.hp.current).toBe(c.hp.max);
+    // Duro (+2 por nivel) se suma al máximo
+    expect(c.hp.current).toBe(maxHp(c));
+    expect(maxHp(c)).toBe(c.hp.max + 2 * c.level);
     expect(c.exhaustion).toBe(0);
   });
   it('preguntas de reglas', () => {

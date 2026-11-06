@@ -4,7 +4,7 @@ import { L, T } from '../i18n';
 import {
   ACTIONS, CLASSES, CONDITIONS, COST_NAMES, MASTERIES, SKILLS, abilityName, abilityShort, conditionName, damageTypeName, effectName, effectNotes, findMastery, resourceName,
 } from './srd';
-import { abilityMods, attackBonus, fmt, mod, profBonus, rollContext, saveBonus, skillBonus, spellAttack, spellSaveDc, type RollKind } from './calc';
+import { abilityMods, weaponAttack, weaponDamageFlat, fmt, mod, profBonus, rollContext, saveBonus, skillBonus, spellAttack, spellSaveDc, type RollKind } from './calc';
 import { findSpell, spellComponents } from './spells';
 
 export type InfoTarget =
@@ -158,8 +158,8 @@ export function explain(c: Character, t: InfoTarget): Explanation | null {
     case 'attack': {
       const a = c.attacks.find((x) => x.id === t.id);
       if (!a) return null;
-      const bonus = attackBonus(c, a.ability, a.proficient, a.extraBonus);
-      const flat = m[a.ability];
+      const bonus = weaponAttack(c, a);
+      const flat = weaponDamageFlat(c, a);
       const mastery = findMastery(a.mastery);
       const lines = [
         T(`Tirada de ataque: d20 ${fmt(bonus)} (${abilityShort(a.ability)} ${fmt(m[a.ability])}${a.proficient ? `, ${T('competencia', 'proficiency')} ${fmt(pb)}` : ''}${a.extraBonus ? `, ${T('extra', 'extra')} ${fmt(a.extraBonus)}` : ''}).`,

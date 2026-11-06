@@ -14,6 +14,7 @@ import { InfoBubble } from './components/InfoBubble';
 import { PartyTab, TvView } from './components/Party';
 import { DmRosterTab } from './components/DmRoster';
 import { TreasureTab } from './components/Treasure';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { TransitionFx, useFx } from './components/Transition';
 import { ConfirmHost } from './components/Confirm';
 import { AvatarTab } from './components/Avatar';
@@ -128,6 +129,7 @@ export default function App() {
       </header>
 
       <main className="content">
+        <ErrorBoundary key={tab} where={tab} onBack={() => setTab(dmMode ? 'party' : 'sheet')}>
         {tab === 'sheet' && <SheetTab />}
         {avatarOn && tab === 'avatar' && <AvatarTab />}
         {tab === 'combat' && <CombatTab />}
@@ -137,6 +139,7 @@ export default function App() {
         {tab === 'assistant' && <AssistantTab />}
         {tab === 'rules' && <RulesTab />}
         {tab === 'settings' && <SettingsTab />}
+        </ErrorBoundary>
       </main>
 
       <NotesDrawer open={notesOpen} onToggle={() => setNotesOpen(!notesOpen)} />

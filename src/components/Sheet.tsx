@@ -2,17 +2,18 @@ import { createPortal } from 'react-dom';
 import { useState, type ReactNode } from 'react';
 import { useChar, useStore } from '../store';
 import {
-  abilityMods, activeReminders, armorClass, attackBonus, checkBonus, fmt, initiativeBonus, maxHp, mod, passivePerception, profBonus, rollContext, saveBonus,
-  saveProficient, skillBonus, speed, spellAttack, spellSaveDc, targetOf, type RollKind,
+  abilityMods, activeReminders, armorClass, checkBonus, fmt, initiativeBonus, maxHp, mod, passivePerception, profBonus, rollContext, saveBonus,
+  saveProficient, skillBonus, speed, spellAttack, spellSaveDc, targetOf, weaponAttack, weaponDamageFlat, type RollKind,
 } from '../rules/calc';
 import { activeRules, adjKey, adjText, adjValue, ruleMods, type RollTarget } from '../rules/bonuses';
+import { abilityScores, attackExtras, hpExtras, speedExtras } from '../rules/gear';
 import {
   ABILITIES, CLASSES, CONDITIONS, DAMAGE_TYPES, EFFECT_PRESETS, MASTERIES, SIZES, SKILLS, SPECIES, abilityName, abilityShort,
   damageTypeName, effectName, effectNotes, findMastery, resourceName,
 } from '../rules/srd';
 import { uid } from '../rules/factory';
 import type { Ability, Attack, BonusAdj, Character, ConditionId, DamageType, ProfLevel, Spell } from '../types';
-import { Modal, NumberInput, Pips, pickFiles, useRoll } from './common';
+import { GearPlus, Modal, NumberInput, Pips, pickFiles, useRoll } from './common';
 import { HpModal } from './Hp';
 import { Editor } from './Editor';
 import { ImportModal } from './Import';
@@ -82,7 +83,10 @@ function Diamond({ on, onClick, label }: { on: boolean; onClick: () => void; lab
 }
 
 /** Algún rasgo (o un bonificador propio) suma o cambia esta tirada */
-const hasExtra = (c: Character, t: RollTarget) => adjValue(c, t).value !== 0 || activeRules(c, t).some((r) => !r.note && (r.bonus || r.minNatural || r.prof));
+const hasExtra = (c: Character, t: RollTarget) => adjValue(c, t).value !== 0 || activeRules(c, t).some((r) => !r.item && !r.note && (r.bonus || r.minNatural || r.prof));
+/** Un objeto equipado suma o da desventaja a esta tirada */
+const hasItem = (c: Character, t: RollTarget) => activeRules(c, t).some((r) => r.item && (r.bonus || r.dis));
+
 
 function ProfDot({ level, onClick, label }: { level: ProfLevel; onClick: () => void; label: string }) {
   return <button className={`p-dot ${level === 2 ? 'exp' : level === 1 ? 'on' : ''}`} onClick={onClick} aria-label={label} />;
@@ -121,6 +125,7 @@ export function SheetTab() {
   const [hpOpen, setHpOpen] = useState(false);
   const [statInfo, setStatInfo] = useState<{ ability: Ability; skill?: string; save?: boolean; init?: boolean } | null>(null);
   const [info, setInfo] = useState<{ title: string; lines: string[] } | null>(null);
+  const [extras, setExtras] = useState<'hp' | 'speed' | null>(null);
   const [condOpen, setCondOpen] = useState(false);
   const [effOpen, setEffOpen] = useState(false);
   const [attackEdit, setAttackEdit] = useState<string | null>(null);
@@ -138,6 +143,8 @@ export function SheetTab() {
   const ac = armorClass(c);
   const spd = speed(c);
   const reminders = activeReminders(c);
+  const abSrc = abilityScores(c);
+  const hpX = hpExtras(c, true);
 
   // Tocar una estadística: tira el dado solo si el usuario lo ha activado en Ajustes
   const tapStat = (ability: Ability, opts: { skill?: string; save?: boolean } = {}) => {
@@ -166,7 +173,8 @@ export function SheetTab() {
     return (
       <Box key={a} title={abilityName(a)} className="p-ability">
         <div className="p-ab-top">
-          <button className="p-ab-mod" {...longPress({ type: 'ability', ability: a })} onClick={() => tapStat(a)} aria-label={`${abilityName(a)} ${fmt(m[a])}`}>{fmt(m[a])}</button>
+          <button className="p-ab-mod" {...longPress({ type: 'ability', ability: a })} onClick={() => tapStat(a)} aria-label={`${abilityName(a)} ${fmt(m[a])}`}>{fmt(m[a])}{abSrc.sources[a].length > 0 && <GearPlus title={abSrc.sources[a].map((x) => x.text).join(' · ')} />}</button>
+          {abSrc.scores[a] !== c.abilities[a] && <span className="p-ab-eff" title={abSrc.sources[a].map((x) => x.text).join(' · ')}>→ {abSrc.scores[a]}</span>}
           <NumberInput className="p-ab-score" value={c.abilities[a]} min={1} max={30} ariaLabel={T(`Puntuación de ${abilityName(a)}`, `${abilityName(a)} score`)} onChange={(n) => set((x) => { x.abilities[a] = Math.max(1, Math.min(30, n)); })} />
         </div>
         <div className="p-row save">
@@ -174,6 +182,7 @@ export function SheetTab() {
           <span className="p-bonus">{fmt(saveBonus(c, a))}</span>
           <button className="p-row-name" {...longPress({ type: 'save', ability: a })} onClick={() => tapStat(a, { save: true })}>
             {T('Tirada de salvación', 'Saving Throw')}
+ {hasItem(c, { kind: 'save', ability: a }) && <i className="tag gear" title={T('Un objeto equipado lo cambia', 'An equipped item changes it')}>+</i>}
             {hasExtra(c, { kind: 'save', ability: a }) && <i className="tag plus" title={T('Suma un rasgo o un bonificador propio', 'A feature or custom bonus adds to it')}>✦</i>}
             {saveCtx.autoFail.length > 0 && <i className="tag bad">✕</i>}
             {saveCtx.advantage.length > 0 && <i className="tag good">V</i>}
@@ -188,6 +197,7 @@ export function SheetTab() {
               <span className="p-bonus">{fmt(skillBonus(c, s.id))}</span>
               <button className="p-row-name" {...longPress({ type: 'skill', id: s.id })} onClick={() => tapStat(a, { skill: s.id })}>
                 {L(s.name)}
+                {hasItem(c, { kind: 'skill', id: s.id }) && <i className="tag gear" title={T('Un objeto equipado lo cambia', 'An equipped item changes it')}>+</i>}
                 {hasExtra(c, { kind: 'skill', id: s.id }) && <i className="tag plus" title={T('Suma un rasgo o un bonificador propio', 'A feature or custom bonus adds to it')}>✦</i>}
                 {ctx.autoFail.length > 0 && <i className="tag bad">!</i>}
                 {ctx.advantage.length > 0 && <i className="tag good">V</i>}
@@ -246,7 +256,7 @@ export function SheetTab() {
 
             <div className="p-shield">
               <span className="p-mini">{T('Clase de armadura', 'Armor Class')}</span>
-              <button className="p-ac" onClick={() => setInfo({ title: `${T('CA', 'AC')} ${ac.value}`, lines: ac.parts })}>{ac.value}</button>
+              <button className="p-ac" onClick={() => setInfo({ title: `${T('CA', 'AC')} ${ac.value}`, lines: ac.parts })}>{ac.value}{ac.gear.length > 0 && <GearPlus title={ac.gear.join(' · ')} />}</button>
               <label className="p-shield-toggle">
                 <Diamond on={c.shield} onClick={() => set((x) => { x.shield = !x.shield; })} label={T('Escudo', 'Shield')} />
                 <span>{T('Escudo', 'Shield')}</span>
@@ -265,7 +275,7 @@ export function SheetTab() {
                 </label>
                 <label className="p-hp-small">
                   <NumberInput value={c.hp.max} min={1} onChange={(n) => set((x) => { x.hp.max = Math.max(1, n); x.hp.current = Math.min(x.hp.current, maxHp({ ...x, hp: { ...x.hp, max: Math.max(1, n) } })); })} />
-                  <span>{T('Máx.', 'Max')}</span>
+                  <span>{T('Máx.', 'Max')}{hpX.length > 0 && <button className="gear-plus-btn" onClick={(e) => { e.preventDefault(); setExtras('hp'); }}><GearPlus item={hpX.some((x) => x.item)} title={hpX.filter((x) => !x.off).map((x) => x.text).join(' · ')} /> {fmt(hpX.filter((x) => !x.off).reduce((a, x) => a + x.value, 0))}</button>}</span>
                 </label>
               </div>
             </Box>
@@ -298,7 +308,7 @@ export function SheetTab() {
           <Box title={T('Iniciativa', 'Initiative')}>
             <button className="p-big" onClick={() => (tapToRoll ? run(T('Tiro iniciativa', 'Roll initiative'), [{ type: 'rollInitiative' }]) : setStatInfo({ ability: 'dex', init: true }))}>{fmt(initiativeBonus(c))}</button>
           </Box>
-          <Box title={T('Velocidad', 'Speed')}><button className="p-big" onClick={() => setInfo({ title: `${T('Velocidad', 'Speed')} ${spd.value}`, lines: spd.parts })}>{spd.value}</button></Box>
+          <Box title={T('Velocidad', 'Speed')}><button className="p-big" onClick={() => (speedExtras(c, true).length ? setExtras('speed') : setInfo({ title: `${T('Velocidad', 'Speed')} ${spd.value}`, lines: spd.parts }))}>{spd.value}{spd.gear.length > 0 && <GearPlus title={spd.gear.join(' · ')} />}</button></Box>
           <Box title={T('Tamaño', 'Size')}><input className="p-big-input" list="dl-sizes" value={c.size} onChange={(e) => set((x) => { x.size = e.target.value; })} /></Box>
           <Box title={T('Percepción pasiva', 'Passive Perception')}><div className="p-big">{passivePerception(c)}</div></Box>
         </div>
@@ -328,11 +338,12 @@ export function SheetTab() {
                 </thead>
                 <tbody>
                   {c.attacks.map((a) => {
-                    const flat = m[a.ability];
+                    const flat = weaponDamageFlat(c, a);
+                    const ax = attackExtras(c, a);
                     return (
                       <tr key={a.id} {...longPress({ type: 'attack', id: a.id })} onClick={() => setAttackEdit(a.id)}>
                         <td><b>{a.name || '—'}</b></td>
-                        <td>{fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}</td>
+                        <td>{fmt(weaponAttack(c, a))}{(ax.attack.length > 0 || ax.damage.length > 0 || abSrc.sources[a.ability].length > 0) && <GearPlus title={[...ax.attack, ...ax.damage, ...abSrc.sources[a.ability]].map((x) => x.text).join(' · ')} />}</td>
                         <td>{a.damage}{flat ? fmt(flat) : ''} {damageTypeName(a.damageType).toLowerCase()}</td>
                         <td className="p-notes">{[a.range, findMastery(a.mastery) ? L(findMastery(a.mastery)!.name) : '', a.notes].filter(Boolean).join(' · ')}</td>
                         <td className="p-trash-cell"><button className="p-trash" aria-label={T(`Borrar ${a.name}`, `Delete ${a.name}`)} onClick={async (e) => { e.stopPropagation(); if (await confirmDelete(a.name || T('arma', 'weapon'))) set((x) => { x.attacks = x.attacks.filter((y) => y.id !== a.id); }); }}>🗑</button></td>
@@ -558,6 +569,7 @@ export function SheetTab() {
       {hpOpen && <HpModal onClose={() => setHpOpen(false)} />}
       {levelUp && <LevelUpPage onClose={() => setLevelUp(false)} />}
       {origin && <OriginPicker onClose={() => setOrigin(false)} />}
+      {extras && <ExtrasModal kind={extras} onClose={() => setExtras(null)} />}
       {statInfo && <StatInfoModal {...statInfo} onClose={() => setStatInfo(null)} />}
       {attackEdit && <AttackModal id={attackEdit} onClose={() => setAttackEdit(null)} />}
       {spellEdit && <SpellModal id={spellEdit} onClose={() => setSpellEdit(null)} />}
@@ -586,6 +598,30 @@ export function SheetTab() {
     </div>
   );
 }
+
+/** PG máximos o velocidad: la base de la hoja y lo que suman rasgos, dotes y objetos (los rasgos se pueden desmarcar) */
+function ExtrasModal({ kind, onClose }: { kind: 'hp' | 'speed'; onClose: () => void }) {
+  const c = useChar();
+  const update = useStore((s) => s.update);
+  const list = kind === 'hp' ? hpExtras(c, true) : speedExtras(c, true);
+  const total = kind === 'hp' ? maxHp(c) : speed(c).value;
+  const toggle = (id: string) => update((x) => { const off = new Set(x.rulesOff ?? []); if (off.has(id)) off.delete(id); else off.add(id); x.rulesOff = [...off]; });
+  return (
+    <Modal title={kind === 'hp' ? T(`PG máximos: ${total}`, `Max HP: ${total}`) : T(`Velocidad: ${total} pies`, `Speed: ${total} ft`)} onClose={onClose}>
+      <div className="calc"><div>{T('En la hoja', 'On the sheet')}: {kind === 'hp' ? c.hp.max : c.speed}</div></div>
+      <div className="rule-list">
+        {list.map((x) => (
+          <label key={x.id} className={`rule-item ${x.off ? 'off' : ''}`}>
+            {x.item ? <GearPlus /> : <input type="checkbox" checked={!x.off} onChange={() => toggle(x.id)} />}
+            <span><b>{x.label}</b> {fmt(x.value)}<br /><small className="muted">{x.text}</small></span>
+          </label>
+        ))}
+      </div>
+      <p className="hint">{x_hint()}</p>
+    </Modal>
+  );
+}
+const x_hint = () => T('Los rasgos y dotes se suman solos. Si ya los habías sumado a mano en la hoja, desmárcalos aquí para no contarlos dos veces. Lo que dan los objetos se quita al desequiparlos.', 'Features and feats are added automatically. If you had already added them by hand on the sheet, untick them here so they don’t count twice. Item effects go away when you unequip the item.');
 
 /** Información de una característica, salvación, habilidad o la iniciativa: qué cubre, cómo se calcula (con los
  *  rasgos de clase, especie y dotes que suman) y un bonificador propio para lo que la app no sepa */
@@ -639,19 +675,20 @@ function StatInfoModal({ ability, skill, save, init, onClose }: { ability: Abili
       )}
       <div className="calc">
         <div>{T('Modificador de', 'Modifier from')} {abilityName(init ? 'dex' : ability)}: {fmt(m[init ? 'dex' : ability])}</div>
+        {abilityScores(c).sources[init ? 'dex' : ability].map((x) => <div key={x.id} className="gear-line"><GearPlus /> {x.text}</div>)}
         {(s || save) && <div>{T('Competencia', 'Proficiency')}: {p === 0 ? T('no', 'no') : p === 1 ? `${T('sí', 'yes')} (${fmt(pb)})${ruleProf ? ` · ${rules.find((r) => r.prof)?.source}` : ''}` : `${T('pericia', 'expertise')} (${fmt(2 * pb)})`}</div>}
-        {effective.filter((r) => !r.off && r.bonus).map((r) => <div key={r.id}>{r.source}: {fmt(r.bonus!)}</div>)}
+        {effective.filter((r) => !r.off && r.bonus).map((r) => <div key={r.id} className={r.item ? 'gear-line' : ''}>{r.item && <GearPlus />} {r.source}: {fmt(r.bonus!)}</div>)}
         {adj && adjVal !== 0 && <div>{adj.note || T('Otro bonificador', 'Other bonus')} ({adjText(adj)}): {fmt(adjVal)}</div>}
         <div><b>{T('Bonificador total', 'Total bonus')}: {fmt(total)}</b></div>
       </div>
 
       {effective.length > 0 && (
         <div className="rule-list">
-          <b>{T('Por tu clase, especie o dotes (reglas 2024)', 'From your class, species or feats (2024 rules)')}</b>
+          <b>{T('Por tu clase, especie, dotes u objetos (reglas 2024)', 'From your class, species, feats or items (2024 rules)')}</b>
           {effective.map((r) => (
             <label key={r.id} className={`rule-item ${r.off ? 'off' : ''}`}>
               <input type="checkbox" checked={!r.off} onChange={() => toggleRule(r.id)} />
-              <span><b>{r.source}</b>{r.bonus ? ` ${fmt(r.bonus)}` : r.adv ? ` · ${T('ventaja', 'advantage')}` : r.prof ? ` · ${T('competencia', 'proficiency')}` : ''}<br /><small className="muted">{r.text}</small></span>
+              <span>{r.item && <GearPlus />}<b>{r.source}</b>{r.bonus ? ` ${fmt(r.bonus)}` : r.adv ? ` · ${T('ventaja', 'advantage')}` : r.dis ? ` · ${T('desventaja', 'disadvantage')}` : r.prof ? ` · ${T('competencia', 'proficiency')}` : ''}<br /><small className="muted">{r.text}</small></span>
             </label>
           ))}
           <p className="hint">{T('Se aplican solas. Desmarca una si en tu mesa no se usa o no la tienes.', 'They apply automatically. Untick one if your table doesn’t use it or you don’t have it.')}</p>
@@ -732,7 +769,9 @@ function AttackModal({ id, onClose }: { id: string; onClose: () => void }) {
       </div>
       <label className="check"><input type="checkbox" checked={a.proficient} onChange={(e) => set((x) => { x.proficient = e.target.checked; })} /> {T('Competente', 'Proficient')}</label>
       <label className="field">{T('Notas', 'Notes')}<input value={a.notes ?? ''} onChange={(e) => set((x) => { x.notes = e.target.value; })} /></label>
-      <p className="hint">{T(`Bonificador de ataque: ${fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}. El modificador de característica se suma al daño automáticamente.`, `Attack bonus: ${fmt(attackBonus(c, a.ability, a.proficient, a.extraBonus))}. The ability modifier is added to damage automatically.`)}</p>
+      <p className="hint">{T(`Bonificador de ataque: ${fmt(weaponAttack(c, a))}. El modificador de característica se suma al daño automáticamente.`, `Attack bonus: ${fmt(weaponAttack(c, a))}. The ability modifier is added to damage automatically.`)}</p>
+      {(() => { const ax = attackExtras(c, a); return [...ax.attack.map((x) => `${T('Ataque', 'Attack')} ${x.text}`), ...ax.damage.map((x) => `${T('Daño', 'Damage')} ${x.text}`)].map((t) => <p key={t} className="hint gear-line"><GearPlus /> {t}</p>); })()}
+      {a.itemId && <p className="hint">{T('Esta fila sale de un arma equipada en «Objetos»: se quita al desequiparla.', 'This row comes from a weapon equipped in “Items”: it goes away when you unequip it.')}</p>}
       <div className="row">
         <button className="btn danger" onClick={async () => { if (await confirmDelete(a.name || T('arma', 'weapon'))) { update((ch) => { ch.attacks = ch.attacks.filter((y) => y.id !== id); }); onClose(); } }}>{T('Borrar', 'Delete')}</button>
         <button className="btn primary grow" onClick={onClose}>{T('Hecho', 'Done')}</button>

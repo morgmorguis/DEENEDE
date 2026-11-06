@@ -1,8 +1,9 @@
 // Lógica de la partida compartida. Funciones puras: el servidor guarda una `Room`, le aplica los
 // comandos de cada cliente y envía a cada uno solo lo que puede ver (los jugadores nunca reciben
 // monstruos ocultos, vida exacta de monstruos ni notas del DM).
+import type { ItemMods } from '../rules/itemTypes';
 import type {
-  Combatant, CombatantView, Command, Encounter, Gift, HpState, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
+  Combatant, CombatantView, Command, Encounter, Gift, HpState, RoomSettings, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
 
 export interface StoredMember extends Member { token: string }
@@ -23,6 +24,7 @@ export interface Room {
   roster: RosterEntry[];
   /** Registro de oro y objetos dados por el DM */
   gifts: Gift[];
+  settings: RoomSettings;
 }
 
 export interface Effect { to: string; ops: SheetOp[] }
@@ -35,6 +37,35 @@ const COIN_KEYS = ['cp', 'sp', 'ep', 'gp', 'pp'] as const;
 const RARITIES = ['mundane', 'common', 'uncommon', 'rare', 'veryRare', 'legendary', 'artifact'];
 const TYPES = ['weapon', 'armor', 'potion', 'scroll', 'wondrous', 'ring', 'wand', 'gear', 'treasure', 'other'];
 const num = (x: unknown, max: number) => Math.max(0, Math.min(max, Math.round(Number(x) || 0)));
+
+const ABS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+const int = (x: unknown, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(Number(x) || 0)));
+const short = (x: unknown, n: number) => String(x ?? '').slice(0, n);
+
+/** Efectos al equipar: solo campos conocidos y números acotados */
+export function cleanMods(m: unknown): ItemMods | undefined {
+  if (!m || typeof m !== 'object') return undefined;
+  const x = m as Record<string, unknown>;
+  const out: ItemMods = {};
+  const a = x.armor as Record<string, unknown> | undefined;
+  if (a && typeof a === 'object') {
+    const kind = ['light', 'medium', 'heavy'].includes(String(a.kind)) ? (a.kind as 'light' | 'medium' | 'heavy') : 'light';
+    out.armor = { base: int(a.base, 0, 30), kind, dexMax: a.dexMax == null ? null : int(a.dexMax, 0, 10), ...(a.str ? { str: int(a.str, 0, 30) } : {}), ...(a.stealthDis ? { stealthDis: true } : {}) };
+  }
+  for (const k of ['shield', 'ac', 'acNoArmor', 'saves', 'checks', 'speed', 'attack', 'damage'] as const) { const v = int(x[k], -60, 60); if (v) out[k] = v; }
+  for (const k of ['abilitySet', 'abilityBonus'] as const) {
+    const src = x[k] as Record<string, unknown> | undefined;
+    if (!src || typeof src !== 'object') continue;
+    const r: Partial<Record<(typeof ABS)[number], number>> = {};
+    for (const ab of ABS) { const v = int(src[ab], -30, 30); if (v) r[ab] = v; }
+    if (Object.keys(r).length) out[k] = r;
+  }
+  const w = x.weapon as Record<string, unknown> | undefined;
+  if (w && typeof w === 'object' && /^\d*d\d+([+-]\d+)?$/.test(String(w.dice))) {
+    out.weapon = { dice: short(w.dice, 12), type: short(w.type, 20), ...(w.finesse ? { finesse: true } : {}), ...(w.ranged ? { ranged: true } : {}), ...(w.range ? { range: short(w.range, 20) } : {}), ...(w.mastery ? { mastery: short(w.mastery, 20) } : {}) };
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 
 /** Limpia lo que manda el DM: monedas enteras y positivas, objetos con nombre y campos acotados */
 export function cleanGift(cmd: Extract<Command, { t: 'give' }>): Pick<Gift, 'coins' | 'items' | 'note'> | null {
@@ -50,6 +81,7 @@ export function cleanGift(cmd: Extract<Command, { t: 'give' }>): Pick<Gift, 'coi
     attunement: !!i.attunement,
     qty: Math.max(1, num(i.qty, 9999)),
     ...(i.ref ? { ref: String(i.ref).slice(0, 60) } : {}),
+    ...(cleanMods(i.mods) ? { mods: cleanMods(i.mods) } : {}),
   })).filter((i) => i.name);
   if (!Object.keys(coins).length && !items.length) return null;
   const note = String(cmd.note ?? '').trim().slice(0, 500);
@@ -60,7 +92,7 @@ export const rid = (n = 8) => Array.from({ length: n }, () => 'abcdefghijkmnpqrs
 const code6 = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 
 export function createRoom(): Room {
-  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [] };
+  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [], settings: { showPartyHp: false } };
 }
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -71,6 +103,7 @@ export function normalizeRoom(room: Room): Room {
   const r = room;
   r.roster ??= [];
   r.gifts ??= [];
+  r.settings = { ...{ showPartyHp: false }, ...(r.settings ?? {}) };
   r.encounter.phase ??= 'running';
   r.encounter.ready ??= [];
   return r;
@@ -314,6 +347,19 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       return { room: r, effects };
     }
 
+    case 'give': {
+      // El DM da a cualquier jugador; un jugador puede dar de lo suyo a otro jugador (intercambio)
+      if (me.role !== 'dm' && me.role !== 'player') return deny();
+      const to = r.members.find((m) => m.id === cmd.toId && m.role === 'player');
+      if (!to || to.id === me.id) return { room, effects: [], error: 'no-target' };
+      const clean = cleanGift(cmd);
+      if (!clean) return { room, effects: [], error: 'empty-gift' };
+      const from = dm ? {} : { fromId: me.id, fromName: me.summary?.name || me.name };
+      r.gifts.push({ id: rid(10), at: Date.now(), toId: to.id, toName: to.summary?.name || to.name, ...from, ...clean, delivered: false });
+      if (r.gifts.length > MAX_GIFTS) r.gifts.splice(0, r.gifts.length - MAX_GIFTS);
+      return { room: r, effects };
+    }
+
     case 'giftAck': {
       const ids = new Set(cmd.ids);
       for (const g of r.gifts) if (ids.has(g.id) && g.toId === me.id && !g.delivered) { g.delivered = true; g.deliveredAt = Date.now(); }
@@ -366,13 +412,8 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       if (i >= 0) r.roster[i] = entry; else r.roster.push(entry);
       return { room: r, effects };
     }
-    case 'give': {
-      const to = r.members.find((m) => m.id === cmd.toId && m.role === 'player');
-      if (!to) return { room, effects: [], error: 'no-target' };
-      const clean = cleanGift(cmd);
-      if (!clean) return { room, effects: [], error: 'empty-gift' };
-      r.gifts.push({ id: rid(10), at: Date.now(), toId: to.id, toName: to.summary?.name || to.name, ...clean, delivered: false });
-      if (r.gifts.length > MAX_GIFTS) r.gifts.splice(0, r.gifts.length - MAX_GIFTS);
+    case 'roomSettings': {
+      if (typeof cmd.patch.showPartyHp === 'boolean') r.settings.showPartyHp = cmd.patch.showPartyHp;
       return { room: r, effects };
     }
     case 'giftCancel': {
@@ -486,7 +527,8 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
       if (dm) return { ...c, state };
       const { notes: _notes, ...rest } = c;
       void _notes;
-      const secret = c.kind !== 'pc' && !c.showHp;
+      // Personajes de otros jugadores: su vida solo si el DM lo permite (si no, su estado: herido, ensangrentado…)
+      const secret = (c.kind !== 'pc' && !c.showHp) || (c.kind === 'pc' && c.ownerId !== me.id && !room.settings.showPartyHp);
       return { ...rest, hp: secret ? null : c.hp, hpMax: secret ? null : c.hpMax, temp: secret ? 0 : c.temp, ac: c.kind === 'pc' ? c.ac : null, initBonus: undefined, monster: undefined, cr: undefined, counters: undefined, state };
     });
   const log = room.log
@@ -494,7 +536,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
     .map((ev) => {
       if (dm) return ev;
       const tgt = ev.targetId ? e.order.find((c) => c.id === ev.targetId) : undefined;
-      const secret = tgt && tgt.kind !== 'pc' && !tgt.showHp;
+      const secret = tgt && ((tgt.kind !== 'pc' && !tgt.showHp) || (tgt.kind === 'pc' && tgt.ownerId !== me.id && !room.settings.showPartyHp));
       return secret || (!tgt && ev.after) ? { ...ev, after: undefined } : ev;
     })
     .slice(-400);
@@ -502,7 +544,12 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
   return {
     code: room.code,
     you: { id: me.id, role: me.role, name: me.name },
-    members: room.members.map(({ token: _t, ...m }) => { void _t; return m; }),
+    members: room.members.map(({ token: _t, ...m }) => {
+      void _t;
+      if (dm || m.id === me.id || !m.summary || room.settings.showPartyHp) return m;
+      return { ...m, summary: { ...m.summary, hp: 0, hpMax: 0, temp: 0, deathSaves: m.summary.deathSaves ? { success: 0, fail: 0 } : null, hpHidden: true } };
+    }),
+    settings: room.settings,
     roster: dm ? room.roster : [],
     encounter: {
       active: e.active,
@@ -516,7 +563,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
       hiddenTurn: !!cur && cur.hidden && !dm,
     },
     log,
-    gifts: dm ? room.gifts : me.role === 'player' ? room.gifts.filter((g) => g.toId === me.id) : [],
+    gifts: dm ? room.gifts : me.role === 'player' ? room.gifts.filter((g) => g.toId === me.id || g.fromId === me.id) : [],
     canUndo: !!target && (dm || owner === me.id),
     canEndTurn: e.active && phaseOf(e) === 'running' && !!cur && (dm || cur.ownerId === me.id),
   };

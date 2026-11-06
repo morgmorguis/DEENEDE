@@ -4,6 +4,7 @@ import type { Character, InitEntry, LogEntry, Note, NoteFolder } from './types';
 import { normalizeCharacter, sampleCharacter, uid } from './rules/factory';
 import { recoverAfterCombat } from './rules/consumables';
 import type { ItemData } from './rules/items';
+import type { BackupExtras } from './backup';
 import { SELF_ID, applyCommand, runQuickRoll, sortOrder, type ApplyResult, type Command } from './rules/engine';
 import { activeReminders } from './rules/calc';
 import { DEFAULT_MODEL } from './config';
@@ -30,6 +31,16 @@ export interface Settings {
   avatarEditor?: boolean;
   /** Plantillas de objetos creadas por el usuario (el DM las reutiliza al dar objetos) */
   customItems?: ItemData[];
+  /** Botines que el DM prepara antes de la partida (también sin conexión) */
+  lootBundles?: LootBundle[];
+}
+
+export interface LootBundle {
+  id: string;
+  name: string;
+  coins: { cp: number; sp: number; ep: number; gp: number; pp: number };
+  items: ItemData[];
+  note: string;
 }
 
 interface State {
@@ -48,7 +59,7 @@ interface State {
   removeCharacter: (id: string) => void;
   setActive: (id: string) => void;
   /** Recupera fichas de una copia de seguridad: fusionando por id o reemplazando todas */
-  importCharacters: (chars: Character[], mode: 'merge' | 'replace') => void;
+  importCharacters: (chars: Character[], mode: 'merge' | 'replace', extras?: BackupExtras) => void;
   /** Aplica comandos al personaje activo, los registra y (si no es silencioso) muestra un aviso */
   runCommands: (userText: string | null, cmds: Command[], extraLines?: string[], silent?: boolean) => void;
   quickRoll: (expr: string, label: string) => void;
@@ -119,11 +130,16 @@ export const useStore = create<State>()(
           return { characters, activeId: characters[0].id };
         }),
       setActive: (id) => set({ activeId: id }),
-      importCharacters: (chars, mode) =>
+      importCharacters: (chars, mode, extras = {}) =>
         set((s) => {
           const characters = mergeCharacters(s.characters, chars, mode);
           const activeId = characters.some((c) => c.id === s.activeId) ? s.activeId : chars[0].id;
-          return { characters, activeId };
+          // Historial de las fichas de la copia; plantillas y botines se suman a los que ya hay
+          const log = { ...(mode === 'replace' ? {} : s.log), ...(extras.log ?? {}) };
+          const byName = <T extends { name: string }>(a: T[] = [], b: T[] = []) => [...a.filter((x) => !b.some((y) => y.name === x.name)), ...b];
+          const byId = <T extends { id: string }>(a: T[] = [], b: T[] = []) => [...a.filter((x) => !b.some((y) => y.id === x.id)), ...b];
+          const settings = { ...s.settings, customItems: byName(s.settings.customItems, extras.customItems), lootBundles: byId(s.settings.lootBundles, extras.lootBundles) };
+          return { characters, activeId, log, settings };
         }),
 
       pushLog: (e) =>
