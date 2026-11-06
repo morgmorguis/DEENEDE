@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useChar, useStore } from '../store';
-import { maxHp } from '../rules/calc';
+import { maxHp, rollExpr } from '../rules/calc';
+import { uid } from '../rules/factory';
 import { DAMAGE_TYPES } from '../rules/srd';
 import type { DamageType } from '../types';
 import { Modal } from './common';
@@ -28,7 +29,7 @@ export function HpBar() {
             <>
               ❤️ {c.hp.temp > 0
                 ? <><b>{c.hp.current + c.hp.temp}</b>/{mhp} <span className="temp">({c.hp.current} + {c.hp.temp} {T('temp.', 'temp')})</span></>
-                : <><b>{c.hp.current}</b>/{mhp}</>}
+                : <><b>{c.hp.current}</b>/<span className={(c.hpMaxMods ?? []).length ? ((c.hpMaxMods ?? []).reduce((a, m) => a + m.amount, 0) < 0 ? 'max-down' : 'max-up') : ''}>{mhp}</span></>}
               {c.hp.current === 0 && !c.stable && <span className="warn"> · 💀 {c.deathSaves.success}✓ {c.deathSaves.fail}✗</span>}
               {c.hp.current === 0 && c.stable && <span> · {T('Estable', 'Stable')}</span>}
             </>
@@ -82,8 +83,107 @@ export function HpModal({ onClose }: { onClose: () => void }) {
           {T('Revivir con 1 PG (p. ej. Revivificar)', 'Revive with 1 HP (e.g. Revivify)')}
         </button>
       )}
+      <MaxHpMods />
       <p className="hint">{T('«Temporales»: pon los PG temporales que te dan (un conjuro, un rasgo…). Se suman a tu vida y el daño los gasta primero. No se acumulan entre sí: si ya tienes, te quedas con el número mayor.', '“Temp”: enter the Temporary HP you’re granted (a spell, a feature…). They add to your life and damage uses them up first. They don’t stack with each other: you keep the higher number.')}</p>
       <p className="hint">{T('El daño se aplica en orden: inmunidad → resistencia → vulnerabilidad → PG temporales → PG. Se comprueban concentración, caída a 0 PG y muerte instantánea.', 'Damage is applied in order: immunity → resistance → vulnerability → temporary HP → HP. Concentration, dropping to 0 HP and instant death are checked.')}</p>
     </Modal>
+  );
+}
+
+/** Atajos habituales de cambios de PG máximos (reglas 2024) */
+const MAX_PRESETS: { label: [string, string]; amount: number | 'ask'; sign: 1 | -1; until: 'long' | 'manual'; heal: boolean }[] = [
+  { label: ['Ayuda (nivel 2)', 'Aid (level 2)'], amount: 5, sign: 1, until: 'manual', heal: true },
+  { label: ['Ayuda (nivel 3)', 'Aid (level 3)'], amount: 10, sign: 1, until: 'manual', heal: true },
+  { label: ['Ayuda (nivel 4)', 'Aid (level 4)'], amount: 15, sign: 1, until: 'manual', heal: true },
+  { label: ['Banquete de héroes (2d10)', 'Heroes’ Feast (2d10)'], amount: 'ask', sign: 1, until: 'manual', heal: true },
+  { label: ['Drenaje de vida (necrótico)', 'Life Drain (necrotic)'], amount: 'ask', sign: -1, until: 'long', heal: false },
+];
+
+/** Vida máxima temporal: sube (Ayuda, Banquete de héroes) o baja (drenajes necróticos) el máximo */
+function MaxHpMods() {
+  const c = useChar();
+  const update = useStore((s) => s.update);
+  const showToast = useStore((s) => s.showToast);
+  const [open, setOpen] = useState(false);
+  const [sign, setSign] = useState<1 | -1>(1);
+  const [amount, setAmount] = useState('');
+  const [source, setSource] = useState('');
+  const [until, setUntil] = useState<'long' | 'manual'>('manual');
+  const [heal, setHeal] = useState(true);
+  const mods = c.hpMaxMods ?? [];
+  const n = Math.floor(Number(amount));
+  const ok = Number.isFinite(n) && n > 0;
+
+  const add = () => {
+    if (!ok) return;
+    const delta = sign * n;
+    const label = source.trim() || (sign > 0 ? T('Aumento de PG máximos', 'HP maximum increase') : T('Reducción de PG máximos', 'HP maximum reduction'));
+    let died = false;
+    update((x) => {
+      x.hpMaxMods = [...(x.hpMaxMods ?? []), { id: uid(), amount: delta, source: label, until, at: Date.now() }];
+      const max = maxHp(x);
+      // Ayuda y Banquete de héroes también suben los PG actuales en lo mismo
+      if (delta > 0 && heal) x.hp.current = Math.min(max, x.hp.current + delta);
+      x.hp.current = Math.min(x.hp.current, max);
+      // Reglas 2024: si los PG máximos llegan a 0, mueres
+      if (max <= 0) { x.dead = true; x.hp.current = 0; died = true; }
+    });
+    showToast(sign > 0 ? T('❤️ PG máximos aumentados', '❤️ HP maximum increased') : T('🖤 PG máximos reducidos', '🖤 HP maximum reduced'), [
+      `${label}: ${delta > 0 ? '+' : ''}${delta}`,
+      ...(died ? [T('☠️ Tus PG máximos han llegado a 0: mueres (reglas 2024).', '☠️ Your HP maximum reached 0: you die (2024 rules).')] : []),
+      until === 'long' ? T('Termina con un descanso largo.', 'Ends on a Long Rest.') : T('Quítalo cuando termine el efecto.', 'Remove it when the effect ends.'),
+    ]);
+    setAmount(''); setSource(''); setOpen(false);
+  };
+  const remove = (id: string) => update((x) => { x.hpMaxMods = (x.hpMaxMods ?? []).filter((m) => m.id !== id); x.hp.current = Math.min(x.hp.current, maxHp(x)); });
+
+  return (
+    <div className="maxhp-box">
+      <div className="row">
+        <b className="grow">{T('Vida máxima temporal', 'Temporary HP maximum')}</b>
+        {!open && <button className="btn small" onClick={() => setOpen(true)}>＋ {T('Añadir', 'Add')}</button>}
+      </div>
+      {mods.map((m) => (
+        <div key={m.id} className={`row maxhp-row ${m.amount < 0 ? 'neg' : 'pos'}`}>
+          <span className="grow"><b>{m.amount > 0 ? '+' : ''}{m.amount}</b> · {m.source}{m.until === 'long' ? <small className="muted"> · {T('hasta descanso largo', 'until Long Rest')}</small> : null}</span>
+          <button className="btn small" aria-label={T(`Quitar ${m.source}`, `Remove ${m.source}`)} onClick={() => remove(m.id)}>✕</button>
+        </div>
+      ))}
+      {open && (
+        <>
+          <div className="chips">
+            {MAX_PRESETS.map((p) => (
+              <button key={p.label[1]} className="chip" onClick={() => {
+                setSign(p.sign); setUntil(p.until); setHeal(p.heal); setSource(T(...p.label));
+                if (p.amount === 'ask') setAmount(p.label[1].includes('2d10') ? String(rollExpr('2d10').total) : '');
+                else setAmount(String(p.amount));
+              }}>{p.sign > 0 ? '❤️' : '🖤'} {T(...p.label)}</button>
+            ))}
+          </div>
+          <div className="segmented">
+            <button className={sign > 0 ? 'on' : ''} onClick={() => { setSign(1); setHeal(true); }}>＋ {T('Aumentar', 'Increase')}</button>
+            <button className={sign < 0 ? 'on' : ''} onClick={() => { setSign(-1); setUntil('long'); }}>− {T('Reducir', 'Reduce')}</button>
+          </div>
+          <div className="row">
+            <input className="grow" type="number" inputMode="numeric" min={1} placeholder={T('Cuánto', 'How much')} value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input className="grow" placeholder={T('Origen (Ayuda, espectro…)', 'Source (Aid, wraith…)')} value={source} onChange={(e) => setSource(e.target.value)} />
+          </div>
+          <label className="field">{T('Dura', 'Lasts')}
+            <select value={until} onChange={(e) => setUntil(e.target.value as 'long' | 'manual')}>
+              <option value="manual">{T('Hasta que lo quite (p. ej. Ayuda: 8 horas)', 'Until I remove it (e.g. Aid: 8 hours)')}</option>
+              <option value="long">{T('Hasta el próximo descanso largo', 'Until my next Long Rest')}</option>
+            </select>
+          </label>
+          {sign > 0 && <label className="check"><input type="checkbox" checked={heal} onChange={(e) => setHeal(e.target.checked)} /> {T('Subir también los PG actuales en lo mismo (Ayuda, Banquete de héroes)', 'Also raise current HP by the same amount (Aid, Heroes’ Feast)')}</label>}
+          <p className="hint">{sign > 0
+            ? T('Ayuda: +5 PG máximos y actuales por cada nivel de espacio desde el 2.º, durante 8 horas.', 'Aid: +5 maximum and current HP per slot level from 2nd, for 8 hours.')
+            : T('Algunos ataques necróticos (como el Drenaje de vida de un espectro o un tumulario) reducen tus PG máximos en el daño recibido hasta un descanso largo. Si llegan a 0, mueres.', 'Some necrotic attacks (like a wraith’s or wight’s Life Drain) reduce your HP maximum by the damage taken until a Long Rest. If it reaches 0, you die.')}</p>
+          <div className="row">
+            <button className="btn grow" onClick={() => setOpen(false)}>{T('Cancelar', 'Cancel')}</button>
+            <button className={`btn grow ${sign > 0 ? 'good' : 'danger'}`} disabled={!ok} onClick={add}>{sign > 0 ? T(`Subir máximo +${ok ? n : ''}`, `Raise max +${ok ? n : ''}`) : T(`Bajar máximo −${ok ? n : ''}`, `Lower max −${ok ? n : ''}`)}</button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.20</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.21</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -149,6 +149,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
     <ol>
       <li><a href="#empezar">Empezar</a></li>
       <li><a href="#hoja">La hoja de personaje</a></li>
+      <li><a class="sub" href="#vida-maxima">Vida máxima temporal</a></li>
       <li><a href="#escribir">Rellenar la hoja a mano</a></li>
       <li><a href="#origen">Origen y habilidades (nivel 1)</a></li>
       <li><a href="#info">Saber qué hace cada cosa</a></li>
@@ -202,6 +203,19 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
         <figure><img class="phone" src="img/01-hoja.jpg" alt="Hoja de personaje en el móvil con la barra de vida y la cabecera" width="700" height="1515" loading="lazy"><figcaption>La hoja en el móvil.</figcaption></figure>
       </div>
       <figure><img class="shot" src="img/02-identidad.jpg" alt="Selectores de clase, subclase, especie y ascendencia: Bárbaro, Senda del Berserker, Dracónido, Rojo" width="692" height="440" loading="lazy" style="width: min(100%, 520px)"><figcaption>Selectores de clase, subclase, especie y ascendencia.</figcaption></figure>
+          <h3 id="vida-maxima">Vida máxima temporal</h3>
+      <div class="split">
+        <div>
+          <p>Toca tu vida → <b>Vida máxima temporal → ＋ Añadir</b> para subir o bajar tus PG máximos:</p>
+          <ul class="list">
+            <li><b>Ayuda</b> (nivel 2, 3, 4…): +5, +10, +15 a los PG máximos y actuales. Quítalo cuando acaben las 8 horas.</li>
+            <li><b>Banquete de héroes</b>: tira 2d10 solo.</li>
+            <li><b>Daño necrótico que reduce el máximo</b> (Drenaje de vida de un espectro o un tumulario…): baja el máximo en lo que digas y termina solo con el descanso largo. Si el máximo llega a 0, mueres.</li>
+          </ul>
+          <p>En la barra de vida, el máximo sale en verde si está subido y en rojo si está reducido. Tocando el ℹ️ junto a «Máx.» en la hoja ves de dónde sale cada punto.</p>
+        </div>
+        <figure><img class="phone" src="img/41-vida-maxima.jpg" alt="Puntos de golpe con Ayuda +5 y Drenaje de vida −8 hasta descanso largo" width="700" height="1516" loading="lazy"><figcaption>Ayuda y un drenaje necrótico.</figcaption></figure>
+      </div>
     </section>
 
     <!-- 3 -->
@@ -262,10 +276,16 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
         <div>
           <p><b>Mantén pulsada 1,5 segundos</b> cualquier habilidad, salvación, característica, arma, conjuro, rasgo, recurso o condición. Aparece una burbuja con lo que hace y con lo que te limita <i>ahora mismo</i>: ventaja o desventaja por tus condiciones, los espacios que te quedan, la concentración que perderías, que en Furia no puedes lanzar conjuros…</p>
           <p>Con un <b>toque corto</b> en un conjuro o rasgo se abre su descripción completa con un botón para editarlo. En las características y habilidades, el toque muestra cómo se calcula tu bonificador; tirar el dado al tocar es opcional (capítulo 14).</p>
-          <p>La pestaña <b>Reglas</b> tiene buscador de condiciones, habilidades, acciones, reglas clave, maestrías de armas y efectos.</p>
+          <p>La pestaña <b>Reglas</b> tiene buscador de condiciones, habilidades, acciones, reglas clave, maestrías de armas y efectos, además de:</p>
+          <ul class="list">
+            <li><b>Armas</b>: las 38 armas de 2024 con daño, propiedades y maestría, si permiten <b>ataques no letales</b> (solo cuerpo a cuerpo), si sirven para combatir con dos armas, cómo van bajo el agua y sus límites (Pesada, Recarga, A dos manos…). Con tu ficha te dice si tienes competencia y si atacarías con desventaja. También el ataque sin armas y las armas improvisadas.</li>
+            <li><b>Puedes / no puedes</b>: qué cabe en tu turno, un solo espacio de conjuro por turno, conjuros con armadura sin entrenamiento, ataques de oportunidad, moverse entre criaturas, esconderse, situaciones especiales, objetos (pociones como acción adicional, ponerse armadura…), saltar, respiración, caídas, descansos, visión y sorpresa.</li>
+            <li><b>Propiedades de armas</b> explicadas una a una.</li>
+          </ul>
         </div>
-        <figure><img class="phone" src="img/03-burbuja.jpg" alt="Burbuja de información sobre Atletismo encima de la hoja" width="700" height="1515" loading="lazy"><figcaption>La burbuja de Atletismo.</figcaption></figure>
+        <figure><img class="phone" src="img/42-reglas-armas.jpg" alt="Reglas: el mandoble con daño, propiedades, maestría, si permite ataques no letales y sus límites" width="700" height="1516" loading="lazy"><figcaption>Un arma en Reglas.</figcaption></figure>
       </div>
+      <p><b>Cada número se explica al tocarlo</b>: características, salvaciones, habilidades, iniciativa, CA, velocidad, PG máximos, bonificador de competencia, percepción pasiva, CD y ataque de conjuros y cada arma muestran de dónde sale cada sumando: característica, competencia, rasgos (✦), objetos (+ azul), efectos como Bendición (✨, se tiran aparte) y penalizaciones como el agotamiento.</p>
 
       <h3 id="bonificadores">Bonificadores de clase, especie y dotes</h3>
       <div class="split">

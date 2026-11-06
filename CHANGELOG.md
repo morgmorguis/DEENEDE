@@ -3,6 +3,22 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.21.0 · 6 nov 2026 — Vida máxima temporal, todo explicado y reglas de armas
+
+**Vida máxima temporal**
+- Tocando la vida → «Vida máxima temporal»: sube (Ayuda nivel 2/3/4, Banquete de héroes 2d10) o baja (Drenaje de vida y otros daños necróticos) los PG máximos, con su origen y duración (hasta descanso largo o hasta que lo quites). Ayuda sube también los PG actuales; si el máximo llega a 0, mueres (reglas 2024).
+- El máximo de la barra de vida sale en verde o rojo cuando está cambiado.
+
+**Cada modificador explicado**
+- Al tocar PG máximos, velocidad, bonificador de competencia, percepción pasiva, CD y ataque de conjuros o un arma se ve cada sumando con su origen: característica (y el objeto que la cambia), competencia, rasgos ✦, objetos + azul, efectos ✨ (Bendición, Perdición… que se tiran aparte) y agotamiento.
+- Salvaciones, habilidades e iniciativa muestran también los dados de efectos y el agotamiento.
+- Percepción pasiva con ventaja (+5) o desventaja (−5) según las reglas 2024.
+
+**Reglas**
+- **Armas**: las 38 armas de 2024 con daño, propiedades, maestría, si permiten **ataques no letales** (solo cuerpo a cuerpo), dos armas, bajo el agua y límites; con tu ficha, si tienes competencia y si tendrías desventaja por ser Pesada. Ataque sin armas y armas improvisadas.
+- **Puedes / no puedes**: qué cabe en el turno, un espacio de conjuro por turno, conjuros con armadura sin entrenamiento, componentes, ataques de oportunidad, moverse entre criaturas, esconderse, ataques en situaciones especiales, objetos y armaduras, saltos, respiración, caídas, descansos, visión y sorpresa.
+- **Propiedades de armas** explicadas una a una.
+
 ## 0.20.0 · 6 nov 2026 — Equipo, intercambios y archivo de guardado
 
 **Equipar objetos**

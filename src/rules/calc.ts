@@ -123,7 +123,59 @@ export function speed(c: Character): { value: number; parts: string[]; gear: str
 }
 
 export function maxHp(c: Character): number {
-  return c.hp.max + c.effects.reduce((a, e) => a + (e.mods.maxHp ?? 0), 0) + hpExtras(c).reduce((a, x) => a + x.value, 0);
+  return Math.max(0, c.hp.max + c.effects.reduce((a, e) => a + (e.mods.maxHp ?? 0), 0) + hpExtras(c).reduce((a, x) => a + x.value, 0) + (c.hpMaxMods ?? []).reduce((a, m) => a + m.amount, 0));
+}
+
+/** De dónde sale cada punto de los PG máximos (para explicarlo al tocar) */
+export function maxHpParts(c: Character): { label: string; value: number; kind: 'base' | 'effect' | 'trait' | 'item' | 'temp'; id?: string; off?: boolean }[] {
+  const out: { label: string; value: number; kind: 'base' | 'effect' | 'trait' | 'item' | 'temp'; id?: string; off?: boolean }[] = [{ label: T('Base de la hoja (dados de golpe + CON)', 'Sheet base (Hit Dice + CON)'), value: c.hp.max, kind: 'base' }];
+  for (const x of hpExtras(c, true)) out.push({ label: x.text, value: x.value, kind: x.item ? 'item' : 'trait', id: x.id, off: x.off });
+  for (const e of c.effects) if (e.mods.maxHp) out.push({ label: effectName(e), value: e.mods.maxHp, kind: 'effect' });
+  for (const m of c.hpMaxMods ?? []) out.push({ label: `${m.source}${m.until === 'long' ? T(' (hasta descanso largo)', ' (until Long Rest)') : ''}`, value: m.amount, kind: 'temp', id: m.id });
+  return out;
+}
+
+/** Líneas que explican un bonificador: «Modificador de FUE +3», «Competencia +2», «Bendición +1d4 (aparte)»… */
+export interface Part { label: string; value: string; kind?: 'item' | 'trait' | 'effect' | 'penalty' }
+
+/** Efectos activos que añaden dados a un tipo de tirada (Bendición, Perdición, Guía…) */
+export function effectDice(c: Character, scope: RollScope): Part[] {
+  return c.effects.filter((e) => e.mods.bonus?.[scope]).map((e) => ({ label: effectName(e), value: e.mods.bonus![scope]!.replace(/^(?=\d)/, '+'), kind: 'effect' as const }));
+}
+
+export const exhaustionPart = (c: Character): Part[] => (c.exhaustion > 0 ? [{ label: T(`Agotamiento ${c.exhaustion}`, `Exhaustion ${c.exhaustion}`), value: `−${2 * c.exhaustion}`, kind: 'penalty' }] : []);
+
+/** Desglose del ataque de una fila de armas */
+export function attackParts(c: Character, a: Attack): { total: number; attack: Part[]; damage: Part[] } {
+  const m = abilityMods(c);
+  const src = abilityScores(c).sources[a.ability];
+  const ex = attackExtras(c, a);
+  const attack: Part[] = [
+    { label: `${T('Modificador de', 'Modifier from')} ${abilityShort(a.ability)}${src.length ? ` (${src.map((x) => x.label).join(', ')})` : ''}`, value: fmt(m[a.ability]), kind: src.length ? 'item' : undefined },
+    ...(a.proficient ? [{ label: T('Competencia', 'Proficiency'), value: fmt(profBonus(c.level)) }] : []),
+    ...(a.extraBonus ? [{ label: T('Bonus extra (escrito en la fila)', 'Extra bonus (typed in the row)'), value: fmt(a.extraBonus) }] : []),
+    ...ex.attack.map((x) => ({ label: x.label, value: fmt(x.value), kind: x.item ? 'item' as const : 'trait' as const })),
+    ...effectDice(c, 'attack'),
+    ...exhaustionPart(c),
+  ];
+  const damage: Part[] = [
+    { label: T('Dados del arma', 'Weapon dice'), value: a.damage },
+    { label: `${T('Modificador de', 'Modifier from')} ${abilityShort(a.ability)}`, value: fmt(m[a.ability]) },
+    ...ex.damage.map((x) => ({ label: x.label, value: fmt(x.value), kind: 'item' as const })),
+    ...effectDice(c, 'damage'),
+  ];
+  return { total: weaponAttack(c, a), attack, damage };
+}
+
+/** Desglose de la CD y el ataque de conjuros */
+export function spellParts(c: Character): Part[] {
+  if (!c.spellAbility) return [];
+  const m = abilityMods(c)[c.spellAbility];
+  const src = abilityScores(c).sources[c.spellAbility];
+  return [
+    { label: `${T('Modificador de', 'Modifier from')} ${abilityShort(c.spellAbility)}${src.length ? ` (${src.map((x) => x.label).join(', ')})` : ''}`, value: fmt(m), kind: src.length ? 'item' : undefined },
+    { label: T('Competencia', 'Proficiency'), value: fmt(profBonus(c.level)) },
+  ];
 }
 
 /** Bonificador de ataque de una fila de armas (con arma mágica y estilo de combate) */
@@ -181,7 +233,20 @@ export function spellAttack(c: Character): number | null {
   return abilityMods(c)[c.spellAbility] + profBonus(c.level);
 }
 
-export const passivePerception = (c: Character) => 10 + skillBonus(c, 'percepcion');
+/** Percepción pasiva: 10 + Percepción, +5 con ventaja y −5 con desventaja (reglas 2024) */
+export function passiveParts(c: Character): { total: number; parts: Part[] } {
+  const ctx = rollContext(c, { kind: 'check', ability: 'wis', skill: 'percepcion' });
+  const adv = ctx.advantage.length > 0 && !ctx.disadvantage.length;
+  const dis = ctx.disadvantage.length > 0 && !ctx.advantage.length;
+  const parts: Part[] = [
+    { label: T('Base', 'Base'), value: '10' },
+    { label: T('Tu bonificador de Percepción', 'Your Perception bonus'), value: fmt(skillBonus(c, 'percepcion')) },
+    ...(adv ? [{ label: T(`Ventaja (${ctx.advantage.join(', ')})`, `Advantage (${ctx.advantage.join(', ')})`), value: '+5', kind: 'trait' as const }] : []),
+    ...(dis ? [{ label: T(`Desventaja (${ctx.disadvantage.join(', ')})`, `Disadvantage (${ctx.disadvantage.join(', ')})`), value: '−5', kind: 'penalty' as const }] : []),
+  ];
+  return { total: 10 + skillBonus(c, 'percepcion') + (adv ? 5 : 0) - (dis ? 5 : 0), parts };
+}
+export const passivePerception = (c: Character) => passiveParts(c).total;
 
 export function damageDefenses(c: Character): { resist: Set<DamageType>; immune: Set<DamageType>; vuln: Set<DamageType>; resistAll: boolean } {
   const resist = new Set<DamageType>(c.resistances);

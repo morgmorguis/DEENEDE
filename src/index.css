@@ -457,7 +457,7 @@ p { margin: 6px 0; line-height: 1.45; }
 .p-page2-top { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 8px; }
 .p-spellcasting { display: grid; grid-template-columns: 1fr; gap: 6px; }
 .p-spell-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.p-spell-stats div { display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid #bdb6ab; border-radius: 4px; padding: 4px; }
+.p-spell-stats div, .p-spell-stats .p-stat-btn { display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid #bdb6ab; border-radius: 4px; padding: 4px; }
 .p-spell-stats b { font-size: 20px; font-family: Georgia, serif; }
 .p-spell-stats span { font-size: 8.5px; text-transform: uppercase; color: var(--ink2); font-weight: 700; line-height: 1.15; }
 .p-slots-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 10px; }
@@ -1082,3 +1082,24 @@ button.plain { background: none; border: 0; padding: 0; color: inherit; text-ali
 .gift-row.trade { border-left-color: #2f8fd8; }
 .item-row input[type=checkbox] { width: 20px; height: 20px; min-height: 0; flex: 0 0 auto; padding: 0; accent-color: var(--gold); }
 .item-row .num-input, .item-row input[type=number] { width: 70px; flex: 0 0 auto; }
+
+/* ---------- Vida máxima temporal ---------- */
+.maxhp-box { display: grid; gap: 6px; border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; }
+.maxhp-row { padding: 2px 0; }
+.maxhp-row.pos b { color: var(--green); }
+.maxhp-row.neg b { color: var(--red); }
+.max-up { color: var(--green); font-weight: 700; }
+.max-down { color: var(--red); font-weight: 700; }
+.rule-item .neg { color: var(--red); }
+.rule-item.total { border-top: 1px solid var(--line); padding-top: 4px; }
+.rule-dot { width: 20px; text-align: center; flex-shrink: 0; }
+.effect-line { color: #8a5cc7; }
+.neg-line { color: var(--red); }
+.rule-item.effect b { color: #8a5cc7; }
+.rule-item.penalty b, .rule-item b.neg { color: var(--red); }
+.p-stat-btn { display: flex; flex-direction: column; align-items: center; background: none; border: 0; padding: 0; font: inherit; color: inherit; }
+.p-stat-btn:disabled { opacity: 1; }
+.rule .rule-yes { color: var(--green); }
+.rule .rule-no { color: var(--red); }
+.rule .rule-warn { color: #b8862c; }
+.rule .rule-you { font-weight: 600; }

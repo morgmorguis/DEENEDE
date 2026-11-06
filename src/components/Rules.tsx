@@ -4,6 +4,7 @@ import { fmt, rollContext, skillBonus } from '../rules/calc';
 import { norm } from '../rules/parser';
 import { ACTIONS, CONDITIONS, COST_NAMES, EFFECT_PRESETS, EXHAUSTION_INFO, MASTERIES, RULES, SKILLS, abilityShort } from '../rules/srd';
 import { L, T } from '../i18n';
+import { CAN_DO, OTHER_ATTACKS, WEAPONS, WEAPON_PROPS, weaponLines } from '../rules/weapons';
 
 interface Entry {
   group: string;
@@ -34,6 +35,14 @@ export function RulesTab() {
     }),
     ...ACTIONS.map((a) => ({ group: T('Acciones', 'Actions'), title: L(a.name), sub: L(COST_NAMES[a.cost]), lines: [L(a.text)] })),
     ...RULES.map((r) => ({ group: T('Reglas', 'Rules'), title: L(r.name), lines: r.text.map(L) })),
+    ...CAN_DO.map((x) => ({ group: T('Puedes / no puedes', 'Can / can’t'), title: L(x.name), lines: x.lines.map(L) })),
+    ...WEAPONS.map((wp) => ({
+      group: T('Armas', 'Weapons'), title: L(wp.name),
+      sub: `${wp.category === 'simple' ? T('Sencilla', 'Simple') : T('Marcial', 'Martial')} · ${wp.kind === 'melee' ? T('cuerpo a cuerpo', 'melee') : T('a distancia', 'ranged')} · ${wp.damage}`,
+      lines: weaponLines(wp, c),
+    })),
+    ...OTHER_ATTACKS.map((x) => ({ group: T('Armas', 'Weapons'), title: L(x.name), sub: T('sin arma', 'no weapon'), lines: x.lines.map(L) })),
+    ...(Object.values(WEAPON_PROPS)).map((p) => ({ group: T('Propiedades de armas', 'Weapon properties'), title: L(p.name), lines: [L(p.text), ...(p.limit ? [`⚠️ ${L(p.limit)}`] : [])] })),
     ...MASTERIES.map((m) => ({ group: T('Maestrías', 'Masteries'), title: L(m.name), lines: [L(m.text)] })),
     ...EFFECT_PRESETS.map((p) => ({ group: T('Conjuros y efectos', 'Spells & effects'), title: L(p.name), sub: p.concentration ? T('Concentración', 'Concentration') : undefined, lines: [L(p.notes)], active: c.effects.some((e) => e.presetId === p.id) })),
     ...c.features.filter((f) => f.name).map((f) => ({ group: T('Mis rasgos', 'My features'), title: f.name, lines: [f.text] })),
@@ -48,7 +57,7 @@ export function RulesTab() {
 
   return (
     <div className="tab">
-      <input className="search" placeholder={T('Buscar: derribado, sigilo, concentración…', 'Search: prone, stealth, concentration…')} value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className="search" placeholder={T('Buscar: derribado, ballesta, no letal, bajo el agua…', 'Search: prone, crossbow, knock out, underwater…')} value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="chips scroll-x">
         {groups.map((g) => <button key={g} className={`chip toggle ${current === g ? 'on' : ''}`} onClick={() => setGroup(g)}>{g}</button>)}
       </div>
@@ -60,7 +69,7 @@ export function RulesTab() {
             <span className="grow">{e.active && '● '}{e.title}</span>
             <span className="muted small">{e.sub ?? e.group}</span>
           </summary>
-          {e.lines.map((l, i) => <p key={i}>{/^[✅⬇⛔➖]/.test(l) ? l : `• ${l}`}</p>)}
+          {e.lines.map((l, i) => <p key={i} className={/^⛔|^⬇️/.test(l) ? 'rule-no' : /^✅/.test(l) ? 'rule-yes' : /^👤/.test(l) ? 'rule-you' : /^⚠️/.test(l) ? 'rule-warn' : ''}>{/^[✅⬇⛔➖⚠👤]/u.test(l) ? l : `• ${l}`}</p>)}
         </details>
       ))}
       </div>

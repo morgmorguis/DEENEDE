@@ -239,6 +239,19 @@ export interface Character {
   bonusAdj?: Record<string, BonusAdj>;
   /** Reglas automáticas (de clase, especie o dote) que el jugador ha desactivado */
   rulesOff?: string[];
+  /** Cambios temporales de los PG máximos: Ayuda (+), drenaje necrótico (−)… */
+  hpMaxMods?: HpMaxMod[];
+}
+
+export interface HpMaxMod {
+  id: string;
+  /** Positivo sube el máximo; negativo lo reduce */
+  amount: number;
+  /** De dónde sale («Ayuda nivel 2», «Toque del espectro») */
+  source: string;
+  /** long: termina con un descanso largo; manual: hasta que lo quites */
+  until: 'long' | 'manual';
+  at: number;
 }
 
 /** Bonificador propio: número fijo + modificador de una característica (p. ej. «+ SAB» de un rasgo) */

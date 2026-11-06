@@ -232,6 +232,12 @@ export function applyRest(input: Character, kind: 'short' | 'long', hitDice = 0)
   } else {
     lines.push(T('🌙 Descanso largo (8 horas).', '🌙 Long Rest (8 hours).'));
     c.effects = c.effects.filter((e) => e.roundsLeft === null && !e.concentration && e.presetId !== 'ayuda' && e.presetId !== 'armadura_mago');
+    // Los cambios de PG máximos «hasta descanso largo» (Ayuda, drenajes necróticos…) terminan
+    const ended = (c.hpMaxMods ?? []).filter((m) => m.until === 'long');
+    if (ended.length) {
+      c.hpMaxMods = (c.hpMaxMods ?? []).filter((m) => m.until !== 'long');
+      lines.push(T(`Terminan los cambios de PG máximos: ${ended.map((m) => `${m.source} (${fmt(m.amount)})`).join(', ')}.`, `HP maximum changes end: ${ended.map((m) => `${m.source} (${fmt(m.amount)})`).join(', ')}.`));
+    }
     c.hp.current = maxHp(c);
     c.hp.temp = 0;
     c.hitDiceSpent = 0;
