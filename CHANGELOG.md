@@ -3,6 +3,11 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.22.2 · 7 nov 2026 — El servidor comprueba que es él quien responde
+
+- En Windows, otro programa (por ejemplo una IA local) puede escuchar solo en `127.0.0.1` en el mismo puerto y «tapar» al servidor sin que el sistema avise; entonces el túnel de Tailscale publicaba ese programa. Ahora el servidor comprueba que quien responde en `127.0.0.1:puerto` es él; si no, se cambia solo de puerto (3001, 3002…). Con `--port` fijo no publica nada en Internet y avisa.
+- Tailscale Funnel apunta explícitamente a `http://127.0.0.1:puerto` del servidor.
+
 ## 0.22.1 · 7 nov 2026 — Puerto libre automático en el servidor
 
 - Si el puerto 3000 ya lo usa otro programa del PC (por ejemplo una IA local), el servidor busca solo el siguiente libre (3001, 3002…) y publica en Internet **ese** puerto. Así el túnel de Tailscale nunca expone otro programa por error.

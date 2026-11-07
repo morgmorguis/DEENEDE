@@ -60,9 +60,11 @@ const server = http.createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json');
     // El código y las direcciones solo para el DM (el servidor puede estar publicado en Internet)
     const isDm = url.searchParams.get('dm') === room.dmKey;
+    // «probe»: el propio servidor comprueba que es él quien responde en 127.0.0.1:PUERTO
+    const probe = url.searchParams.get('probe') === PROBE ? { probe: PROBE } : {};
     res.end(JSON.stringify(isDm
-      ? { app: 'di-en-di', code: room.code, port: PORT, lan: lanIps().map((ip) => `http://${ip}:${PORT}`), publish }
-      : { app: 'di-en-di' }));
+      ? { app: 'di-en-di', code: room.code, port: PORT, lan: lanIps().map((ip) => `http://${ip}:${PORT}`), publish, ...probe }
+      : { app: 'di-en-di', ...probe }));
     return;
   }
   // /img/<id>.jpg?t=<token del miembro>: solo quien puede verla
@@ -177,6 +179,22 @@ let publish: PublishState = { mode: 'no', url: null, status: 'off', message: '' 
 function lanIpsList() { return Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i!.address); }
 const lanIps = lanIpsList;
 
+// En Windows otro programa puede escuchar solo en 127.0.0.1 en el mismo puerto y «tapar» a este servidor
+// (el túnel de Tailscale va a 127.0.0.1). Antes de publicar comprobamos que quien responde somos nosotros.
+const PROBE = rid(16);
+function answersHere(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get({ host: '127.0.0.1', port, path: `/api/info?probe=${PROBE}`, timeout: 3000 }, (res) => {
+      let body = '';
+      res.on('data', (d) => { body += d; });
+      res.on('end', () => { try { resolve(JSON.parse(body).probe === PROBE); } catch { resolve(false); } });
+    });
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.on('error', () => resolve(false));
+  });
+}
+let shadowed = false;
+
 // Si el puerto está ocupado: con --port avisamos; si no, probamos los siguientes (3001, 3002…)
 let tries = 0;
 server.on('error', (e: NodeJS.ErrnoException) => {
@@ -193,7 +211,18 @@ server.on('error', (e: NodeJS.ErrnoException) => {
   setTimeout(() => process.exit(1), 60000);
 });
 
-server.on('listening', () => {
+server.on('listening', async () => {
+  // ¿Otro programa responde en 127.0.0.1 con este mismo puerto? Entonces buscamos otro (o no publicamos)
+  if (!(await answersHere(PORT))) {
+    if (!FIXED_PORT && tries < 30) {
+      console.log(`  En 127.0.0.1:${PORT} responde otro programa; pruebo con el ${PORT + 1}…`);
+      tries++;
+      server.close(() => { PORT += 1; server.listen(PORT); });
+      return;
+    }
+    shadowed = true;
+    console.log(`\n  ⚠️  En 127.0.0.1:${PORT} responde otro programa: no publico en Internet para no exponerlo. Abre el servidor con otro puerto (--port ${PORT + 100}).`);
+  }
   const dmUrl = `http://localhost:${PORT}/?dm=${room.dmKey}`;
   const line = '─'.repeat(64);
   console.log(`\n${line}\n  🎲  Servidor de partida de «Di en Di»  (puerto ${PORT})\n${line}`);
@@ -206,7 +235,7 @@ server.on('listening', () => {
   console.log(`${line}\n  Deja esta ventana abierta mientras jugáis. Ctrl+C para cerrar.\n`);
   if (process.platform === 'win32' && !args.includes('--no-open')) exec(`start "" "${dmUrl}"`);
   // Publicar en Internet (Tailscale Funnel / ngrok) sin tocar la red local
-  if (args.includes('--no-publish')) return;
+  if (args.includes('--no-publish') || shadowed) return;
   void startPublishing(PORT, HOME, (st) => {
     publish = st;
     if (st.status === 'on' && st.url) console.log(`\n  🌍 Jugadores a distancia: ${st.url}\n     (o directamente ${st.url}/?join=${room.code})\n     ${st.message}`);

@@ -83,7 +83,8 @@ export async function startPublishing(port: number, dir: string, onChange: (s: P
     if (!ts) return set({ url: null, status: 'error', message: 'No encuentro Tailscale. Instálalo desde https://tailscale.com/download e inicia sesión.' });
     set({ url: null, status: 'starting', message: 'Abriendo Tailscale Funnel…' });
     // --bg: queda activo en segundo plano; lo quitamos al cerrar el servidor
-    const r = await run(ts, ['funnel', '--bg', String(port)], 30000);
+    // Destino explícito 127.0.0.1 (el servidor ya ha comprobado que es él quien responde ahí)
+    const r = await run(ts, ['funnel', '--bg', `http://127.0.0.1:${port}`], 30000);
     if (!r.ok) {
       const hint = /funnel.*not enabled|Funnel is not enabled|admin|https/i.test(r.out)
         ? ' Activa «HTTPS Certificates» y «Funnel» en la consola de Tailscale (te da el enlace la primera vez) y vuelve a abrir el servidor.' : '';

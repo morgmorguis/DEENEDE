@@ -59,7 +59,7 @@ En Windows, para el APK a mano: `npm run build`, después `npx cap sync android`
 
 ## Estado
 
-- Versión **0.22.1** (7 nov 2026): el servidor busca un puerto libre si el 3000 está ocupado (en el PC del DM lo usa su IA local).
+- Versión **0.22.2** (7 nov 2026): el servidor busca un puerto libre si el 3000 está ocupado y comprueba con una sonda en `/api/info?probe=` que es él quien responde en 127.0.0.1 (en el PC del DM su IA local escucha en 127.0.0.1:3000 y en Windows no da error al compartir puerto).
 - 0.22.0: servidor publicado en Internet (Tailscale Funnel / ngrok, `server/publish.ts`),
   pestaña Grupo e imágenes del DM (`DmGroup.tsx`, `Images.tsx`; las imágenes se guardan en disco junto a la partida),
   conexión discreta del jugador y estilo visual Retro 16-bit seleccionable (`src/scenes.ts`, `public/design/retro`).
