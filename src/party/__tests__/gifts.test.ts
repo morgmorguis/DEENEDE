@@ -148,3 +148,34 @@ describe('vida de los compañeros', () => {
     expect(viewFor(room, a.member.id)!.encounter.order.find((c) => c.name === 'Brakka')!.hp).toBe(20);
   });
 });
+
+describe('imágenes de la mesa', () => {
+  it('el DM sube, comparte con todos o con algunos, y deja de compartir', () => {
+    const s = setup();
+    expect(apply(s.room, s.p1, { t: 'imageAdd', title: 'Mapa', id: 'abc123def' }).error).toBe('not-allowed');
+    s.run(s.dm, { t: 'imageAdd', title: 'Mapa de la cripta', id: 'abc123def', w: 800, h: 600 });
+    expect(viewFor(s.room, s.dm)!.images).toHaveLength(1);
+    expect(viewFor(s.room, s.p1)!.images).toHaveLength(0);
+    s.run(s.dm, { t: 'imageShare', id: 'abc123def', to: [s.p1] });
+    expect(viewFor(s.room, s.p1)!.images.map((i) => i.title)).toEqual(['Mapa de la cripta']);
+    expect(viewFor(s.room, s.p2)!.images).toHaveLength(0);
+    s.run(s.dm, { t: 'imageShare', id: 'abc123def', to: 'all' });
+    expect(viewFor(s.room, s.p2)!.images).toHaveLength(1);
+    s.run(s.dm, { t: 'imageUnshare', id: 'abc123def' });
+    expect(viewFor(s.room, s.p1)!.images).toHaveLength(0);
+    s.run(s.dm, { t: 'imageRemove', id: 'abc123def' });
+    expect(viewFor(s.room, s.dm)!.images).toHaveLength(0);
+    expect(apply(s.room, s.dm, { t: 'imageAdd', title: 'x', id: '../../etc' }).error).toBe('bad-image');
+  });
+
+  it('el oro y los objetos de un jugador solo los ve el DM', () => {
+    const s = setup();
+    const sum = { name: 'Thalia', species: 'Elfa', className: 'Maga', level: 3, hp: 10, hpMax: 18, temp: 0, ac: 12, speed: 30, passive: 13, conditions: [], gold: 120, coins: { gp: 120 }, items: ['Capa'] };
+    s.run(s.p1, { t: 'summary', summary: sum });
+    expect(viewFor(s.room, s.dm)!.members.find((m) => m.id === s.p1)!.summary!.gold).toBe(120);
+    const other = viewFor(s.room, s.p2)!.members.find((m) => m.id === s.p1)!.summary!;
+    expect(other.gold).toBeUndefined();
+    expect(other.items).toBeUndefined();
+    expect(viewFor(s.room, s.p1)!.members.find((m) => m.id === s.p1)!.summary!.gold).toBe(120);
+  });
+});

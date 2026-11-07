@@ -33,7 +33,11 @@ export interface Settings {
   customItems?: ItemData[];
   /** Botines que el DM prepara antes de la partida (también sin conexión) */
   lootBundles?: LootBundle[];
+  /** Estilo visual: classic = pósteres dark fantasy y transiciones actuales; retro = pixel art 16-bit */
+  design?: Design;
 }
+
+export type Design = 'classic' | 'retro';
 
 export interface LootBundle {
   id: string;

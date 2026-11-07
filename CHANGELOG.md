@@ -3,6 +3,28 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.22.0 · 7 nov 2026 — Partida en Internet, Grupo e imágenes del DM y estilo Retro 16-bit
+
+**Servidor**
+- **Publicación automática en Internet** al abrir el servidor, con dirección fija y HTTPS y sin Cloudflare: Tailscale Funnel si está instalado (por defecto) o ngrok con dominio fijo gratuito. La red local sigue funcionando. Configuración en `di-en-di-servidor.json`; explicación y alternativas (DuckDNS, playit.gg, zrok…) en `PUBLICAR.txt`. `--no-publish` para no publicar.
+- El código de la partida ya no se ve en `/api/info` sin la clave del DM (importante ahora que el servidor está en Internet).
+- **Iconos en Windows**: «Di en Di.exe» con el goblin y «Di en Di - Servidor.exe» con el goblin y un icono de conexión (wifi) en la esquina, con nombre y versión en las propiedades.
+
+**Para el DM**
+- Pestaña **👥 Grupo**: estado de cada jugador siempre a la vista (vida, temporales, CA, pasiva, velocidad, oro, dados de golpe, espacios, recursos, condiciones, concentración, inspiración, agotamiento, objetos) y totales del grupo.
+- **📨 Invitar jugadores**: enlaces de Internet y de la red local con el código, para copiar.
+- **🖼️ Imágenes para la mesa**: arrastrar y soltar, compartir con todos o con algunos, dejar de compartir, renombrar y borrar. Se guardan en el servidor (`di-en-di-imagenes`) y solo las descarga quien puede verlas.
+- Los **botines preparados** se ven en Tesoro aunque aún no haya jugadores conectados.
+
+**Para los jugadores**
+- **Conexión discreta**: al unirte fuera de combate vuelves a tu ficha; la app solo te interrumpe si el DM hace algo.
+- Las **imágenes del DM** llegan como aviso y quedan en Partida → Imágenes del DM. La tele muestra la última compartida.
+- El oro, los objetos y los recursos de los compañeros son privados (solo los ve el DM).
+
+**Estilo visual**
+- Nuevo estilo **Retro 16-bit** (Ajustes → Estilo visual), sin quitar el **Clásico**: fondos pixel art con las mismas escenas, transiciones de RPG clásico para combate y subida de nivel, botones más cuadrados e icono pixel. Botones para probar las transiciones.
+- Herramientas para tu IA local: `scripts/retro/comfy_generar.py` (genera todas las imágenes en ComfyUI con FLUX + LoRAs de pixel art o de fantasía 80-90) e `import-ai-art.cjs` (las pixela e incorpora). Guía en `docs/arte-retro/LEEME.md`.
+
 ## 0.21.1 · 6 nov 2026 — Monedas explicadas
 
 - En el recuadro **Monedas**, cada casilla lleva su nombre (cobre, plata, electro, oro, platino) y al tocar la abreviatura (PC, PP, PE, PO, PPT) o «ℹ️ ¿Qué vale cada moneda?» se abre la explicación: qué es cada pieza, cuánto vale, ejemplos de lo que se compra con ella (una antorcha 1 pc, raciones 5 pp, espada larga 15 po…), la tabla de equivalencias y el peso (50 monedas = 1 libra).

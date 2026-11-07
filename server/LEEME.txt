@@ -21,20 +21,15 @@ SERVIDOR DE PARTIDA (DM)
 3. La partida se guarda en «di-en-di-partida.json», junto al .exe.
    Si lo borras, se crea una partida nueva con otro código.
 
-JUGAR A DISTANCIA (sin Cloudflare): Tailscale Funnel
-----------------------------------------------------
-1. Instala Tailscale en este PC: https://tailscale.com/download/windows
-   e inicia sesión (es gratis).
-2. En la consola de administración de Tailscale activa «HTTPS Certificates»
-   y «Funnel» (te lo pide la primera vez).
-3. Con el servidor abierto, en otra ventana (PowerShell o Símbolo del sistema):
-       tailscale funnel 3000
-4. Te mostrará una dirección https://tu-pc.tuXXXX.ts.net . Pásala a los
-   jugadores junto con el código. Ellos no instalan nada: en la app,
-   pestaña «Partida» → dirección + código → Unirse.
-   Para pararlo: Ctrl+C en esa ventana (o «tailscale funnel reset»).
+JUGAR A DISTANCIA (sin Cloudflare)
+----------------------------------
+Si tienes Tailscale instalado, el servidor publica la partida SOLO al abrirse en
+https://tu-pc.tuXXXX.ts.net (dirección fija, HTTPS). La red local sigue funcionando.
+La dirección y el enlace para los jugadores salen en la ventana negra y en
+Partida → «Invitar jugadores». Todos los detalles y alternativas (ngrok, DuckDNS…)
+están en PUBLICAR.txt.
 
-Opciones: «Di en Di - Servidor.exe --port 4000» usa otro puerto.
+Opciones: «Di en Di - Servidor.exe --port 4000» usa otro puerto; «--no-publish» no publica en Internet.
 
 EL DM DESDE EL MÓVIL O LA TABLET
 --------------------------------

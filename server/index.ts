@@ -7,8 +7,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { apply, createRoom, join, normalizeRoom, setOnline, viewFor, type Room } from '../src/party/room';
+import { apply, canSeeImage, createRoom, join, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
 import type { ClientMessage, ServerMessage } from '../src/party/protocol';
+import { startPublishing, stopPublishing, type PublishState } from './publish';
 
 const args = process.argv.slice(2);
 const argValue = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -16,6 +17,9 @@ const PORT = Number(argValue('--port') ?? process.env.PORT ?? 3000);
 const packaged = !!(process as unknown as { pkg?: unknown }).pkg;
 const HOME = packaged ? path.dirname(process.execPath) : process.cwd();
 const DATA_FILE = argValue('--data') ?? path.join(HOME, 'di-en-di-partida.json');
+// Imágenes que comparte el DM: un archivo por imagen, junto a la partida
+const IMG_DIR = path.join(path.dirname(DATA_FILE), 'di-en-di-imagenes');
+const MAX_IMAGE = 6 * 1024 * 1024;
 const DIST = [path.join(__dirname, '..', '..', 'dist'), path.join(__dirname, '..', 'dist'), path.join(process.cwd(), 'dist')].find((p) => fs.existsSync(path.join(p, 'index.html')));
 
 // ---------- Partida guardada ----------
@@ -52,7 +56,23 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (url.pathname === '/api/info') {
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ app: 'di-en-di', code: room.code, players: room.members.filter((m) => m.role === 'player').length }));
+    // El código y las direcciones solo para el DM (el servidor puede estar publicado en Internet)
+    const isDm = url.searchParams.get('dm') === room.dmKey;
+    res.end(JSON.stringify(isDm
+      ? { app: 'di-en-di', code: room.code, port: PORT, lan: lanIps().map((ip) => `http://${ip}:${PORT}`), publish }
+      : { app: 'di-en-di' }));
+    return;
+  }
+  // /img/<id>.jpg?t=<token del miembro>: solo quien puede verla
+  const im = url.pathname.match(/^\/img\/([a-z0-9]{6,20})\.jpg$/);
+  if (im) {
+    const member = room.members.find((m) => m.token === url.searchParams.get('t'));
+    const meta = room.images.find((x) => x.id === im[1]);
+    const file = path.join(IMG_DIR, `${im[1]}.jpg`);
+    if (!member || !meta || !canSeeImage(room, member, meta) || !fs.existsSync(file)) { res.statusCode = 404; res.end(); return; }
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    fs.createReadStream(file).pipe(res);
     return;
   }
   if (!DIST) {
@@ -109,7 +129,24 @@ wss.on('connection', (ws) => {
     }
     const id = clients.get(ws);
     if (!id || msg.t !== 'cmd') return;
-    const r = apply(room, id, msg.cmd);
+    const cmd = msg.cmd;
+    // Imagen nueva del DM: se guarda en disco y a la partida solo van sus datos
+    if (cmd.t === 'imageAdd') {
+      const me = room.members.find((m) => m.id === id);
+      const b64 = String(cmd.data ?? '').replace(/^data:image\/jpeg;base64,/, '');
+      if (me?.role !== 'dm' || !b64 || b64.length > MAX_IMAGE * 1.4) { send(ws, { t: 'error', message: 'bad-image' }); return; }
+      const imgId = rid(12);
+      try {
+        fs.mkdirSync(IMG_DIR, { recursive: true });
+        fs.writeFileSync(path.join(IMG_DIR, `${imgId}.jpg`), Buffer.from(b64, 'base64'));
+      } catch (e) { console.error('No se pudo guardar la imagen:', e); send(ws, { t: 'error', message: 'bad-image' }); return; }
+      cmd.id = imgId;
+      delete cmd.data;
+    }
+    if (cmd.t === 'imageRemove' && room.members.find((m) => m.id === id)?.role === 'dm') {
+      try { fs.rmSync(path.join(IMG_DIR, `${cmd.id.replace(/[^a-z0-9]/g, '')}.jpg`), { force: true }); } catch { /* ya no está */ }
+    }
+    const r = apply(room, id, cmd);
     if (r.error) { send(ws, { t: 'error', message: r.error }); return; }
     room = r.room;
     for (const eff of r.effects) for (const [w, mid] of clients) if (mid === eff.to) send(w, { t: 'sheet', ops: eff.ops });
@@ -131,7 +168,10 @@ wss.on('connection', (ws) => {
 
 // ---------- Arranque ----------
 
-const lanIps = () => Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i!.address);
+let publish: PublishState = { mode: 'no', url: null, status: 'off', message: '' };
+
+function lanIpsList() { return Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i!.address); }
+const lanIps = lanIpsList;
 
 server.listen(PORT, () => {
   const dmUrl = `http://localhost:${PORT}/?dm=${room.dmKey}`;
@@ -142,17 +182,27 @@ server.listen(PORT, () => {
   console.log(`  Clave del DM (para entrar como DM desde el móvil o la tablet): ${room.dmKey}`);
   console.log('\n  Jugadores en tu misma Wi-Fi: en la app, «Partida» → dirección:');
   for (const ip of lanIps()) console.log(`    http://${ip}:${PORT}`);
-  console.log('\n  Jugadores a distancia (Tailscale Funnel), en otra ventana:');
-  console.log(`    tailscale funnel ${PORT}`);
-  console.log('    y comparte la dirección https://….ts.net que te muestre.');
   console.log(`\n  Partida guardada en: ${DATA_FILE}`);
   console.log(`${line}\n  Deja esta ventana abierta mientras jugáis. Ctrl+C para cerrar.\n`);
   if (process.platform === 'win32' && !args.includes('--no-open')) exec(`start "" "${dmUrl}"`);
+  // Publicar en Internet (Tailscale Funnel / ngrok) sin tocar la red local
+  if (args.includes('--no-publish')) return;
+  void startPublishing(PORT, HOME, (st) => {
+    publish = st;
+    if (st.status === 'on' && st.url) console.log(`\n  🌍 Jugadores a distancia: ${st.url}\n     (o directamente ${st.url}/?join=${room.code})\n     ${st.message}`);
+    else if (st.status === 'error') console.log(`\n  ⚠️  ${st.message}\n     La red local sigue funcionando.`);
+    else if (st.status === 'off') console.log(`\n  ℹ️  ${st.message}`);
+    broadcast();
+  });
 });
 
+let closing = false;
 const shutdown = () => {
+  if (closing) return;
+  closing = true;
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(room)); } catch { /* sin acceso al disco */ }
-  process.exit(0);
+  void stopPublishing().finally(() => process.exit(0));
+  setTimeout(() => process.exit(0), 9000);
 };
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);

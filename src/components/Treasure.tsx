@@ -536,7 +536,13 @@ function GiveForm({ view }: { view: RoomView }) {
     setSettings({ lootBundles: [...bundles, { id: uid(), name, ...structuredClone(loot) }] });
     showToast(T('💾 Botín guardado', '💾 Loot saved'), [name]);
   };
-  if (!players.length) return <p className="muted">{T(`Aún no hay jugadores en la partida. Código: ${view.code}`, `No players in the game yet. Code: ${view.code}`)}</p>;
+  if (!players.length) return (
+    <>
+      <p className="muted">{T(`Aún no hay jugadores en la partida (código ${view.code}). Mientras tanto puedes preparar botines para darlos luego.`, `No players in the game yet (code ${view.code}). Meanwhile you can prepare loot to hand out later.`)}</p>
+      <span className="p-mini">🎒 {T('Botines preparados', 'Prepared loot')}</span>
+      <BundleList />
+    </>
+  );
   return (
     <>
       <label className="field">{T('Para', 'To')}

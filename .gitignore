@@ -25,3 +25,5 @@ dist-ssr
 public/ocr
 server/build
 public/guia
+scripts/retro/salida
+__pycache__

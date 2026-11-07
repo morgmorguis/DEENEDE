@@ -2,7 +2,7 @@
 // consultar el registro y (si eres el DM) organizarlo todo, incluidos monstruos ocultos.
 import { useEffect, useMemo, useState } from 'react';
 import { useChar, useStore } from '../store';
-import { useParty } from '../party/client';
+import { httpBase, useParty } from '../party/client';
 import type { ActKind, CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
 import { MONSTERS, searchMonsters, type MonsterInfo } from '../party/monsters';
 import { rollExpr, fmt, initiativeBonus } from '../rules/calc';
@@ -11,6 +11,7 @@ import { CONDITIONS } from '../rules/srd';
 import { encounterDifficulty } from '../party/difficulty';
 import { Consumables } from './Consumables';
 import { BundleList, MyGifts } from './Treasure';
+import { DmImages, SharedGallery, useImageUrl } from './Images';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
 
@@ -592,6 +593,7 @@ export function PartyTab() {
         <button className="btn small" onClick={async () => { if (await askOk(T('¿Salir de la partida?', 'Leave the game?'))) leave(); }}>{T('Salir', 'Leave')}</button>
       </div>
       {error && <p className="error">⚠️ {error}</p>}
+      {view && dm && <InvitePanel code={view.code} />}
       {view && dm && <TvLink code={view.code} />}
       {view && (
         <>
@@ -620,6 +622,8 @@ export function PartyTab() {
             </div>
           </Section>
           <SharedCombat view={view} />
+          {dm && <DmImages view={view} />}
+          <SharedGallery view={view} />
           <MyGifts view={view} />
           <CombatLog view={view} />
         </>
@@ -633,9 +637,12 @@ export function TvView() {
   const view = useParty((s) => s.view);
   const status = useParty((s) => s.status);
   const leave = useParty((s) => s.leave);
+  const imgUrl = useImageUrl();
   if (!view) return <div className="tv"><p className="tv-wait">🎲 {T('Conectando con la partida…', 'Connecting to the game…')}</p></div>;
   const e = view.encounter;
   const last = view.log.filter((ev) => !ev.undone && ev.kind !== 'turn').slice(-6).reverse();
+  // La última imagen compartida con todos se ve en grande
+  const latestImage = [...view.images].filter((im) => im.shared).sort((a, b) => (b.sharedAt ?? 0) - (a.sharedAt ?? 0))[0];
   return (
     <div className="tv">
       <header className="tv-head">
@@ -664,25 +671,60 @@ export function TvView() {
       ) : (
         <div className="tv-party">
           {view.members.filter((m) => m.role === 'player' && m.summary).map((m) => (
-            <div key={m.id} className="member"><b>{m.summary!.name}</b><span>{m.summary!.className} {m.summary!.level} · ❤️ {m.summary!.hp}/{m.summary!.hpMax} · {T('CA', 'AC')} {m.summary!.ac}</span></div>
+            <div key={m.id} className="member"><b>{m.summary!.name}</b><span>{m.summary!.className} {m.summary!.level}{m.summary!.hpHidden ? '' : ` · ❤️ ${m.summary!.hp}/${m.summary!.hpMax}`} · {T('CA', 'AC')} {m.summary!.ac}</span></div>
           ))}
         </div>
       )}
       {e.hiddenTurn && <p className="tv-hidden">{T('Algo acecha en las sombras…', 'Something lurks in the shadows…')}</p>}
+      {latestImage && <figure className="tv-figure"><img className="tv-image" src={imgUrl(latestImage.id)} alt={latestImage.title} /><figcaption>{latestImage.title}</figcaption></figure>}
       <ul className="tv-log">{last.map((ev) => <li key={ev.id}>{logLine(ev, false)}</li>)}</ul>
     </div>
   );
 }
 
 /** Enlace para abrir la vista de la tele en cualquier navegador de la red */
+interface ServerInfo { code: string; lan: string[]; publish?: { mode: string; url: string | null; status: string; message: string } }
+
+/** DM: cómo se unen los jugadores — dirección pública (Internet) y de la red local, con el código */
+function InvitePanel({ code }: { code: string }) {
+  const conn = useParty((s) => s.conn);
+  const [info, setInfo] = useState<ServerInfo | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!conn?.dmKey) return;
+    let stop = false;
+    const load = () => fetch(`${httpBase(conn.url)}/api/info?dm=${encodeURIComponent(conn.dmKey!)}`).then((r) => r.json()).then((j: ServerInfo) => { if (!stop && j.code) setInfo(j); }).catch(() => { if (!stop) setFailed(true); });
+    void load();
+    const t = window.setInterval(load, 15000);
+    return () => { stop = true; clearInterval(t); };
+  }, [conn?.url, conn?.dmKey]);
+  const pub = info?.publish;
+  const copy = (t: string) => void navigator.clipboard?.writeText(t);
+  const Row = ({ label, url }: { label: string; url: string }) => (
+    <div className="invite-row">
+      <span className="small muted">{label}</span>
+      <div className="row"><code className="grow">{url}</code><button className="btn small" onClick={() => copy(url)}>{T('Copiar', 'Copy')}</button></div>
+    </div>
+  );
+  return (
+    <details className="tv-link invite" open={!!pub && pub.status === 'on'}>
+      <summary>📨 {T('Invitar jugadores', 'Invite players')} · <b>{code}</b> {pub?.status === 'on' ? '🌍' : '🏠'}</summary>
+      {pub?.status === 'on' && pub.url && (
+        <>
+          <Row label={T('🌍 Desde cualquier sitio (Internet)', '🌍 From anywhere (Internet)')} url={`${pub.url}/?join=${code}`} />
+          <p className="hint">{T(`En la app: Partida → dirección ${pub.url} y código ${code}. Abierto en el navegador, el enlace ya entra solo.`, `In the app: Game → address ${pub.url} and code ${code}. Opened in a browser, the link joins directly.`)}</p>
+        </>
+      )}
+      {pub && pub.status !== 'on' && <p className="hint">{pub.status === 'starting' ? '⏳ ' : pub.status === 'error' ? '⚠️ ' : 'ℹ️ '}{pub.message}</p>}
+      {(info?.lan ?? []).map((u) => <Row key={u} label={T('🏠 Misma Wi-Fi', '🏠 Same Wi-Fi')} url={`${u}/?join=${code}`} />)}
+      {failed && !info && <p className="hint">{T('No puedo leer las direcciones del servidor. Mira la ventana negra del servidor.', 'Can’t read the server addresses. Check the server’s black window.')}</p>}
+    </details>
+  );
+}
+
 function TvLink({ code }: { code: string }) {
   const conn = useParty((s) => s.conn);
-  const base = (() => {
-    const u = conn?.url?.trim() ?? '';
-    if (/^https?:\/\//i.test(u)) return u.replace(/\/+$/, '');
-    if (u) return `${/\.ts\.net/i.test(u) ? 'https' : 'http'}://${u.replace(/\/+$/, '')}`;
-    return window.location.origin;
-  })();
+  const base = httpBase(conn?.url);
   const url = `${base}/?view=${code}`;
   return (
     <details className="tv-link">

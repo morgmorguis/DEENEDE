@@ -4,7 +4,8 @@ import { create } from 'zustand';
 import { useStore } from '../store';
 import type { Character } from '../types';
 import type { ClientMessage, Command, Gift, PcSummary, Role, RoomView, ServerMessage } from './protocol';
-import { COIN_KEYS, coinsText, itemLine } from '../rules/items';
+import { COIN_KEYS, coinsInGold, coinsText, itemLine } from '../rules/items';
+import { hitDiceText } from '../rules/multiclass';
 import { uid } from '../rules/factory';
 import { armorClass, maxHp, passivePerception, speed } from '../rules/calc';
 import { classById, conditionName } from '../rules/srd';
@@ -30,6 +31,8 @@ interface PartyState {
   error: string | null;
   view: RoomView | null;
   role: Role | null;
+  /** Momento en que se completó una unión pedida por el usuario (para volver a lo que estaba haciendo) */
+  joinedAt: number | null;
   connect: (c: PartyConn) => void;
   leave: () => void;
   send: (cmd: Command) => void;
@@ -46,12 +49,21 @@ const saveConn = (c: PartyConn | null) => {
 /** «192.168.1.20:3000», «http://…» o «https://pc.tail1234.ts.net» → URL del WebSocket */
 export function wsUrl(input: string): string {
   let u = input.trim();
-  if (!/^https?:\/\//i.test(u) && !/^wss?:\/\//i.test(u)) u = `${/\.ts\.net/i.test(u) ? 'https' : 'http'}://${u}`;
+  if (!/^https?:\/\//i.test(u) && !/^wss?:\/\//i.test(u)) u = `${/\.ts\.net|ngrok/i.test(u) ? 'https' : 'http'}://${u}`;
   const url = new URL(u);
   url.protocol = url.protocol === 'https:' || url.protocol === 'wss:' ? 'wss:' : 'ws:';
   url.pathname = '/ws';
   url.search = '';
   return url.toString();
+}
+
+/** Dirección http(s) del servidor (para imágenes, información…) a partir de lo que escribió el usuario */
+export function httpBase(input?: string): string {
+  const u = (input ?? '').trim();
+  if (/^https?:\/\//i.test(u)) return u.replace(/\/+$/, '');
+  if (/^wss?:\/\//i.test(u)) return u.replace(/^ws/i, 'http').replace(/\/ws\/?$/, '').replace(/\/+$/, '');
+  if (u) return `${/\.ts\.net|ngrok/i.test(u) ? 'https' : 'http'}://${u.replace(/\/+$/, '')}`;
+  return window.location.origin;
 }
 
 export const ERRORS: Record<string, [string, string]> = {
@@ -64,6 +76,7 @@ export const ERRORS: Record<string, [string, string]> = {
   'not-setup': ['El combate ya ha empezado.', 'The combat has already started.'],
   'not-running': ['Esperad a que todos estén listos.', 'Wait until everyone is ready.'],
   'need-initiative': ['Pon tu iniciativa antes de marcar Listo.', 'Enter your initiative before marking Ready.'],
+  'bad-image': ['No se ha podido subir la imagen (¿es demasiado grande?).', 'The image couldn’t be uploaded (is it too large?).'],
   'empty-gift': ['Añade monedas u objetos antes de dar.', 'Add coins or items before giving.'],
   'gift-delivered': ['Esa entrega ya ha llegado a la ficha del jugador.', 'That gift has already reached the player’s sheet.'],
 };
@@ -105,6 +118,18 @@ export function summaryOf(c: Character): PcSummary {
     conditions: [...c.conditions.map(conditionName), ...c.effects.map((e) => e.name)],
     concentration: c.concentratingOn,
     deathSaves: c.hp.current === 0 && !c.dead ? c.deathSaves : null,
+    coins: { ...c.coins },
+    gold: Math.round(coinsInGold(c.coins) * 100) / 100,
+    exhaustion: c.exhaustion,
+    inspiration: c.heroicInspiration,
+    hitDice: { left: Math.max(0, c.level - c.hitDiceSpent), total: c.level, die: hitDiceText(c) },
+    slots: [
+      ...c.slots.map((s, i) => ({ level: i + 1, left: Math.max(0, s.max - s.used), max: s.max })).filter((s) => s.max > 0),
+      ...(c.pactSlots && c.pactSlots.max > 0 ? [{ level: c.pactSlots.level, left: Math.max(0, c.pactSlots.max - c.pactSlots.used), max: c.pactSlots.max, pact: true }] : []),
+    ],
+    resources: c.resources.filter((r) => r.max > 0).map((r) => ({ name: r.name, left: Math.max(0, r.max - r.used), max: r.max })).slice(0, 8),
+    items: (c.items ?? []).filter((i) => i.qty > 0 && (i.equipped || i.rarity !== 'mundane')).map((i) => `${i.qty > 1 ? `${i.qty}× ` : ''}${i.name}${i.equipped ? ' 🛡️' : ''}`).slice(0, 12),
+    dead: c.dead,
   };
 }
 
@@ -113,6 +138,8 @@ let retryTimer: number | null = null;
 let attempts = 0;
 let unsubSheet: (() => void) | null = null;
 let lastSummary = '';
+/** La conexión en curso la ha pedido el usuario (no es una reconexión automática) */
+let freshJoin = false;
 /** Entregas ya sumadas en esta sesión (por si llega otro estado antes de confirmar) */
 const applying = new Set<string>();
 
@@ -215,7 +242,8 @@ export const useParty = create<PartyState>((set, get) => {
       if (msg.t === 'welcome') {
         const next = { ...get().conn!, token: msg.token, characterId: get().conn?.characterId ?? useStore.getState().activeId };
         saveConn(next);
-        set({ conn: next, role: msg.role, status: 'online', error: null });
+        set({ conn: next, role: msg.role, status: 'online', error: null, ...(freshJoin ? { joinedAt: Date.now() } : {}) });
+        freshJoin = false;
         lastSummary = '';
         pushSummary(true);
         unsubSheet?.();
@@ -252,10 +280,12 @@ export const useParty = create<PartyState>((set, get) => {
     error: null,
     view: null,
     role: null,
+    joinedAt: null,
     connect: (c) => {
       get().leave();
       saveConn(c);
       attempts = 0;
+      freshJoin = true;
       set({ conn: c, error: null, view: null, role: null });
       open();
     },
@@ -291,5 +321,5 @@ export function resumeParty() {
     window.history.replaceState(null, '', window.location.pathname);
     return;
   }
-  if (st.conn && st.status === 'off') st.connect(st.conn);
+  if (st.conn && st.status === 'off') { st.connect(st.conn); freshJoin = false; }
 }

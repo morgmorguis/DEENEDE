@@ -14,6 +14,8 @@ import { InfoBubble } from './components/InfoBubble';
 import { PartyTab, TvView } from './components/Party';
 import { DmRosterTab } from './components/DmRoster';
 import { TreasureTab } from './components/Treasure';
+import { DmGroupTab } from './components/DmGroup';
+import { ImageNotifier } from './components/Images';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TransitionFx, useFx } from './components/Transition';
 import { ConfirmHost } from './components/Confirm';
@@ -23,12 +25,13 @@ import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
 import { applyScene } from './scenes';
 
-type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'roster' | 'treasure' | 'assistant' | 'rules' | 'settings';
+type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'group' | 'roster' | 'treasure' | 'assistant' | 'rules' | 'settings';
 
 export default function App() {
   const c = useChar();
   const lang = useStore((s) => s.settings.lang);
   const theme = useStore((s) => s.settings.theme);
+  const design = useStore((s) => s.settings.design ?? 'classic');
   const avatarOn = useAvatarEditor();
   // El idioma vive en un módulo: lo fijamos antes de pintar los hijos
   setLang(lang);
@@ -39,6 +42,21 @@ export default function App() {
   const sharedCombat = useParty((s) => !!s.view?.encounter.active);
   const sharedPhase = useParty((s) => s.view?.encounter.phase);
   const partyCode = useParty((s) => s.view?.code);
+  const joinedAt = useParty((s) => s.joinedAt);
+  const role = useParty((s) => s.role);
+  // Conexión discreta: al unirte fuera de combate vuelves a tu ficha; la app solo te interrumpe si el DM hace algo
+  useEffect(() => {
+    if (!joinedAt || role !== 'player' || sharedCombat) return;
+    const t = window.setTimeout(() => {
+      setTab((cur) => (cur === 'party' ? 'sheet' : cur));
+      useStore.getState().showToast(T('🟢 Conectado a la partida', '🟢 Connected to the game'), [
+        T('Sigue usando la app con normalidad. Te avisaré si el DM empieza un combate, te da algo o comparte una imagen.', 'Keep using the app as usual. I’ll let you know if the DM starts a combat, gives you something or shares an image.'),
+        T('La pestaña Partida (🟢) tiene la party, las imágenes y lo que te han dado.', 'The Game tab (🟢) has the party, images and what you’ve been given.'),
+      ]);
+    }, 900);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinedAt]);
   // Conectado como DM: sin ficha de personaje, con Partida y Personajes
   const dmMode = useParty((s) => s.role === 'dm' && !!s.conn);
   const viewerMode = useParty((s) => !!s.conn?.viewer);
@@ -63,14 +81,14 @@ export default function App() {
   useEffect(() => {
     if (!avatarOn && tab === 'avatar') setTab('sheet');
     if (dmMode && (tab === 'sheet' || tab === 'avatar' || tab === 'combat' || tab === 'assistant')) setTab('party');
-    if (!dmMode && (tab === 'roster' || tab === 'treasure')) setTab('party');
+    if (!dmMode && (tab === 'roster' || tab === 'treasure' || tab === 'group')) setTab('party');
   }, [dmMode, tab, avatarOn]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    applyScene(theme);
+    applyScene(theme, design);
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim();
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg || '#1b1512');
-  }, [theme]);
+  }, [theme, design]);
   const [notesOpen, setNotesOpen] = useState(false);
   const inCombat = c.combat.active;
   const endTurn = useStore((s) => s.endTurn);
@@ -78,6 +96,7 @@ export default function App() {
 
   const tabs: { id: Tab; icon: string; label: string; short?: string }[] = dmMode ? [
     { id: 'party', icon: sharedCombat ? '🔴' : '🎲', label: T('Partida', 'Game') },
+    { id: 'group', icon: '👥', label: T('Grupo', 'Party') },
     { id: 'roster', icon: '📋', label: T('Personajes', 'Characters') },
     { id: 'treasure', icon: '💰', label: T('Tesoro', 'Treasure') },
     { id: 'rules', icon: '📚', label: T('Reglas', 'Rules') },
@@ -136,6 +155,7 @@ export default function App() {
         {tab === 'party' && <PartyTab />}
         {tab === 'roster' && <DmRosterTab />}
         {tab === 'treasure' && <TreasureTab />}
+        {tab === 'group' && <DmGroupTab />}
         {tab === 'assistant' && <AssistantTab />}
         {tab === 'rules' && <RulesTab />}
         {tab === 'settings' && <SettingsTab />}
@@ -146,6 +166,7 @@ export default function App() {
       <Toast />
       <InfoBubble />
       <TransitionFx />
+      <ImageNotifier />
       <ConfirmHost />
 
       <nav className="bottomnav" style={{ ['--nav-cols' as string]: tabs.length }}>

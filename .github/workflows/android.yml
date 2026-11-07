@@ -64,10 +64,17 @@ jobs:
           npx --yes @yao-pkg/pkg@6 server/build/server.cjs --targets node22-win-x64 --output "server/build/Di en Di - Servidor.exe" --config server/pkg.json
           npx --yes @yao-pkg/pkg@6 server/build/app.cjs --targets node22-win-x64 --output "server/build/Di en Di.exe" --config server/pkg.json
 
+      - name: Poner iconos y datos a los .exe (resedit, compatible con pkg)
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json | ConvertFrom-Json).version
+          npx --yes resedit-cli@3 --in "server/build/Di en Di - Servidor.exe" --out "server/build/Di en Di - Servidor.exe" --icon 1,build/icons/server.ico --ignore-signed --product-name "Di en Di - Servidor" --file-description "Servidor de partida de Di en Di" --company-name "Di en Di" --product-version "$v.0" --file-version "$v.0"
+          npx --yes resedit-cli@3 --in "server/build/Di en Di.exe" --out "server/build/Di en Di.exe" --icon 1,build/icons/app.ico --ignore-signed --product-name "Di en Di" --file-description "Di en Di - D&D 2024 companion" --company-name "Di en Di" --product-version "$v.0" --file-version "$v.0"
+
       - name: Probar que el .exe arranca y sirve la app
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath "server/build/Di en Di - Servidor.exe" -ArgumentList "--no-open","--port","3123","--data","$env:RUNNER_TEMP/partida.json" -PassThru
+          $p = Start-Process -FilePath "server/build/Di en Di - Servidor.exe" -ArgumentList "--no-open","--no-publish","--port","3123","--data","$env:RUNNER_TEMP/partida.json" -PassThru
           Start-Sleep -Seconds 4
           $info = Invoke-RestMethod http://localhost:3123/api/info
           if ($info.app -ne 'di-en-di') { throw "El servidor no responde" }
@@ -88,6 +95,7 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item "server/build/Di en Di - Servidor.exe" out/
           Copy-Item "server/build/Di en Di.exe" out/
+          Copy-Item "server/PUBLICAR.txt" out/
           Copy-Item server/LEEME.txt out/
 
       - uses: actions/upload-artifact@v5

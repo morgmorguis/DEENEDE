@@ -3,7 +3,7 @@
 // monstruos ocultos, vida exacta de monstruos ni notas del DM).
 import type { ItemMods } from '../rules/itemTypes';
 import type {
-  Combatant, CombatantView, Command, Encounter, Gift, HpState, RoomSettings, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
+  Combatant, CombatantView, Command, Encounter, Gift, HpState, RoomSettings, SharedImage, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
 
 export interface StoredMember extends Member { token: string }
@@ -25,6 +25,8 @@ export interface Room {
   /** Registro de oro y objetos dados por el DM */
   gifts: Gift[];
   settings: RoomSettings;
+  /** Imágenes del DM (solo los datos: los archivos los guarda el servidor) */
+  images: SharedImage[];
 }
 
 export interface Effect { to: string; ops: SheetOp[] }
@@ -92,7 +94,7 @@ export const rid = (n = 8) => Array.from({ length: n }, () => 'abcdefghijkmnpqrs
 const code6 = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 
 export function createRoom(): Room {
-  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [], settings: { showPartyHp: false } };
+  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [], settings: { showPartyHp: false }, images: [] };
 }
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -103,6 +105,7 @@ export function normalizeRoom(room: Room): Room {
   const r = room;
   r.roster ??= [];
   r.gifts ??= [];
+  r.images ??= [];
   r.settings = { ...{ showPartyHp: false }, ...(r.settings ?? {}) };
   r.encounter.phase ??= 'running';
   r.encounter.ready ??= [];
@@ -412,6 +415,36 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       if (i >= 0) r.roster[i] = entry; else r.roster.push(entry);
       return { room: r, effects };
     }
+    case 'imageAdd': {
+      if (!cmd.id || !/^[a-z0-9]{6,20}$/.test(cmd.id)) return { room, effects: [], error: 'bad-image' };
+      r.images.push({ id: cmd.id, title: String(cmd.title ?? '').trim().slice(0, 80) || 'Imagen', at: Date.now(), shared: false, to: 'all', w: cmd.w, h: cmd.h });
+      if (r.images.length > 300) r.images.splice(0, r.images.length - 300);
+      return { room: r, effects };
+    }
+    case 'imageShare': {
+      const img = r.images.find((x) => x.id === cmd.id);
+      if (!img) return deny();
+      img.shared = true;
+      img.to = cmd.to === 'all' ? 'all' : cmd.to.filter((id) => r.members.some((m) => m.id === id && m.role === 'player'));
+      img.sharedAt = Date.now();
+      return { room: r, effects };
+    }
+    case 'imageUnshare': {
+      const img = r.images.find((x) => x.id === cmd.id);
+      if (!img) return deny();
+      img.shared = false;
+      return { room: r, effects };
+    }
+    case 'imageRename': {
+      const img = r.images.find((x) => x.id === cmd.id);
+      if (!img) return deny();
+      img.title = String(cmd.title ?? '').trim().slice(0, 80) || img.title;
+      return { room: r, effects };
+    }
+    case 'imageRemove': {
+      r.images = r.images.filter((x) => x.id !== cmd.id);
+      return { room: r, effects };
+    }
     case 'roomSettings': {
       if (typeof cmd.patch.showPartyHp === 'boolean') r.settings.showPartyHp = cmd.patch.showPartyHp;
       return { room: r, effects };
@@ -512,6 +545,15 @@ function undoTarget(r: Room): { target?: Snapshot; owner?: string } {
 
 // ---------- Vista de cada cliente ----------
 
+/** ¿Puede este miembro ver la imagen? DM todas; jugadores las compartidas con ellos; la tele las compartidas con todos */
+export function canSeeImage(_room: Room, me: Pick<Member, 'id' | 'role'>, im: SharedImage): boolean {
+  void _room;
+  if (me.role === 'dm') return true;
+  if (!im.shared) return false;
+  if (im.to === 'all') return true;
+  return me.role === 'player' && im.to.includes(me.id);
+}
+
 export function viewFor(raw: Room, memberId: string): RoomView | null {
   const room = normalizeRoom(clone(raw));
   const me = room.members.find((m) => m.id === memberId);
@@ -546,10 +588,15 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
     you: { id: me.id, role: me.role, name: me.name },
     members: room.members.map(({ token: _t, ...m }) => {
       void _t;
-      if (dm || m.id === me.id || !m.summary || room.settings.showPartyHp) return m;
-      return { ...m, summary: { ...m.summary, hp: 0, hpMax: 0, temp: 0, deathSaves: m.summary.deathSaves ? { success: 0, fail: 0 } : null, hpHidden: true } };
+      if (dm || m.id === me.id || !m.summary) return m;
+      // Oro, objetos, espacios y recursos de los demás son privados (solo el DM los ve en «Grupo»)
+      const { coins: _c, gold: _g, items: _i, slots: _s, resources: _r, hitDice: _h, ...pub } = m.summary;
+      void _c; void _g; void _i; void _s; void _r; void _h;
+      if (room.settings.showPartyHp) return { ...m, summary: pub };
+      return { ...m, summary: { ...pub, hp: 0, hpMax: 0, temp: 0, deathSaves: pub.deathSaves ? { success: 0, fail: 0 } : null, hpHidden: true } };
     }),
     settings: room.settings,
+    images: room.images.filter((im) => canSeeImage(room, me, im)),
     roster: dm ? room.roster : [],
     encounter: {
       active: e.active,

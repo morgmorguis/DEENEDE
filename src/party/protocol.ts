@@ -24,6 +24,34 @@ export interface PcSummary {
   deathSaves?: { success: number; fail: number } | null;
   /** La vida está oculta para quien recibe la vista (el DM no deja ver la vida de los compañeros) */
   hpHidden?: boolean;
+  // ---- Para la pantalla «Grupo» del DM (también fuera de combate) ----
+  coins?: Partial<Coins5>;
+  /** Valor total de las monedas en oro */
+  gold?: number;
+  exhaustion?: number;
+  inspiration?: boolean;
+  hitDice?: { left: number; total: number; die: string };
+  /** Espacios de conjuro por nivel (y de pacto) */
+  slots?: { level: number; left: number; max: number; pact?: boolean }[];
+  /** Recursos de clase con usos (Furia, Canalizar divinidad…) */
+  resources?: { name: string; left: number; max: number }[];
+  /** Objetos destacados (equipados o mágicos) */
+  items?: string[];
+  dead?: boolean;
+}
+
+/** Imagen que el DM sube (mapa, retrato de un PNJ, pista…) y comparte cuando quiere */
+export interface SharedImage {
+  id: string;
+  title: string;
+  at: number;
+  /** Compartida con los jugadores (si no, solo la ve el DM) */
+  shared: boolean;
+  /** 'all' o ids de los jugadores que la ven */
+  to: 'all' | string[];
+  sharedAt?: number;
+  w?: number;
+  h?: number;
 }
 
 /** Ajustes de la mesa que decide el DM */
@@ -166,6 +194,8 @@ export interface RoomView {
   /** Entregas de oro y objetos: el DM ve todas; cada jugador, las suyas */
   gifts: Gift[];
   settings: RoomSettings;
+  /** Imágenes: el DM ve todas; cada jugador, las compartidas con él */
+  images: SharedImage[];
   canUndo: boolean;
   /** Puedes pasar turno (DM o el dueño del turno actual) */
   canEndTurn: boolean;
@@ -199,6 +229,12 @@ export type Command =
   | { t: 'rosterRemove'; id: string }
   | { t: 'rosterToCombat'; id: string; count: number; hidden: boolean; rollHp?: boolean }
   | { t: 'roomSettings'; patch: Partial<RoomSettings> }
+  /** El cliente manda `data` (JPEG en base64); el servidor la guarda en disco y la sustituye por `id` */
+  | { t: 'imageAdd'; title: string; data?: string; id?: string; w?: number; h?: number }
+  | { t: 'imageShare'; id: string; to: 'all' | string[] }
+  | { t: 'imageUnshare'; id: string }
+  | { t: 'imageRemove'; id: string }
+  | { t: 'imageRename'; id: string; title: string }
   /** Anula una entrega que aún no ha llegado */
   | { t: 'giftCancel'; id: string };
 

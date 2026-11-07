@@ -1,0 +1,39 @@
+PUBLICAR LA PARTIDA EN INTERNET (DIRECCIÓN FIJA, SIN CLOUDFLARE)
+================================================================
+
+Al abrir «Di en Di - Servidor.exe» la partida se publica sola en Internet si está instalado
+Tailscale. La red local (http://192.168.x.x:3000) sigue funcionando siempre.
+
+La configuración está en «di-en-di-servidor.json», junto al .exe (se crea la primera vez):
+
+  "publicar": "auto"       → Tailscale si está instalado; si no, solo red local
+  "publicar": "tailscale"  → siempre Tailscale Funnel
+  "publicar": "ngrok"      → ngrok con tu dominio fijo gratuito (pon "ngrokDominio")
+  "publicar": "no"         → solo red local
+
+La dirección pública aparece en la ventana negra y en la pantalla del DM
+(Partida → «Invitar jugadores», con el enlace ?join=CÓDIGO para copiar).
+
+OPCIÓN 1 (recomendada): TAILSCALE FUNNEL — gratis, HTTPS, nombre fijo, sin tocar el router
+-------------------------------------------------------------------------------------------
+1. Instala Tailscale: https://tailscale.com/download/windows e inicia sesión.
+2. La primera vez, en la consola de Tailscale (https://login.tailscale.com/admin/dns) activa
+   «HTTPS Certificates» y, cuando te lo pida, «Funnel».
+3. Abre el servidor: publica solo https://tu-pc.tuXXXX.ts.net (siempre la misma).
+   Al cerrar el servidor se desactiva el Funnel.
+
+OPCIÓN 2: NGROK — gratis con un dominio fijo (xxx.ngrok-free.app)
+-----------------------------------------------------------------
+1. Crea una cuenta en https://ngrok.com, descarga ngrok.exe y déjalo junto al servidor.
+2. Una vez: «ngrok config add-authtoken TU_TOKEN» (el token está en tu panel de ngrok).
+3. En el panel de ngrok → Domains, reclama tu dominio estático gratuito.
+4. En di-en-di-servidor.json: "publicar": "ngrok", "ngrokDominio": "tu-dominio.ngrok-free.app".
+   (La versión gratuita muestra una página de aviso de ngrok la primera vez en el navegador.)
+
+OTRAS ALTERNATIVAS GRATUITAS (manuales)
+---------------------------------------
+- DuckDNS (https://www.duckdns.org): nombre gratis tipo partida.duckdns.org que apunta a tu
+  casa. Necesitas abrir el puerto 3000 en el router y, para la app de Android, HTTPS
+  (p. ej. con Caddy). Más trabajo y expone tu IP; solo si no quieres usar túneles.
+- playit.gg, zrok o Pinggy: túneles parecidos a ngrok; arranca el túnel hacia el puerto 3000
+  y usa "publicar": "no" (la app funciona igual con la dirección que te den).

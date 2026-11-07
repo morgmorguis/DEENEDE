@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.21.1</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.22</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -166,6 +166,9 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a class="sub" href="#partida-montar">Montar el servidor</a></li>
       <li><a class="sub" href="#partida-jugar">Jugar como jugador</a></li>
       <li><a class="sub" href="#partida-dm">Pantalla del DM</a></li>
+      <li><a class="sub" href="#partida-internet">Jugar a distancia</a></li>
+      <li><a class="sub" href="#partida-grupo">Grupo (DM)</a></li>
+      <li><a class="sub" href="#partida-imagenes">Imágenes para la mesa</a></li>
       <li><a class="sub" href="#partida-tele">Vista para la tele</a></li>
       <li><a class="sub" href="#partida-tesoro">Tesoro: oro y objetos</a></li>
       <li><a href="#estilo">Colores, idioma y ajustes</a></li>
@@ -460,6 +463,23 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <figure><img class="shot" src="img/19-dm.jpg" alt="Pantalla del DM en el PC: party, combatientes con vida exacta, CA, condiciones y dificultad" width="1200" height="806" loading="lazy"><figcaption>La pantalla del DM en el PC.</figcaption></figure>
       <figure><img class="shot" src="img/21-personajes-dm.jpg" alt="Pestaña Personajes del DM en la tablet con Capitán Vex y Hermana Lira" width="1200" height="1610" loading="lazy" style="width: min(100%, 520px)"><figcaption>Personajes del DM en la tablet.</figcaption></figure>
 
+      <h3 id="partida-internet">Jugar a distancia (dirección fija)</h3>
+      <p>Si tienes <b>Tailscale</b> instalado, el servidor publica la partida <b>solo al abrirse</b> en una dirección fija con HTTPS (<code>https://tu-pc.tuXXXX.ts.net</code>), sin Cloudflare y sin tocar el router. La red local sigue funcionando igual. En la pantalla del DM, <b>Partida → 📨 Invitar jugadores</b> muestra el enlace de Internet y el de la misma Wi-Fi, ya con el código, para copiarlos. Alternativa: <b>ngrok</b> con su dominio fijo gratuito. Todo se configura en <code>di-en-di-servidor.json</code> junto al .exe (detalles en <i>PUBLICAR.txt</i>).</p>
+
+      <h3 id="partida-grupo">Grupo (DM)</h3>
+      <p>La pestaña <b>👥 Grupo</b> del DM muestra siempre, dentro y fuera de combate, a cada jugador: vida (y temporales), CA, percepción pasiva, velocidad, oro, dados de golpe, espacios de conjuro, recursos de clase, condiciones, concentración, inspiración, agotamiento y objetos equipados o mágicos. Arriba, los totales del grupo: vida, oro y cuántos están a 0 PG. El oro y los objetos de cada jugador solo los ve el DM.</p>
+      <figure><img class="shot" src="img/43-dm-grupo.jpg" alt="Pestaña Grupo del DM con totales de vida y oro y la tarjeta de Brakka" width="1200" height="806" loading="lazy"></figure>
+
+      <h3 id="partida-imagenes">Imágenes para la mesa</h3>
+      <div class="split">
+        <div>
+          <p>En <b>Partida → 🖼️ Imágenes para la mesa</b> el DM <b>arrastra</b> mapas, retratos o pistas (o toca para elegirlos). Se suben al servidor y nadie las ve hasta que pulsa <b>📤 Compartir</b>, con todos o solo con algunos jugadores.</p>
+          <p>Al jugador le aparece un aviso con la imagen encima de lo que esté haciendo; después puede verla cuando quiera en <b>Partida → Imágenes del DM</b>. La vista para la tele muestra en grande la última imagen compartida con todos.</p>
+          <p><b>Conexión discreta:</b> al unirte fuera de combate la app vuelve a tu ficha y sigues usándola con normalidad. Solo te interrumpe cuando el DM hace algo: empezar un combate, darte algo o compartir una imagen.</p>
+        </div>
+        <figure><img class="phone" src="img/44-imagen-compartida.jpg" alt="Aviso en el móvil: El DM comparte mapa de la cripta" width="700" height="1425" loading="lazy"><figcaption>Aviso de imagen compartida.</figcaption></figure>
+      </div>
+
       <h3 id="partida-tele">Vista para la tele</h3>
       <p>En la pantalla del DM, <b>📺 Vista para la tele</b> da un enlace (<code>…/?view=CÓDIGO</code>) para abrir en una tele, un portátil o una tablet en la mesa: el orden de turnos, los estados y lo último que ha pasado, en grande y sin nada oculto.</p>
       <figure><img class="shot" src="img/20-tele.jpg" alt="Vista para la tele con el orden de turnos, estados de los goblins y el registro" width="1200" height="675" loading="lazy"></figure>
@@ -486,6 +506,15 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
     <!-- 13 -->
     <section class="chapter" id="estilo">
       <div class="chapter-head"><span class="chapter-num">Capítulo 14</span><h2>Colores, idioma y ajustes</h2></div>
+      <h3 id="estilo-visual">Estilo visual: Clásico o Retro 16-bit</h3>
+      <div class="split">
+        <div>
+          <p>En <b>Ajustes → Estilo visual</b> eliges entre <b>Clásico</b> (los pósteres de fantasía oscura y las transiciones de siempre) y <b>Retro 16-bit</b>: fondos en pixel art con las mismas escenas, transiciones de RPG clásico (la pantalla se rompe en bloques en espiral para «¡COMBATE!» y estrellas pixel al subir de nivel) e icono pixel. Los botones <b>Probar transición</b> las enseñan sin empezar un combate.</p>
+          <p>Los fondos retro se pueden sustituir por imágenes hechas con tu IA local (ComfyUI con FLUX y LoRAs de pixel art o de fantasía de los 80-90): ver <code>docs/arte-retro/LEEME.md</code> del repositorio.</p>
+        </div>
+        <figure><img class="phone" src="img/45-estilo-retro.jpg" alt="La hoja con el estilo Retro 16-bit: fondo pixel art de atardecer" width="700" height="1425" loading="lazy"><figcaption>Estilo Retro 16-bit.</figcaption></figure>
+      </div>
+
       <p>En <b>Ajustes</b> eliges entre cuatro paletas. Cada una pone de fondo un <b>póster de fantasía oscura</b> al estilo de los 90, sin títulos:</p>
       <div class="table-scroll">
         <table>

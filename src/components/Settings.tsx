@@ -9,6 +9,7 @@ import { ImportModal } from './Import';
 import { BackupSection } from './Backup';
 import { ManualViewer } from './Manual';
 import { DEFAULT_MODEL } from '../config';
+import { useFx } from './Transition';
 import { L, T, getLang } from '../i18n';
 import { translateCharacter } from '../rules/glossary';
 import { askOk } from './Confirm';
@@ -58,6 +59,22 @@ export function SettingsTab() {
           if (!settings.apiKey) setTranslating(T('Términos traducidos. La historia y los textos largos solo se traducen con Claude.', 'Terms translated. The backstory and long texts are only translated with Claude.'));
         })()}>🌐 {T(`Traducir la ficha de ${active.name} al español`, `Translate ${active.name}’s sheet into English`)}</button>
         {translating && <p className="hint">{translating}</p>}
+      </Section>
+
+      <Section title={T('Estilo visual', 'Visual style')}>
+        <div className="themes design-opts" role="radiogroup" aria-label={T('Estilo visual', 'Visual style')}>
+          {([
+            ['classic', T('Clásico', 'Classic'), T('Pósteres de fantasía oscura y transiciones actuales.', 'Dark fantasy posters and the current transitions.'), 'posters/ocaso.jpg'],
+            ['retro', T('Retro 16-bit', 'Retro 16-bit'), T('Fondos pixel art de los 80-90, transiciones de RPG clásico e icono pixel.', '80s-90s pixel art backgrounds, classic RPG transitions and a pixel icon.'), 'design/retro/ocaso.png'],
+          ] as const).map(([id, name, text, img]) => (
+            <button key={id} role="radio" aria-checked={(settings.design ?? 'classic') === id} className={`theme-opt design-opt ${(settings.design ?? 'classic') === id ? 'on' : ''}`} onClick={() => setSettings({ design: id })}>
+              <img src={img} alt="" className={id === 'retro' ? 'pixelated' : ''} />
+              <span><b>{(settings.design ?? 'classic') === id ? '✓ ' : ''}{name}</b><br /><small className="muted">{text}</small></span>
+            </button>
+          ))}
+        </div>
+        <button className="btn small" onClick={() => useFx.getState().play('combat', undefined, T('Vista previa', 'Preview'))}>⚔️ {T('Probar transición de combate', 'Preview combat transition')}</button>
+        <button className="btn small" onClick={() => useFx.getState().play('levelup', undefined, T('Vista previa', 'Preview'))}>⬆️ {T('Probar subida de nivel', 'Preview level up')}</button>
       </Section>
 
       <Section title={T('Colores', 'Colors')}>
