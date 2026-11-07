@@ -59,5 +59,10 @@ En Windows, para el APK a mano: `npm run build`, después `npx cap sync android`
 
 ## Estado
 
-- Versión **0.21.1** (6 nov 2026): monedas explicadas y cambio de monedas.
+- Versión **0.22.0** (7 nov 2026): servidor publicado en Internet (Tailscale Funnel / ngrok, `server/publish.ts`),
+  pestaña Grupo e imágenes del DM (`DmGroup.tsx`, `Images.tsx`; las imágenes se guardan en disco junto a la partida),
+  conexión discreta del jugador y estilo visual Retro 16-bit seleccionable (`src/scenes.ts`, `public/design/retro`).
+- Arte retro provisional generado por código (`scripts/retro/scenes.cjs`); se sustituye con imágenes de IA local
+  (`scripts/retro/comfy_generar.py` + `import-ai-art.cjs`, guía en `docs/arte-retro/LEEME.md`).
+- Iconos de Windows en `build/icons` (regenerables con `scripts/icons/make-icons.cjs`), aplicados en la CI con resedit.
 - Lo que hay y lo que se ha ido añadiendo está en `CHANGELOG.md`. Las ideas o tareas pendientes se apuntan en esta sección.
