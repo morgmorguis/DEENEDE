@@ -14,6 +14,14 @@ La configuración está en «di-en-di-servidor.json», junto al .exe (se crea la
 La dirección pública aparece en la ventana negra y en la pantalla del DM
 (Partida → «Invitar jugadores», con el enlace ?join=CÓDIGO para copiar).
 
+IMPORTANTE: NO PUBLIQUES OTRO PROGRAMA POR ERROR
+-----------------------------------------------
+No hace falta ejecutar «tailscale funnel» a mano (salvo la primera vez para dar el
+permiso, y luego Ctrl+C). Si el puerto 3000 lo usa otro programa (p. ej. una IA local),
+un «tailscale funnel 3000» manual publicaría ESE programa. El servidor de Di en Di elige
+solo un puerto libre y publica el suyo. Para quitar cualquier publicación:
+    tailscale funnel reset
+
 OPCIÓN 1 (recomendada): TAILSCALE FUNNEL — gratis, HTTPS, nombre fijo, sin tocar el router
 -------------------------------------------------------------------------------------------
 1. Instala Tailscale: https://tailscale.com/download/windows e inicia sesión.

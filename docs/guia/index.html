@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.22.0</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.22.1</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -464,7 +464,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <figure><img class="shot" src="img/21-personajes-dm.jpg" alt="Pestaña Personajes del DM en la tablet con Capitán Vex y Hermana Lira" width="1200" height="1610" loading="lazy" style="width: min(100%, 520px)"><figcaption>Personajes del DM en la tablet.</figcaption></figure>
 
       <h3 id="partida-internet">Jugar a distancia (dirección fija)</h3>
-      <p>Si tienes <b>Tailscale</b> instalado, el servidor publica la partida <b>solo al abrirse</b> en una dirección fija con HTTPS (<code>https://tu-pc.tuXXXX.ts.net</code>), sin Cloudflare y sin tocar el router. La red local sigue funcionando igual. En la pantalla del DM, <b>Partida → 📨 Invitar jugadores</b> muestra el enlace de Internet y el de la misma Wi-Fi, ya con el código, para copiarlos. Alternativa: <b>ngrok</b> con su dominio fijo gratuito. Todo se configura en <code>di-en-di-servidor.json</code> junto al .exe (detalles en <i>PUBLICAR.txt</i>).</p>
+      <p>Si tienes <b>Tailscale</b> instalado, el servidor publica la partida <b>solo al abrirse</b> en una dirección fija con HTTPS (<code>https://tu-pc.tuXXXX.ts.net</code>), sin Cloudflare y sin tocar el router. La red local sigue funcionando igual. En la pantalla del DM, <b>Partida → 📨 Invitar jugadores</b> muestra el enlace de Internet y el de la misma Wi-Fi, ya con el código, para copiarlos. Alternativa: <b>ngrok</b> con su dominio fijo gratuito. Todo se configura en <code>di-en-di-servidor.json</code> junto al .exe (detalles en <i>PUBLICAR.txt</i>). Si el puerto 3000 ya lo usa otro programa del PC, el servidor elige solo otro libre y publica ese.</p>
 
       <h3 id="partida-grupo">Grupo (DM)</h3>
       <p>La pestaña <b>👥 Grupo</b> del DM muestra siempre, dentro y fuera de combate, a cada jugador: vida (y temporales), CA, percepción pasiva, velocidad, oro, dados de golpe, espacios de conjuro, recursos de clase, condiciones, concentración, inspiración, agotamiento y objetos equipados o mágicos. Arriba, los totales del grupo: vida, oro y cuántos están a 0 PG. El oro y los objetos de cada jugador solo los ve el DM.</p>

@@ -13,7 +13,9 @@ import { startPublishing, stopPublishing, type PublishState } from './publish';
 
 const args = process.argv.slice(2);
 const argValue = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
-const PORT = Number(argValue('--port') ?? process.env.PORT ?? 3000);
+// Puerto: el pedido con --port, o el 3000; si está ocupado por otro programa (p. ej. una IA local) se busca otro libre
+const FIXED_PORT = argValue('--port') ?? process.env.PORT;
+let PORT = Number(FIXED_PORT ?? 3000);
 const packaged = !!(process as unknown as { pkg?: unknown }).pkg;
 const HOME = packaged ? path.dirname(process.execPath) : process.cwd();
 const DATA_FILE = argValue('--data') ?? path.join(HOME, 'di-en-di-partida.json');
@@ -91,6 +93,8 @@ const server = http.createServer((req, res) => {
 // ---------- WebSocket ----------
 
 const wss = new WebSocketServer({ server, path: '/ws' });
+// ws reenvía los errores del servidor HTTP (p. ej. puerto ocupado): se tratan abajo
+wss.on('error', () => { /* lo gestiona server.on('error') */ });
 const clients = new Map<WebSocket, string>();
 const send = (ws: WebSocket, msg: ServerMessage) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg)); };
 
@@ -173,10 +177,26 @@ let publish: PublishState = { mode: 'no', url: null, status: 'off', message: '' 
 function lanIpsList() { return Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i!.address); }
 const lanIps = lanIpsList;
 
-server.listen(PORT, () => {
+// Si el puerto está ocupado: con --port avisamos; si no, probamos los siguientes (3001, 3002…)
+let tries = 0;
+server.on('error', (e: NodeJS.ErrnoException) => {
+  if (e.code !== 'EADDRINUSE') { console.error(e); return; }
+  if (!FIXED_PORT && tries < 30) {
+    console.log(`  El puerto ${PORT} lo usa otro programa; pruebo con el ${PORT + 1}…`);
+    tries++;
+    PORT += 1;
+    setTimeout(() => server.listen(PORT), 100);
+    return;
+  }
+  console.error(`\n  ⚠️  El puerto ${PORT} lo está usando otro programa. Cierra ese programa o abre el servidor con otro puerto, por ejemplo:\n     "Di en Di - Servidor.exe" --port ${PORT + 100}\n`);
+  // Dejamos la ventana abierta un rato para que se pueda leer el aviso
+  setTimeout(() => process.exit(1), 60000);
+});
+
+server.on('listening', () => {
   const dmUrl = `http://localhost:${PORT}/?dm=${room.dmKey}`;
   const line = '─'.repeat(64);
-  console.log(`\n${line}\n  🎲  Servidor de partida de «Di en Di»\n${line}`);
+  console.log(`\n${line}\n  🎲  Servidor de partida de «Di en Di»  (puerto ${PORT})\n${line}`);
   console.log(`  Código de la partida:  ${room.code}`);
   console.log(`  Pantalla del DM (solo en este PC, no la compartas):\n    ${dmUrl}`);
   console.log(`  Clave del DM (para entrar como DM desde el móvil o la tablet): ${room.dmKey}`);
@@ -195,6 +215,7 @@ server.listen(PORT, () => {
     broadcast();
   });
 });
+server.listen(PORT);
 
 let closing = false;
 const shutdown = () => {

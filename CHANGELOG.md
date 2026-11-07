@@ -3,6 +3,12 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.22.1 · 7 nov 2026 — Puerto libre automático en el servidor
+
+- Si el puerto 3000 ya lo usa otro programa del PC (por ejemplo una IA local), el servidor busca solo el siguiente libre (3001, 3002…) y publica en Internet **ese** puerto. Así el túnel de Tailscale nunca expone otro programa por error.
+- Con `--port` se respeta el puerto pedido; si está ocupado, la ventana avisa de cómo abrirlo con otro y no se cierra de golpe.
+- La ventana del servidor muestra el puerto que está usando.
+
 ## 0.22.0 · 7 nov 2026 — Partida en Internet, Grupo e imágenes del DM y estilo Retro 16-bit
 
 **Servidor**
