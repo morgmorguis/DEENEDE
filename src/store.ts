@@ -37,7 +37,8 @@ export interface Settings {
   design?: Design;
 }
 
-export type Design = 'classic' | 'retro';
+/** classic: pixel art detallado · retro: 16 bits con interfaz y transiciones de RPG · poster: pósteres pintados */
+export type Design = 'classic' | 'retro' | 'poster';
 
 export interface LootBundle {
   id: string;

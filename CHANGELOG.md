@@ -3,6 +3,30 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.23.0 · 7 nov 2026 — Turnos de verdad, resumen narrativo y encuentros del DM
+
+**Combate compartido**
+- Una vez fijada la iniciativa, **cada jugador solo juega su turno**: ya no puede pasar el turno de otro, solo «Terminar mi turno». Después es **espectador** hasta que le vuelva a tocar. Solo el DM avanza el turno o juega por otra criatura (y juega el turno de los enemigos). El servidor lo comprueba.
+- **Todas las acciones de 2024** en tu turno: Atacar (con tus armas o sin armas), Magia (gasta el espacio en tu ficha), Correr, Destrabarse, Esquivar, Ayudar, Esconderse, Influir, Preparar, Buscar, Estudiar, Utilizar, Agarrar, Empujar, Curar, acción adicional, poción, levantarse, interactuar, moverse y hablar, con la economía de acciones a la vista.
+- Al atacar eliges **arma y objetivo**, tiras o escribes tu tirada y marcas **✅ Impacta** o **❌ He fallado**. El 20 natural es crítico (dobla los dados). Con Magia, varios objetivos con «mitad si salva», curar o solo efecto.
+- **Reacción** fuera de tu turno, una por ronda: ataque de oportunidad, conjuro de reacción u otra.
+- El DM puede **cambiar el color** de cada enemigo; los jugadores lo ven en el orden y al elegir objetivo.
+- **Pestaña ⚔️ Combate del DM**: orden de turnos y registro a la vez, con el panel para jugar la criatura del turno. Los monstruos del bestiario traen su ataque ya puesto.
+
+**Registro y resumen**
+- El registro anota fallos, armas, conjuros, críticos y reacciones.
+- **📖 Resumen narrativo** del combate en pasado («Brakka golpeó con fuerza al goblin y lo derrotó…»), sin IA o con Claude, editable. El DM lo comparte y a cada jugador se le guarda en el diario, en la nueva carpeta **🤝 Compartido**. Las criaturas que siguen ocultas no aparecen.
+- Las **imágenes** que comparte el DM también se guardan en esa carpeta del diario.
+
+**Para el DM**
+- **Encuentros preparados**: listas de enemigos (del bestiario, de tus personajes o a mano) con cantidad, vida, CA, iniciativa, color y **ocultos**, que se cargan en el combate con un toque.
+- **Bestiario de casi 100 criaturas**, todas con su ataque habitual; los personajes del DM ahora tienen **ataques**, **equipo**, color y **potencia** (Débil, Normal, Fuerte, Élite).
+- **Copia de la campaña**: exporta en un archivo todo lo del DM (personajes, encuentros, entregas, registro, crónicas, imágenes, ajustes, botines y plantillas) y restáuralo en cualquier servidor sin duplicar.
+- Los jugadores ya no ven la entrada de un monstruo oculto en el registro aunque el combate haya terminado.
+
+**Estilo**
+- **Clásico** ahora tiene fondos en **pixel art detallado** (paleta propia por escena y tramado), en el móvil y en Windows. El **Retro 16-bit** también estrena fondos pixel mejores. Los pósteres pintados siguen disponibles como estilo **Póster**.
+
 ## 0.22.2 · 7 nov 2026 — El servidor comprueba que es él quien responde
 
 - En Windows, otro programa (por ejemplo una IA local) puede escuchar solo en `127.0.0.1` en el mismo puerto y «tapar» al servidor sin que el sistema avise; entonces el túnel de Tailscale publicaba ese programa. Ahora el servidor comprueba que quien responde en `127.0.0.1:puerto` es él; si no, se cambia solo de puerto (3001, 3002…). Con `--port` fijo no publica nada en Internet y avisa.

@@ -5,8 +5,17 @@ La app trae dos estilos visuales que se eligen en **Ajustes → Estilo visual**:
 - **Clásico**: los pósteres de fantasía oscura y las transiciones de siempre (no se ha quitado nada).
 - **Retro 16-bit**: fondos pixel art, transiciones de RPG clásico y un icono pixel (un d20).
 
-Los fondos retro que trae la app ahora son **provisionales** (generados por código). Puedes sustituirlos por imágenes
-hechas con tu IA en el PC (RTX 5070 Ti + ComfyUI) manteniendo las mismas ideas de escena.
+Desde la 0.23.0 los fondos de **Clásico** (`public/design/clasico`, 256 px y 32 colores) y de **Retro 16-bit**
+(`public/design/retro`, 168 px y 20 colores) se sacan de los pósteres pintados con `scripts/pixel/classic.py`
+(reducción con nitidez, paleta propia por escena y tramado ordenado):
+
+```
+python scripts/pixel/classic.py 256 32 public/design/clasico 0.08
+python scripts/pixel/classic.py 168 20 public/design/retro 0.12
+```
+
+Los pósteres originales siguen disponibles como estilo **Póster**. Si prefieres imágenes hechas con tu IA en el PC
+(RTX 5070 Ti + ComfyUI), puedes sustituirlas manteniendo las mismas ideas de escena.
 
 ## 1. Modelos y LoRAs recomendados (gratis)
 

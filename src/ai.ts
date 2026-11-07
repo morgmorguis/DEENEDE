@@ -175,6 +175,27 @@ export async function narrateWithClaude(apiKey: string, model: string, transcrip
   return textOf(await stream.finalMessage());
 }
 
+/** Crónica de un combate a partir de su registro */
+export async function narrateCombatWithClaude(apiKey: string, model: string, transcript: string): Promise<string> {
+  const system = getLang() === 'es'
+    ? `Eres el cronista de una partida de Dungeons & Dragons. Recibes el registro de un combate (quién ataca a quién, aciertos, fallos, daño, conjuros, acciones como esconderse o correr, quién cae).
+Escribe en español un resumen narrativo breve (2-4 párrafos), en pasado y en tercera persona, con tono de novela de fantasía: cuenta los golpes importantes, los fallos que importan, las curaciones, las acciones astutas y quién derrotó a quién. No inventes hechos que no estén en el registro ni menciones reglas ni números salvo el daño cuando sea dramático.
+Devuelve solo el texto, empezando por un título corto en la primera línea.`
+    : `You are the chronicler of a Dungeons & Dragons game. You receive the log of a combat (who attacks whom, hits, misses, damage, spells, actions like hiding or dashing, who falls).
+Write a short narrative summary in English (2-4 paragraphs), in past tense and third person, in the tone of a fantasy novel: tell the important blows, the misses that mattered, healing, clever actions and who defeated whom. Don’t invent events not in the log and don’t mention rules or numbers except damage when dramatic.
+Return only the text, starting with a short title on the first line.`;
+  const stream = client(apiKey).beta.messages.stream({
+    model,
+    max_tokens: 4000,
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    output_config: { effort: 'low' },
+    system,
+    messages: [{ role: 'user', content: `Combat log:\n"""\n${transcript.slice(-20000)}\n"""` }],
+  });
+  return textOf(await stream.finalMessage());
+}
+
 /** Versión sin IA: limpia la transcripción y la agrupa en párrafos. */
 export function narrateOffline(transcript: string): string {
   const sentences = transcript

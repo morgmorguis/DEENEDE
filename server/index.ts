@@ -7,7 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { apply, canSeeImage, createRoom, join, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
+import { apply, CAMPAIGN_KIND, canSeeImage, createRoom, exportCampaign, importCampaign, join, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
 import type { ClientMessage, ServerMessage } from '../src/party/protocol';
 import { startPublishing, stopPublishing, type PublishState } from './publish';
 
@@ -56,6 +56,11 @@ const TYPES: Record<string, string> = {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');
   res.setHeader('Access-Control-Allow-Origin', '*');
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.statusCode = 204; res.end(); return;
+  }
   if (url.pathname === '/api/info') {
     res.setHeader('Content-Type', 'application/json');
     // El código y las direcciones solo para el DM (el servidor puede estar publicado en Internet)
@@ -65,6 +70,46 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify(isDm
       ? { app: 'di-en-di', code: room.code, port: PORT, lan: lanIps().map((ip) => `http://${ip}:${PORT}`), publish, ...probe }
       : { app: 'di-en-di', ...probe }));
+    return;
+  }
+  // Copia de la campaña (solo el DM): todo lo que ha creado, con las imágenes dentro
+  if (url.pathname === '/api/export' || url.pathname === '/api/import') {
+    res.setHeader('Content-Type', 'application/json');
+    if (url.searchParams.get('dm') !== room.dmKey) { res.statusCode = 403; res.end('{"error":"not-allowed"}'); return; }
+    if (url.pathname === '/api/export') {
+      const data = exportCampaign(room);
+      for (const im of data.images) {
+        try { im.data = fs.readFileSync(path.join(IMG_DIR, `${im.id}.jpg`)).toString('base64'); } catch { /* sin archivo */ }
+      }
+      res.end(JSON.stringify({ kind: CAMPAIGN_KIND, version: 1, exportedAt: new Date().toISOString(), room: data }));
+      return;
+    }
+    if (req.method !== 'POST') { res.statusCode = 405; res.end('{"error":"post"}'); return; }
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on('data', (c: Buffer) => { size += c.length; if (size > 300 * 1024 * 1024) req.destroy(); else chunks.push(c); });
+    req.on('end', () => {
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        const data = body?.room ?? body;
+        let imgs = 0;
+        for (const im of Array.isArray(data?.images) ? data.images : []) {
+          const id = String(im?.id ?? '').replace(/[^a-z0-9]/g, '');
+          if (!id || typeof im.data !== 'string') continue;
+          fs.mkdirSync(IMG_DIR, { recursive: true });
+          fs.writeFileSync(path.join(IMG_DIR, `${id}.jpg`), Buffer.from(im.data, 'base64'));
+          imgs++;
+        }
+        room = importCampaign(room, data);
+        save();
+        broadcast();
+        console.log(`→ Copia de la campaña restaurada (${imgs} imagen(es)).`);
+        res.end(JSON.stringify({ ok: true, images: imgs }));
+      } catch (e) {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: String(e) }));
+      }
+    });
     return;
   }
   // /img/<id>.jpg?t=<token del miembro>: solo quien puede verla

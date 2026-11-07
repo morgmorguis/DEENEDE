@@ -1,4 +1,5 @@
-// Fondos pixel-art provisionales del estilo «Retro 16-bit» (320×320, paleta limitada y tramado).
+// Primeros fondos pixel-art del estilo «Retro 16-bit» (320×320, paleta limitada y tramado). Desde la 0.23.0
+// se usan los de scripts/pixel/classic.py (más detallados); este script queda para generar escenas a mano.
 // Mantienen las ideas de los pósteres (ocaso, bosque, cumbres, abismo, mar, mazmorra, ciudadela, cripta).
 // Se sustituyen por las imágenes de IA con scripts/retro/import-ai-art.cjs (mismos nombres).
 // Uso: node scripts/retro/scenes.cjs [nombre…]   → public/design/retro/<nombre>.png

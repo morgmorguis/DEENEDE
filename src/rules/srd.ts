@@ -616,4 +616,5 @@ export const DEFAULT_FOLDERS: { key: string; name: Tr; icon: string }[] = [
   { key: 'quests', name: { es: 'Misiones', en: 'Quests' }, icon: '📌' },
   { key: 'items', name: { es: 'Objetos', en: 'Items' }, icon: '💎' },
   { key: 'chronicles', name: { es: 'Crónicas', en: 'Chronicles' }, icon: '📖' },
+  { key: 'shared', name: { es: 'Compartido', en: 'Shared' }, icon: '🤝' },
 ];

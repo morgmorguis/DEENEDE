@@ -7,6 +7,8 @@ import type { Ability, Character } from '../types';
 import { Modal, NumberInput, Section } from './common';
 import { ImportModal } from './Import';
 import { BackupSection } from './Backup';
+import { DmBackupSection } from './DmBackup';
+import { useParty } from '../party/client';
 import { ManualViewer } from './Manual';
 import { DEFAULT_MODEL } from '../config';
 import { useFx } from './Transition';
@@ -24,6 +26,7 @@ export function SettingsTab() {
   const setSettings = useStore((s) => s.setSettings);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const isDm = useParty((s) => s.role === 'dm');
   const [showKey, setShowKey] = useState(false);
   const replace = useStore((s) => s.replace);
   const [translating, setTranslating] = useState<string | null>(null);
@@ -64,11 +67,12 @@ export function SettingsTab() {
       <Section title={T('Estilo visual', 'Visual style')}>
         <div className="themes design-opts" role="radiogroup" aria-label={T('Estilo visual', 'Visual style')}>
           {([
-            ['classic', T('Clásico', 'Classic'), T('Pósteres de fantasía oscura y transiciones actuales.', 'Dark fantasy posters and the current transitions.'), 'posters/ocaso.jpg'],
-            ['retro', T('Retro 16-bit', 'Retro 16-bit'), T('Fondos pixel art de los 80-90, transiciones de RPG clásico e icono pixel.', '80s-90s pixel art backgrounds, classic RPG transitions and a pixel icon.'), 'design/retro/ocaso.png'],
+            ['classic', T('Clásico', 'Classic'), T('Fondos pixel art detallados de fantasía oscura y las transiciones de siempre.', 'Detailed dark fantasy pixel art backgrounds and the usual transitions.'), 'design/clasico/ocaso.png'],
+            ['retro', T('Retro 16-bit', 'Retro 16-bit'), T('Pixel más grueso, interfaz cuadrada, transiciones de RPG clásico e icono pixel.', 'Chunkier pixels, square interface, classic RPG transitions and a pixel icon.'), 'design/retro/ocaso.png'],
+            ['poster', T('Póster', 'Poster'), T('Los pósteres pintados de fantasía oscura (el estilo clásico anterior).', 'The painted dark fantasy posters (the previous classic style).'), 'posters/ocaso.jpg'],
           ] as const).map(([id, name, text, img]) => (
             <button key={id} role="radio" aria-checked={(settings.design ?? 'classic') === id} className={`theme-opt design-opt ${(settings.design ?? 'classic') === id ? 'on' : ''}`} onClick={() => setSettings({ design: id })}>
-              <img src={img} alt="" className={id === 'retro' ? 'pixelated' : ''} />
+              <img src={img} alt="" className={id !== 'poster' ? 'pixelated' : ''} />
               <span><b>{(settings.design ?? 'classic') === id ? '✓ ' : ''}{name}</b><br /><small className="muted">{text}</small></span>
             </button>
           ))}
@@ -127,6 +131,7 @@ export function SettingsTab() {
       </Section>
 
       <BackupSection />
+      {isDm && <DmBackupSection />}
 
       <Section title={T('Inteligencia artificial (opcional)', 'Artificial intelligence (optional)')}>
         <p className="small">{T('Con una clave de API de Claude, el asistente entiende frases libres, el diario convierte tus grabaciones en una crónica y puedes importar fichas desde fotos y documentos. Sin clave, todo lo demás funciona sin conexión.', 'With a Claude API key, the assistant understands free phrasing, the journal turns your recordings into a chronicle, and you can import sheets from photos and documents. Without a key everything else works offline.')}</p>

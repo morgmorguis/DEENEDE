@@ -616,7 +616,7 @@ export function MyGifts({ view }: { view: RoomView }) {
 }
 
 /** El personaje que se comparte en la partida (el activo si no hay otro) */
-function useSharedChar() {
+export function useSharedChar() {
   const id = useParty((s) => s.conn?.characterId);
   const active = useChar();
   return useStore((s) => s.characters.find((c) => c.id === id)) ?? active;

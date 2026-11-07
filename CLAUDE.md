@@ -59,11 +59,12 @@ En Windows, para el APK a mano: `npm run build`, después `npx cap sync android`
 
 ## Estado
 
-- Versión **0.22.2** (7 nov 2026): el servidor busca un puerto libre si el 3000 está ocupado y comprueba con una sonda en `/api/info?probe=` que es él quien responde en 127.0.0.1 (en el PC del DM su IA local escucha en 127.0.0.1:3000 y en Windows no da error al compartir puerto).
+- Versión **0.23.0** (7 nov 2026): turnos controlados por el servidor (`act` solo en tu turno o como reacción una vez por ronda; `nextTurn` solo DM o dueño del turno), acciones 2024 en `src/components/CombatActions.tsx`, resumen narrativo (`src/party/narrative.ts`, oculta `secretIds`), crónicas e imágenes guardadas en la carpeta «Compartido» del diario (`reconcileShared` en `client.ts`), encuentros preparados (`encounterSave/Load`), colores de enemigos, bestiario con `atk`, copia de la campaña (`/api/export` y `/api/import` con `?dm=`; `exportCampaign`/`importCampaign` en `room.ts`; UI en `DmBackup.tsx`) y estilos Clásico (pixel, `public/design/clasico`), Retro y Póster (`scripts/pixel/classic.py`).
+- 0.22.2: el servidor busca un puerto libre si el 3000 está ocupado y comprueba con una sonda en `/api/info?probe=` que es él quien responde en 127.0.0.1 (en el PC del DM su IA local escucha en 127.0.0.1:3000 y en Windows no da error al compartir puerto).
 - 0.22.0: servidor publicado en Internet (Tailscale Funnel / ngrok, `server/publish.ts`),
   pestaña Grupo e imágenes del DM (`DmGroup.tsx`, `Images.tsx`; las imágenes se guardan en disco junto a la partida),
   conexión discreta del jugador y estilo visual Retro 16-bit seleccionable (`src/scenes.ts`, `public/design/retro`).
-- Arte retro provisional generado por código (`scripts/retro/scenes.cjs`); se sustituye con imágenes de IA local
+- Fondos pixel de Clásico y Retro sacados de los pósteres con `scripts/pixel/classic.py`; se pueden sustituir con imágenes de IA local
   (`scripts/retro/comfy_generar.py` + `import-ai-art.cjs`, guía en `docs/arte-retro/LEEME.md`).
 - Iconos de Windows en `build/icons` (regenerables con `scripts/icons/make-icons.cjs`), aplicados en la CI con resedit.
 - Lo que hay y lo que se ha ido añadiendo está en `CHANGELOG.md`. Las ideas o tareas pendientes se apuntan en esta sección.

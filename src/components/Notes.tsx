@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { speechLangFor, useChar, useStore } from '../store';
 import { startRecording, type Recorder } from '../speech';
@@ -197,7 +198,8 @@ function NoteItem({ note, folders }: { note: Note; folders: NoteFolder[] }) {
   const updateNote = useStore((s) => s.updateNote);
   const deleteNote = useStore((s) => s.deleteNote);
   const [editing, setEditing] = useState(false);
-  const icon = note.kind === 'story' ? '📖' : note.kind === 'transcript' ? '🎙️' : '📝';
+  const [big, setBig] = useState(false);
+  const icon = note.image ? '' : note.kind === 'story' ? '📖' : note.kind === 'transcript' ? '🎙️' : '📝';
   const folder = folders.find((f) => f.id === note.folderId);
   return (
     <details className="note">
@@ -214,6 +216,12 @@ function NoteItem({ note, folders }: { note: Note; folders: NoteFolder[] }) {
       ) : (
         note.body && <div className="note-body">{note.body}</div>
       )}
+      {note.image && <img className="note-img" src={note.image} alt={note.title} onClick={() => setBig(true)} />}
+      {big && note.image && createPortal(
+        <div className="img-viewer" onClick={() => setBig(false)} role="dialog" aria-label={note.title}>
+          <img src={note.image} alt={note.title} />
+          <div className="img-viewer-bar"><b>{note.title}</b><button className="btn small">✕ {T('Cerrar', 'Close')}</button></div>
+        </div>, document.body)}
       <div className="row wrap">
         <select className="note-move" value={note.folderId ?? ''} aria-label={T('Mover a carpeta', 'Move to folder')} onChange={(e) => updateNote(note.id, { folderId: e.target.value || null })}>
           <option value="">{T('Sin carpeta', 'No folder')}</option>

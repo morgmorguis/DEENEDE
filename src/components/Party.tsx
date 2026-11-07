@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useChar, useStore } from '../store';
 import { httpBase, useParty } from '../party/client';
-import type { ActKind, CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
+import type { CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
 import { MONSTERS, searchMonsters, type MonsterInfo } from '../party/monsters';
 import { rollExpr, fmt, initiativeBonus } from '../rules/calc';
 import { Modal, Pips, Section } from './common';
@@ -11,6 +11,9 @@ import { CONDITIONS } from '../rules/srd';
 import { encounterDifficulty } from '../party/difficulty';
 import { Consumables } from './Consumables';
 import { BundleList, MyGifts } from './Treasure';
+import { TurnPanel, actionName } from './CombatActions';
+import { combatTranscript, lastCombat, localNarrative } from '../party/narrative';
+import { describeError, narrateCombatWithClaude } from '../ai';
 import { DmImages, SharedGallery, useImageUrl } from './Images';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
@@ -22,6 +25,8 @@ const STATE_LABEL: Record<HpState, [string, string, string]> = {
   down: ['Derrotado', 'Down', 'down'],
   unknown: ['?', '?', 'unknown'],
 };
+/** Colores para distinguir enemigos (rojo, naranja, amarillo, verde, azul, morado, rosa, blanco) */
+export const ENEMY_COLORS = ['#e5484d', '#f2862d', '#f5c542', '#46b36b', '#3e8ef7', '#9b6bf2', '#e85aa8', '#d9d9d9'];
 const kindIcon = (c: { kind: string }) => (c.kind === 'pc' ? '🛡️' : c.kind === 'npc' ? '🤝' : '👹');
 
 export function StateBadge({ state }: { state: HpState }) {
@@ -89,104 +94,24 @@ function JoinForm() {
   );
 }
 
-// ---------- Acciones de turno ----------
-
-function ActModal({ view, actorId, kind, onClose }: { view: RoomView; actorId: string; kind: ActKind; onClose: () => void }) {
-  const send = useParty((s) => s.send);
-  const manualRolls = useStore((s) => s.settings.manualRolls);
-  const order = view.encounter.order;
-  const actor = order.find((c) => c.id === actorId)!;
-  const friendly = (c: CombatantView) => c.kind !== 'monster';
-  const suggested = kind === 'heal' ? order.filter((c) => friendly(c) === friendly(actor)) : order.filter((c) => friendly(c) !== friendly(actor));
-  const others = order.filter((c) => !suggested.includes(c));
-  const [target, setTarget] = useState(suggested.find((c) => c.state !== 'down')?.id ?? suggested[0]?.id ?? '');
-  const [amount, setAmount] = useState('');
-  const [roll, setRoll] = useState('');
-  const [text, setText] = useState('');
-  // Daño en área: varios objetivos; cada uno puede recibir el daño entero o la mitad (salvación superada)
-  const [area, setArea] = useState(false);
-  const [multi, setMulti] = useState<Record<string, 'full' | 'half'>>({});
-  const n = Math.floor(Number(amount));
-  const needsTarget = kind === 'hit' || kind === 'heal';
-  const ok = kind === 'other' ? !!text.trim() : Number.isFinite(n) && n >= 0 && amount !== '' && (!needsTarget || (area ? Object.keys(multi).length > 0 : !!target));
-  const cycle = (id: string) => setMulti((m) => {
-    const next = { ...m };
-    if (!m[id]) next[id] = 'full'; else if (m[id] === 'full' && kind === 'hit') next[id] = 'half'; else delete next[id];
-    return next;
-  });
-  const title = kind === 'hit' ? T(`${actor.name} pega a…`, `${actor.name} hits…`) : kind === 'heal' ? T(`${actor.name} cura a…`, `${actor.name} heals…`) : kind === 'hurt' ? T(`${actor.name} recibe daño`, `${actor.name} takes damage`) : T(`¿Qué hace ${actor.name}?`, `What does ${actor.name} do?`);
-  const chip = (c: CombatantView) => (
-    <button key={c.id} className={`target-chip ${c.kind === 'monster' ? 'enemy' : ''} ${(area ? !!multi[c.id] : target === c.id) ? 'on' : ''}`} onClick={() => (area ? cycle(c.id) : setTarget(c.id))}>
-      {kindIcon(c)} {c.name} <small>{c.hp != null ? hpText(c) : <StateBadge state={c.state} />}</small>
-      {area && multi[c.id] && <i className={`area-tag ${multi[c.id]}`}>{multi[c.id] === 'half' ? T('½ salvó', '½ saved') : T('entero', 'full')}</i>}
-    </button>
-  );
-  return (
-    <Modal title={title} onClose={onClose}>
-      {needsTarget && (
-        <>
-          <label className="check"><input type="checkbox" checked={area} onChange={(e) => { setArea(e.target.checked); setMulti({}); }} /> 💥 {kind === 'heal' ? T('Varios objetivos', 'Several targets') : T('Varios objetivos (área: Bola de fuego, aliento…)', 'Several targets (area: Fireball, breath…)')}</label>
-          {area && kind === 'hit' && <p className="hint">{T('Toca un objetivo para añadirlo, otra vez para «mitad» (superó la salvación) y otra para quitarlo.', 'Tap a target to add it, again for “half” (made the save) and again to remove it.')}</p>}
-          <div className="target-chips">{suggested.map(chip)}</div>
-          {others.length > 0 && <details><summary className="small muted">{T('Otros', 'Others')}</summary><div className="target-chips">{others.map(chip)}</div></details>}
-        </>
-      )}
-      {kind === 'other' ? (
-        <>
-          <div className="target-chips">
-            {[['Habla', 'Talks'], ['Se mueve', 'Moves'], ['Esquiva', 'Dodges'], ['Ayuda', 'Helps'], ['Se esconde', 'Hides'], ['Lanza un conjuro', 'Casts a spell'], ['Usa un objeto', 'Uses an item'], ['Huye', 'Flees']].map(([es, en]) => (
-              <button key={en} className="target-chip" onClick={() => setText(text ? `${text}, ${T(es, en).toLowerCase()}` : T(es, en))}>{T(es, en)}</button>
-            ))}
-          </div>
-          <label className="field">{T('Qué hace', 'What happens')}<textarea value={text} onChange={(e) => setText(e.target.value)} /></label>
-        </>
-      ) : (
-        <label className="field">{kind === 'heal' ? T('PG curados', 'HP healed') : T('Daño', 'Damage')}
-          <input className="big-input" type="number" inputMode="numeric" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </label>
-      )}
-      {manualRolls && (
-        <label className="field">{T('Tirada (opcional)', 'Roll (optional)')}<input type="number" inputMode="numeric" value={roll} onChange={(e) => setRoll(e.target.value)} /></label>
-      )}
-      <button className="btn primary full" disabled={!ok} onClick={() => {
-        const r = roll.trim() ? Number(roll) : null;
-        if (area && needsTarget) {
-          for (const [id, how] of Object.entries(multi)) send({ t: 'act', actorId, kind, targetId: id, amount: how === 'half' ? Math.floor(n / 2) : n, roll: r });
-        } else {
-          send({ t: 'act', actorId, kind, targetId: needsTarget ? target : undefined, amount: kind === 'other' ? undefined : n, roll: r, text: kind === 'other' ? text.trim() : undefined });
-        }
-        onClose();
-      }}>{T('Anotar', 'Log it')}{area && Object.keys(multi).length > 1 ? ` (${Object.keys(multi).length})` : ''}</button>
-    </Modal>
-  );
-}
-
-function ActionButtons({ view, actorId }: { view: RoomView; actorId: string }) {
-  const [act, setAct] = useState<ActKind | null>(null);
-  return (
-    <>
-      <div className="turn-actions">
-        <button className="btn" onClick={() => setAct('hit')}>⚔️ {T('Daño hecho', 'Damage dealt')}</button>
-        <button className="btn" onClick={() => setAct('heal')}>💚 {T('Curación', 'Healing')}</button>
-        <button className="btn" onClick={() => setAct('hurt')}>🩸 {T('Daño recibido', 'Damage taken')}</button>
-        <button className="btn" onClick={() => setAct('other')}>💬 {T('Otra acción', 'Other action')}</button>
-      </div>
-      {act && <ActModal view={view} actorId={actorId} kind={act} onClose={() => setAct(null)} />}
-    </>
-  );
-}
-
 // ---------- Registro ----------
 
-function logLine(ev: LogEvent, dm: boolean): string {
+export function logLine(ev: LogEvent, dm: boolean): string {
+  void dm;
   const roll = ev.roll != null ? T(` (tirada ${ev.roll})`, ` (roll ${ev.roll})`) : '';
-  const after = ev.after && dm ? ` → ${ev.after}` : ev.after ? ` → ${ev.after}` : '';
+  const after = ev.after ? ` → ${ev.after}` : '';
+  const how = [ev.reaction ? T('reacción', 'reaction') : '', ev.action && !['atacar'].includes(ev.action) ? actionName(ev.action) : '', ev.weapon ?? '', ev.spell ?? ''].filter(Boolean).join(' · ');
+  const w = how ? ` [${how}]` : '';
+  const crit = ev.crit ? T(' ¡CRÍTICO!', ' CRITICAL!') : '';
+  const note = ev.text ? ` — ${ev.text}` : '';
   switch (ev.kind) {
-    case 'hit': return T(`⚔️ ${ev.actor} golpea a ${ev.target}: ${ev.amount} de daño${roll}${after}`, `⚔️ ${ev.actor} hits ${ev.target}: ${ev.amount} damage${roll}${after}`);
-    case 'heal': return T(`💚 ${ev.actor} cura a ${ev.target}: ${ev.amount} PG${roll}${after}`, `💚 ${ev.actor} heals ${ev.target}: ${ev.amount} HP${roll}${after}`);
+    case 'hit': return T(`⚔️ ${ev.actor} golpea a ${ev.target}${w}: ${ev.amount} de daño${crit}${roll}${after}${note}`, `⚔️ ${ev.actor} hits ${ev.target}${w}: ${ev.amount} damage${crit}${roll}${after}${note}`);
+    case 'miss': return T(`❌ ${ev.actor} falla${ev.target ? ` contra ${ev.target}` : ''}${w}${roll}${note}`, `❌ ${ev.actor} misses${ev.target ? ` ${ev.target}` : ''}${w}${roll}${note}`);
+    case 'heal': return T(`💚 ${ev.actor} cura a ${ev.target}${w}: ${ev.amount} PG${roll}${after}`, `💚 ${ev.actor} heals ${ev.target}${w}: ${ev.amount} HP${roll}${after}`);
     case 'hurt': return T(`🩸 ${ev.actor} recibe ${ev.amount} de daño${roll}${after}`, `🩸 ${ev.actor} takes ${ev.amount} damage${roll}${after}`);
-    case 'other': return `💬 ${ev.actor}${ev.target ? ` → ${ev.target}` : ''}: ${ev.text}${roll}`;
-    case 'down': return T(`💀 ${ev.target} cae`, `💀 ${ev.target} is down`);
+    case 'other': return `${ev.action ? '🎬' : '💬'} ${ev.actor}${ev.action ? `: ${actionName(ev.action)}` : ''}${ev.spell ? ` (${ev.spell})` : ''}${ev.target ? ` → ${ev.target}` : ''}${ev.text ? `${ev.action ? ' — ' : ': '}${ev.text}` : ''}${roll}`;
+    case 'narrative': return `📖 ${ev.text ?? ''}`;
+    case 'down': return T(`💀 ${ev.target} cae${ev.actor ? ` (golpe final de ${ev.actor})` : ''}`, `💀 ${ev.target} is down${ev.actor ? ` (final blow by ${ev.actor})` : ''}`);
     case 'turn': return T(`▶ Turno de ${ev.actor}`, `▶ ${ev.actor}’s turn`);
     case 'round': return T(`— Ronda ${ev.round} —`, `— Round ${ev.round} —`);
     case 'start': return T('⚔️ ¡Combate! Preparación', '⚔️ Combat! Getting ready');
@@ -195,10 +120,54 @@ function logLine(ev: LogEvent, dm: boolean): string {
     case 'undo': return T(`↩️ ${ev.actor} deshace el último turno`, `↩️ ${ev.actor} undoes the last turn`);
     case 'add': return T(`➕ ${ev.target} entra en el combate`, `➕ ${ev.target} joins the combat`);
     case 'reveal': return T(`👁️ ¡Aparece ${ev.target}!`, `👁️ ${ev.target} appears!`);
+    default: return ev.text ?? '';
   }
 }
 
+/** Resumen narrativo del último combate: sin IA o con Claude; el DM lo comparte y el jugador lo guarda */
+function NarrativeModal({ view, onClose }: { view: RoomView; onClose: () => void }) {
+  const settings = useStore((s) => s.settings);
+  const send = useParty((s) => s.send);
+  const addNote = useStore((s) => s.addNote);
+  const c = useChar();
+  const dm = view.you.role === 'dm';
+  const events = lastCombat(view.log, view.encounter.order);
+  const local = localNarrative(events);
+  const [title, setTitle] = useState(local.title);
+  const [text, setText] = useState(local.text);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const withAi = async () => {
+    setBusy(true); setErr('');
+    try {
+      const out = await narrateCombatWithClaude(settings.apiKey, settings.model, combatTranscript(events));
+      const [first, ...rest] = out.trim().split('\n');
+      setTitle(first.replace(/^#+\s*/, '').trim() || local.title);
+      setText(rest.join('\n').trim());
+    } catch (e) { setErr(describeError(e)); }
+    setBusy(false);
+  };
+  return (
+    <Modal title={T('📖 Resumen narrativo del combate', '📖 Combat narrative')} onClose={onClose}>
+      <div className="row wrap">
+        <button className="btn small" onClick={() => { setTitle(local.title); setText(local.text); }}>⚙️ {T('Sin IA', 'Without AI')}</button>
+        <button className="btn small primary" disabled={busy || !settings.apiKey} onClick={() => void withAi()}>✨ {busy ? T('Escribiendo…', 'Writing…') : T('Con IA (Claude)', 'With AI (Claude)')}</button>
+      </div>
+      {!settings.apiKey && <p className="hint">{T('Para la versión con IA pon tu clave de Claude en Ajustes. La versión sin IA funciona siempre.', 'For the AI version add your Claude key in Settings. The version without AI always works.')}</p>}
+      {err && <p className="error">⚠️ {err}</p>}
+      <label className="field">{T('Título', 'Title')}<input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+      <textarea className="tall" value={text} onChange={(e) => setText(e.target.value)} />
+      {dm ? (
+        <button className="btn primary full" disabled={!text.trim()} onClick={() => { send({ t: 'chronicleShare', title, text }); useStore.getState().showToast(T('📤 Crónica compartida', '📤 Chronicle shared'), [T('Se guarda en el diario de cada jugador (Compartido).', 'It’s saved in each player’s journal (Shared).')]); onClose(); }}>📤 {T('Compartir con los jugadores', 'Share with the players')}</button>
+      ) : (
+        <button className="btn primary full" disabled={!text.trim()} onClick={() => { addNote({ title: `📖 ${title}`, body: text, kind: 'story', folderId: c.noteFolders.find((f) => f.key === 'chronicles')?.id ?? null }); onClose(); }}>📜 {T('Guardar en mi diario', 'Save to my journal')}</button>
+      )}
+    </Modal>
+  );
+}
+
 function CombatLog({ view }: { view: RoomView }) {
+  const [story, setStory] = useState(false);
   const addNote = useStore((s) => s.addNote);
   const c = useChar();
   const dm = view.you.role === 'dm';
@@ -213,7 +182,8 @@ function CombatLog({ view }: { view: RoomView }) {
     useStore.getState().showToast(T('📜 Guardado en el diario (Crónicas)', '📜 Saved to the journal (Chronicles)'), []);
   };
   return (
-    <Section title={T('Registro del combate', 'Combat log')} right={<button className="btn small" disabled={!events.length} onClick={save}>📜 {T('Guardar en el diario', 'Save to journal')}</button>}>
+    <Section title={T('Registro del combate', 'Combat log')} right={<span className="row"><button className="btn small" disabled={!events.length} onClick={() => setStory(true)}>📖 {T('Resumen', 'Story')}</button><button className="btn small" disabled={!events.length} onClick={save}>📜 {T('Guardar', 'Save')}</button></span>}>
+      {story && <NarrativeModal view={view} onClose={() => setStory(false)} />}
       {events.length === 0 && <p className="muted">{T('Aún no ha pasado nada.', 'Nothing has happened yet.')}</p>}
       <ol className="party-log">
         {[...events].reverse().map((ev) => (
@@ -315,6 +285,13 @@ function DmCombatantModal({ c, onClose }: { c: CombatantView; onClose: () => voi
         </div>
       )}
       <label className="field">{T('Nombre', 'Name')}<input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
+      {c.kind !== 'pc' && (
+        <div className="color-row">
+          <span className="small muted">{T('Color (lo ven los jugadores)', 'Color (players see it)')}</span>
+          {ENEMY_COLORS.map((col) => <button key={col} className={`color-dot ${c.color === col ? 'on' : ''}`} style={{ background: col }} aria-label={col} onClick={() => send({ t: 'update', id: c.id, patch: { color: col } })} />)}
+          <button className="color-dot none" aria-label={T('Sin color', 'No color')} onClick={() => send({ t: 'update', id: c.id, patch: { color: undefined } })}>✕</button>
+        </div>
+      )}
       <div className="grid3">
         <label className="field">{T('PG', 'HP')}<input type="number" value={f.hp} onChange={(e) => setF({ ...f, hp: e.target.value })} /></label>
         <label className="field">{T('Máx.', 'Max')}<input type="number" value={f.hpMax} onChange={(e) => setF({ ...f, hpMax: e.target.value })} /></label>
@@ -477,6 +454,38 @@ function SetupPanel({ view }: { view: RoomView }) {
   );
 }
 
+/** Jugador fuera de su turno: mira, y puede usar una reacción por ronda */
+function Spectator({ view, me }: { view: RoomView; me: CombatantView }) {
+  const [react, setReact] = useState(false);
+  const usedReaction = me.reactionRound === view.encounter.round;
+  return (
+    <>
+      <p className="spectator">👀 {T('Eres espectador hasta que te toque. Fuera de tu turno solo puedes usar tu reacción (ataque de oportunidad, Escudo…).', 'You’re a spectator until your turn. Off-turn you can only use your reaction (opportunity attack, Shield…).')}</p>
+      <button className="btn" disabled={usedReaction} onClick={() => setReact(!react)}>⚡ {usedReaction ? T('Reacción ya usada esta ronda', 'Reaction already used this round') : react ? T('Cerrar reacción', 'Close reaction') : T('Usar mi reacción', 'Use my reaction')}</button>
+      {react && !usedReaction && <TurnPanel view={view} actor={me} reaction />}
+    </>
+  );
+}
+
+/** DM: actúa por la criatura del turno (o por cualquiera) */
+function DmTurn({ view }: { view: RoomView }) {
+  const e = view.encounter;
+  const [actorId, setActorId] = useState<string | null>(null);
+  const id = actorId && e.order.some((c) => c.id === actorId) ? actorId : e.currentId;
+  const actor = e.order.find((c) => c.id === id);
+  return (
+    <>
+      <label className="field">{T('Actúa', 'Acting')}
+        <select value={id ?? ''} onChange={(ev) => setActorId(ev.target.value || null)}>
+          {e.order.map((c) => <option key={c.id} value={c.id}>{c.id === e.currentId ? '▶ ' : ''}{kindIcon(c)} {c.name}{c.hidden ? ` (${T('oculto', 'hidden')})` : ''}</option>)}
+        </select>
+      </label>
+      {actor && <TurnPanel view={view} actor={actor} />}
+      {actor && actor.kind === 'pc' && <p className="hint">{T('Estás actuando por un jugador (lo normal es que lo haga él desde su móvil).', 'You’re acting for a player (normally they do it from their phone).')}</p>}
+    </>
+  );
+}
+
 function SharedCombat({ view }: { view: RoomView }) {
   const send = useParty((s) => s.send);
   const dm = view.you.role === 'dm';
@@ -486,7 +495,6 @@ function SharedCombat({ view }: { view: RoomView }) {
   const myPc = e.order.find((c) => c.kind === 'pc' && c.ownerId === view.you.id);
   const cur = e.order.find((c) => c.id === e.currentId);
   const myTurn = !!cur && !!myPc && cur.id === myPc.id;
-  const actorForDm = cur && cur.kind !== 'pc' ? cur.id : null;
 
   return (
     <>
@@ -502,9 +510,9 @@ function SharedCombat({ view }: { view: RoomView }) {
               {e.order.map((c) => {
                 const active = c.id === e.currentId;
                 return (
-                  <li key={c.id} className={`${c.kind} ${active ? 'active' : ''} ${c.state === 'down' ? 'down' : ''} ${c.hidden ? 'hidden' : ''}`} onClick={() => dm && setEdit(c)}>
+                  <li key={c.id} className={`${c.kind} ${active ? 'active' : ''} ${c.state === 'down' ? 'down' : ''} ${c.hidden ? 'hidden' : ''}`} style={c.color ? { borderLeft: `6px solid ${c.color}` } : undefined} onClick={() => dm && setEdit(c)}>
                     <span className="po-init">{c.initiative ?? '–'}</span>
-                    <span className="po-name">{kindIcon(c)} {c.name}{c.hidden && <span className="hidden-tag">🙈 {T('oculto', 'hidden')}</span>}{active && <span className="bubble-turn">{T('turno', 'turn')}</span>}</span>
+                    <span className="po-name" style={c.color ? { color: c.color } : undefined}>{kindIcon(c)} {c.name}{c.hidden && <span className="hidden-tag">🙈 {T('oculto', 'hidden')}</span>}{active && <span className="bubble-turn">{T('turno', 'turn')}</span>}</span>
                     <span className="po-hp">
                       {c.hp != null && <b>❤️ {hpText(c)}</b>}
                       {c.hp == null && c.kind !== 'pc' && <b>❤️ ?</b>}
@@ -544,31 +552,55 @@ function SharedCombat({ view }: { view: RoomView }) {
       </Section>
 
       {e.active && e.phase === 'running' && (
-        <Section title={cur ? (myTurn ? T('⚔️ ¡Tu turno!', '⚔️ Your turn!') : T(`Turno de ${cur.name}`, `${cur.name}’s turn`)) : T('Turno', 'Turn')}>
-          {myPc && !myTurn && <p className="small muted">{T('No es tu turno: anota aquí solo reacciones o daño que recibas.', 'Not your turn: only log reactions or damage you take here.')}</p>}
-          {myPc && <ActionButtons view={view} actorId={myPc.id} />}
-          {myPc && (
-            <details className="mt cons-details">
-              <summary>🏹 {T('Munición y consumibles', 'Ammo & consumables')}</summary>
-              <Consumables mode="combat" />
-            </details>
-          )}
-          {dm && actorForDm && (
+        <Section className="turn-section" title={cur ? (myTurn ? T('⚔️ ¡Tu turno!', '⚔️ Your turn!') : T(`Turno de ${cur.name}`, `${cur.name}’s turn`)) : T('Turno', 'Turn')}>
+          {dm && <DmTurn view={view} />}
+          {!dm && myPc && myTurn && (
             <>
-              <p className="small muted">{T(`Anota lo que hace ${cur!.name}:`, `Log what ${cur!.name} does:`)}</p>
-              <ActionButtons view={view} actorId={actorForDm} />
+              <TurnPanel view={view} actor={myPc} />
+              <details className="mt cons-details">
+                <summary>🏹 {T('Munición y consumibles', 'Ammo & consumables')}</summary>
+                <Consumables mode="combat" />
+              </details>
             </>
           )}
+          {!dm && myPc && !myTurn && <Spectator view={view} me={myPc} />}
           {!myPc && !dm && <p className="muted">{T('Tu ficha aún no está en el combate: pide al DM que lo reinicie o espera a que entre.', 'Your sheet isn’t in this combat yet: ask the DM to restart it.')}</p>}
           <div className="row wrap mt">
-            {view.canEndTurn && <button className="btn primary grow" onClick={() => send({ t: 'nextTurn' })}>⏭️ {T('Pasar turno', 'End turn')}</button>}
-            {view.canUndo && <button className="btn" onClick={async () => { if (await askOk(T('¿Deshacer el último turno? Se revierten sus daños y curaciones.', 'Undo the last turn? Its damage and healing are reverted.'))) send({ t: 'undo' }); }}>↩️ {T('Deshacer último turno', 'Undo last turn')}</button>}
+            {view.canEndTurn && <button className="btn primary grow" onClick={() => send({ t: 'nextTurn' })}>⏭️ {dm ? T('Siguiente turno', 'Next turn') : T('Terminar mi turno', 'End my turn')}</button>}
+            {dm && view.canUndo && <button className="btn" onClick={async () => { if (await askOk(T('¿Deshacer el último turno? Se revierten sus daños y curaciones.', 'Undo the last turn? Its damage and healing are reverted.'))) send({ t: 'undo' }); }}>↩️ {T('Deshacer último turno', 'Undo last turn')}</button>}
           </div>
         </Section>
       )}
       {edit && <DmCombatantModal c={edit} onClose={() => setEdit(null)} />}
       {adding && <MonsterPicker onClose={() => setAdding(false)} />}
     </>
+  );
+}
+
+/** DM en «Partida»: resumen del combate con acceso a su pestaña */
+function DmCombatCard({ view }: { view: RoomView }) {
+  const e = view.encounter;
+  const send = useParty((s) => s.send);
+  return (
+    <Section title={T('Combate', 'Combat')}>
+      <p className="small">{e.active ? T(`⚔️ En marcha · ronda ${e.round} · ${e.order.length} combatientes`, `⚔️ Running · round ${e.round} · ${e.order.length} combatants`) : T('No hay combate en marcha. Prepáralo y llévalo desde la pestaña ⚔️ Combate.', 'No combat running. Prepare and run it from the ⚔️ Combat tab.')}</p>
+      <div className="row wrap">
+        <button className="btn primary" onClick={() => window.dispatchEvent(new CustomEvent('dnd-tab', { detail: 'dmcombat' }))}>⚔️ {T('Ir a la pestaña Combate', 'Go to the Combat tab')}</button>
+        {!e.active && <button className="btn" onClick={() => send({ t: 'start' })}>{T('Empezar combate', 'Start combat')}</button>}
+      </div>
+    </Section>
+  );
+}
+
+/** Pestaña «Combate» del DM: orden de turnos, acciones y registro a la vez (en pantalla ancha, en dos columnas) */
+export function DmCombatTab() {
+  const view = useParty((s) => s.view);
+  if (!view) return <div className="tab"><p className="muted">{T('Conectando con la partida…', 'Connecting to the game…')}</p></div>;
+  return (
+    <div className="tab dm-combat">
+      <div className="dm-combat-main"><SharedCombat view={view} /></div>
+      <div className="dm-combat-side"><CombatLog view={view} /></div>
+    </div>
   );
 }
 
@@ -621,11 +653,11 @@ export function PartyTab() {
               {view.members.filter((m) => m.role === 'player').length === 0 && <p className="muted">{T(`Aún no hay jugadores. Código: ${view.code}`, `No players yet. Code: ${view.code}`)}</p>}
             </div>
           </Section>
-          <SharedCombat view={view} />
+          {dm ? <DmCombatCard view={view} /> : <SharedCombat view={view} />}
           {dm && <DmImages view={view} />}
           <SharedGallery view={view} />
           <MyGifts view={view} />
-          <CombatLog view={view} />
+          {!dm && <CombatLog view={view} />}
         </>
       )}
     </div>

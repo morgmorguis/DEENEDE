@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apply, createRoom, hpState, join, viewFor, type Room } from '../room';
+import { apply, createRoom, exportCampaign, hpState, importCampaign, join, viewFor, type Room } from '../room';
 import type { Command, PcSummary } from '../protocol';
 
 const summary = (name: string, hp = 20): PcSummary => ({ name, species: 'Humano', className: 'Guerrero', level: 3, hp, hpMax: hp, temp: 0, ac: 16, speed: 30, passive: 12, conditions: [] });
@@ -194,5 +194,88 @@ describe('partida compartida', () => {
     s.run(s.dm, { t: 'nextTurn' });
     s.run(s.dm, { t: 'nextTurn' });
     expect(drag().counters![0].used).toBe(0);
+  });
+});
+
+describe('turnos y reacciones', () => {
+  it('el jugador solo actúa en su turno; fuera de él, una reacción por ronda; los fallos se anotan', () => {
+    let room: Room = createRoom();
+    const dmJ = join(room, 'DM', undefined, room.dmKey); room = dmJ.room;
+    const a = join(room, 'Ana'); room = a.room;
+    const b = join(room, 'Leo'); room = b.room;
+    const run = (who: string, cmd: Command) => { const r = apply(room, who, cmd); if (r.error) throw new Error(r.error); room = r.room; return r; };
+    run(a.member.id, { t: 'summary', summary: summary('Thalia') });
+    run(b.member.id, { t: 'summary', summary: summary('Brakka', 30) });
+    run(dmJ.member.id, { t: 'start' });
+    run(dmJ.member.id, { t: 'add', combatants: [{ name: 'Goblin', kind: 'monster', hpMax: 10, ac: 15 }] });
+    const id = (n: string) => room.encounter.order.find((c) => c.name === n)!.id;
+    run(dmJ.member.id, { t: 'setInitiative', id: id('Thalia'), value: 20 });
+    run(dmJ.member.id, { t: 'setInitiative', id: id('Brakka'), value: 10 });
+    run(dmJ.member.id, { t: 'setInitiative', id: id('Goblin'), value: 5 });
+    run(dmJ.member.id, { t: 'begin' });
+    // Turno de Thalia: Brakka no puede actuar ni pasar turno
+    expect(apply(room, b.member.id, { t: 'act', actorId: id('Brakka'), kind: 'hit', targetId: id('Goblin'), amount: 5 }).error).toBe('not-your-turn');
+    expect(apply(room, b.member.id, { t: 'nextTurn' }).error).toBe('not-allowed');
+    // Thalia falla y luego pasa su turno
+    run(a.member.id, { t: 'act', actorId: id('Thalia'), kind: 'miss', targetId: id('Goblin'), action: 'atacar', weapon: 'Estoque', roll: 9 });
+    expect(room.log[room.log.length - 1]).toMatchObject({ kind: 'miss', actor: 'Thalia', target: 'Goblin', weapon: 'Estoque', roll: 9 });
+    run(a.member.id, { t: 'nextTurn' });
+    // Turno de Brakka: Thalia puede usar una reacción, solo una por ronda
+    run(a.member.id, { t: 'act', actorId: id('Thalia'), kind: 'hit', targetId: id('Goblin'), amount: 3, reaction: true, action: 'ataque_oportunidad' });
+    expect(apply(room, a.member.id, { t: 'act', actorId: id('Thalia'), kind: 'hit', targetId: id('Goblin'), amount: 3, reaction: true }).error).toBe('reaction-used');
+    // El DM puede actuar por cualquiera
+    run(dmJ.member.id, { t: 'act', actorId: id('Goblin'), kind: 'hit', targetId: id('Thalia'), amount: 4 });
+    run(dmJ.member.id, { t: 'update', id: id('Goblin'), patch: { color: '#e5484d' } });
+    expect(viewFor(room, a.member.id)!.encounter.order.find((c) => c.name === 'Goblin')!.color).toBe('#e5484d');
+  });
+});
+
+describe('encuentros preparados', () => {
+  it('el DM guarda un encuentro, lo carga con numeración, ocultos y colores, y los jugadores no lo ven', () => {
+    let room: Room = createRoom();
+    const dmJ = join(room, 'DM', undefined, room.dmKey); room = dmJ.room;
+    const a = join(room, 'Ana'); room = a.room;
+    const run = (who: string, cmd: Command) => { const r = apply(room, who, cmd); if (r.error) throw new Error(r.error); room = r.room; return r; };
+    expect(apply(room, a.member.id, { t: 'encounterSave', encounter: { id: 'x', name: 'Cueva', notes: '', entries: [] } }).error).toBeTruthy();
+    run(dmJ.member.id, { t: 'encounterSave', encounter: { id: 'e1', name: 'Emboscada', notes: 'En el puente', entries: [
+      { id: 'g', name: 'Goblin', kind: 'monster', count: 3, hidden: false, hpMax: 7, ac: 15, initBonus: 2, color: '#46b36b' },
+      { id: 'j', name: 'Jefe goblin', kind: 'monster', count: 1, hidden: true, hpMax: 21, ac: 17, initBonus: 2 },
+    ] } });
+    expect(viewFor(room, dmJ.member.id)!.encounters).toHaveLength(1);
+    expect(viewFor(room, a.member.id)!.encounters).toHaveLength(0);
+    run(dmJ.member.id, { t: 'start' });
+    run(dmJ.member.id, { t: 'encounterLoad', id: 'e1' });
+    const names = room.encounter.order.filter((c) => c.kind === 'monster').map((c) => c.name).sort();
+    expect(names).toEqual(['Goblin 1', 'Goblin 2', 'Goblin 3', 'Jefe goblin']);
+    expect(room.encounter.order.find((c) => c.name === 'Goblin 2')!.color).toBe('#46b36b');
+    const seen = viewFor(room, a.member.id)!.encounter.order.map((c) => c.name);
+    expect(seen).not.toContain('Jefe goblin');
+    expect(seen).toContain('Goblin 1');
+    run(dmJ.member.id, { t: 'encounterRemove', id: 'e1' });
+    expect(room.encounters).toHaveLength(0);
+  });
+});
+
+describe('copia de la campaña del DM', () => {
+  it('exporta todo lo del DM y lo restaura en otra partida sin tocar código, clave ni jugadores, y sin duplicar', () => {
+    let a: Room = createRoom();
+    const dmA = join(a, 'DM', undefined, a.dmKey); a = dmA.room;
+    const run = (cmd: Command) => { const r = apply(a, dmA.member.id, cmd); if (r.error) throw new Error(r.error); a = r.room; };
+    run({ t: 'rosterSave', entry: { id: 'r1', name: 'Bandido', kind: 'monster', level: 'VD 1/8', hpMax: 11, ac: 12, initBonus: 1, notes: '', attacks: 'Cimitarra +3 1d6+1', equipment: 'Cuero', color: '#f2862d' } });
+    run({ t: 'encounterSave', encounter: { id: 'e1', name: 'Camino', notes: '', entries: [{ id: 'x', name: 'Bandido', kind: 'monster', count: 2, hidden: true, hpMax: 11, ac: 12, initBonus: 1 }] } });
+    run({ t: 'chronicleShare', title: 'Primera sangre', text: 'Brakka golpeó fuerte.' });
+    const data = JSON.parse(JSON.stringify(exportCampaign(a)));
+    expect(data.roster[0].attacks).toContain('Cimitarra');
+    let b: Room = createRoom();
+    const p = join(b, 'Ana'); b = p.room;
+    const code = b.code;
+    b = importCampaign(b, data);
+    b = importCampaign(b, data);
+    expect(b.code).toBe(code);
+    expect(b.members).toHaveLength(1);
+    expect(b.roster).toHaveLength(1);
+    expect(b.encounters[0].entries[0].hidden).toBe(true);
+    expect(b.chronicles).toHaveLength(1);
+    expect(b.log.filter((e) => e.kind === 'narrative')).toHaveLength(1);
   });
 });

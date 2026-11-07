@@ -2,7 +2,8 @@
 // envío del resumen de tu ficha y aplicación en tu ficha de lo que te hagan en el combate.
 import { create } from 'zustand';
 import { useStore } from '../store';
-import type { Character } from '../types';
+import type { Character, Note } from '../types';
+import { compressImage } from '../imageUtil';
 import type { ClientMessage, Command, Gift, PcSummary, Role, RoomView, ServerMessage } from './protocol';
 import { COIN_KEYS, coinsInGold, coinsText, itemLine } from '../rules/items';
 import { hitDiceText } from '../rules/multiclass';
@@ -76,6 +77,8 @@ export const ERRORS: Record<string, [string, string]> = {
   'not-setup': ['El combate ya ha empezado.', 'The combat has already started.'],
   'not-running': ['Esperad a que todos estén listos.', 'Wait until everyone is ready.'],
   'need-initiative': ['Pon tu iniciativa antes de marcar Listo.', 'Enter your initiative before marking Ready.'],
+  'not-your-turn': ['No es tu turno: espera a que te toque (fuera de tu turno solo puedes usar una reacción).', 'It’s not your turn: wait until it is (off-turn you can only use a reaction).'],
+  'reaction-used': ['Ya has usado tu reacción en esta ronda.', 'You’ve already used your reaction this round.'],
   'bad-image': ['No se ha podido subir la imagen (¿es demasiado grande?).', 'The image couldn’t be uploaded (is it too large?).'],
   'empty-gift': ['Añade monedas u objetos antes de dar.', 'Add coins or items before giving.'],
   'gift-delivered': ['Esa entrega ya ha llegado a la ficha del jugador.', 'That gift has already reached the player’s sheet.'],
@@ -142,6 +145,8 @@ let lastSummary = '';
 let freshJoin = false;
 /** Entregas ya sumadas en esta sesión (por si llega otro estado antes de confirmar) */
 const applying = new Set<string>();
+/** Imágenes y crónicas del DM que se están guardando en el diario */
+const pendingShared = new Set<string>();
 
 export const useParty = create<PartyState>((set, get) => {
   const out = (msg: ClientMessage) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); };
@@ -208,6 +213,41 @@ export const useParty = create<PartyState>((set, get) => {
     if (ack.length) out({ t: 'cmd', cmd: { t: 'giftAck', ids: ack } });
   };
 
+  /** Imágenes y crónicas que comparte el DM: se guardan en el diario de la ficha, en «Compartido» */
+  const reconcileShared = (view: RoomView) => {
+    if (view.you.role !== 'player') return;
+    const c0 = sharedChar();
+    if (!c0) return;
+    const have = new Set(c0.notes.map((n) => n.ref).filter(Boolean));
+    const chron = (view.chronicles ?? []).filter((x) => !have.has(`chr:${x.id}`) && !pendingShared.has(`chr:${x.id}`));
+    const imgs = (view.images ?? []).filter((x) => x.shared && !have.has(`img:${x.id}`) && !pendingShared.has(`img:${x.id}`));
+    if (!chron.length && !imgs.length) return;
+    const save = (notes: Note[]) => {
+      const st = useStore.getState();
+      const c = st.characters.find((x) => x.id === c0.id);
+      if (!c) return;
+      const next = structuredClone(c);
+      let folder = next.noteFolders.find((f) => f.key === 'shared');
+      if (!folder) { folder = { id: uid(), key: 'shared', name: T('Compartido', 'Shared') }; next.noteFolders.push(folder); }
+      for (const n of notes) if (!next.notes.some((x) => x.ref === n.ref)) next.notes.unshift({ ...n, folderId: folder.id });
+      st.replace(next);
+    };
+    if (chron.length) {
+      chron.forEach((x) => pendingShared.add(`chr:${x.id}`));
+      save(chron.map((x) => ({ id: uid(), createdAt: x.at, title: `📖 ${x.title}`, body: x.text, kind: 'story', ref: `chr:${x.id}` })));
+      useStore.getState().showToast(T('📖 El DM comparte una crónica', '📖 The DM shares a chronicle'), [...chron.map((x) => x.title), T('Guardada en tu diario → Compartido.', 'Saved in your journal → Shared.')]);
+    }
+    const conn = get().conn;
+    for (const im of imgs) {
+      pendingShared.add(`img:${im.id}`);
+      void fetch(`${httpBase(conn?.url)}/img/${im.id}.jpg?t=${encodeURIComponent(conn?.token ?? '')}`)
+        .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+        .then((b) => compressImage(b, 900, 0.72))
+        .then(({ data }) => save([{ id: uid(), createdAt: im.sharedAt ?? im.at, title: `🖼️ ${im.title}`, body: '', kind: 'note', image: data, ref: `img:${im.id}` }]))
+        .catch(() => pendingShared.delete(`img:${im.id}`));
+    }
+  };
+
   const applySheet = (msg: Extract<ServerMessage, { t: 'sheet' }>) => {
     const st = useStore.getState();
     const c = sharedChar();
@@ -253,6 +293,7 @@ export const useParty = create<PartyState>((set, get) => {
         set({ view: msg.view });
         reconcileKills(msg.view);
         reconcileGifts(msg.view);
+        reconcileShared(msg.view);
       } else if (msg.t === 'sheet') {
         applySheet(msg);
       } else if (msg.t === 'error') {

@@ -54,6 +54,9 @@ export interface SharedImage {
   h?: number;
 }
 
+/** Crónica que el DM comparte (p. ej. el resumen narrativo de un combate) */
+export interface Chronicle { id: string; title: string; text: string; at: number }
+
 /** Ajustes de la mesa que decide el DM */
 export interface RoomSettings {
   /** Los jugadores ven la vida exacta de sus compañeros (por defecto no: solo su estado) */
@@ -99,6 +102,10 @@ export interface Combatant {
   cr?: string;
   conditions?: TimedCondition[];
   counters?: Counter[];
+  /** Color que elige el DM para distinguir enemigos (también lo ven los jugadores) */
+  color?: string;
+  /** Ronda en la que ya usó su reacción */
+  reactionRound?: number;
 }
 
 /** setup: cada uno introduce sus datos y marca «Listo»; running: turnos en marcha */
@@ -127,9 +134,32 @@ export interface RosterEntry {
   initBonus: number;
   notes: string;
   monster?: string;
+  /** Ataques y equipo personalizados (texto libre) */
+  attacks?: string;
+  equipment?: string;
+  color?: string;
 }
 
-export type LogKind = 'hit' | 'heal' | 'hurt' | 'other' | 'turn' | 'round' | 'start' | 'begin' | 'end' | 'down' | 'undo' | 'add' | 'reveal';
+/** Enemigo dentro de un encuentro preparado */
+export interface EncounterEntry {
+  id: string;
+  name: string;
+  kind: 'npc' | 'monster';
+  count: number;
+  hidden: boolean;
+  hpMax: number | null;
+  ac: number | null;
+  initBonus: number;
+  cr?: string;
+  monster?: string;
+  color?: string;
+  notes?: string;
+}
+
+/** Combate que el DM prepara antes de jugarlo */
+export interface PreparedEncounter { id: string; name: string; notes: string; entries: EncounterEntry[] }
+
+export type LogKind = 'hit' | 'miss' | 'heal' | 'hurt' | 'other' | 'narrative' | 'turn' | 'round' | 'start' | 'begin' | 'end' | 'down' | 'undo' | 'add' | 'reveal';
 
 export interface LogEvent {
   id: string;
@@ -145,10 +175,17 @@ export interface LogEvent {
   text?: string;
   /** Deshecho con «Deshacer último turno» (se muestra tachado) */
   undone?: boolean;
+  /** En «entra»: llegó oculto (los jugadores no lo ven hasta que se revele) */
+  secret?: boolean;
   /** Vida que le queda al objetivo después (solo la ve el DM si es un monstruo) */
   after?: string;
   /** En «cae»: jugador dueño del personaje que dio el golpe final (para su kill count) */
   ownerId?: string;
+  action?: string;
+  weapon?: string;
+  spell?: string;
+  crit?: boolean;
+  reaction?: boolean;
 }
 
 /** Oro u objetos que el DM da a un jugador (queda en el registro del DM) */
@@ -190,12 +227,16 @@ export interface RoomView {
   };
   /** Lista de personajes del DM (vacía para los jugadores) */
   roster: RosterEntry[];
+  /** Encuentros preparados del DM (vacío para los jugadores) */
+  encounters: PreparedEncounter[];
   log: LogEvent[];
   /** Entregas de oro y objetos: el DM ve todas; cada jugador, las suyas */
   gifts: Gift[];
   settings: RoomSettings;
   /** Imágenes: el DM ve todas; cada jugador, las compartidas con él */
   images: SharedImage[];
+  /** Crónicas compartidas por el DM (todos las ven) */
+  chronicles: Chronicle[];
   canUndo: boolean;
   /** Puedes pasar turno (DM o el dueño del turno actual) */
   canEndTurn: boolean;
@@ -203,12 +244,23 @@ export interface RoomView {
 
 // ---------- Mensajes ----------
 
-export type ActKind = 'hit' | 'heal' | 'hurt' | 'other';
+/** hit: impacto con daño · miss: falla · heal: cura · hurt: daño recibido · other: otra acción sin números */
+export type ActKind = 'hit' | 'miss' | 'heal' | 'hurt' | 'other';
 
 export type Command =
   | { t: 'summary'; summary: PcSummary }
   | { t: 'setInitiative'; id: string; value: number | null }
-  | { t: 'act'; actorId: string; kind: ActKind; targetId?: string; amount?: number; roll?: number | null; text?: string }
+  | {
+    t: 'act'; actorId: string; kind: ActKind; targetId?: string; amount?: number; roll?: number | null; text?: string;
+    /** Acción de las reglas 2024 (ids de ACTIONS: atacar, magia, correr, esconderse…) */
+    action?: string;
+    /** Con qué: arma o conjuro */
+    weapon?: string;
+    spell?: string;
+    crit?: boolean;
+    /** Es una reacción (fuera de su turno: ataque de oportunidad, Escudo…) */
+    reaction?: boolean;
+  }
   | { t: 'nextTurn' }
   | { t: 'undo' }
   | { t: 'ready'; value: boolean }
@@ -228,6 +280,10 @@ export type Command =
   | { t: 'rosterSave'; entry: RosterEntry }
   | { t: 'rosterRemove'; id: string }
   | { t: 'rosterToCombat'; id: string; count: number; hidden: boolean; rollHp?: boolean }
+  | { t: 'encounterSave'; encounter: PreparedEncounter }
+  | { t: 'encounterRemove'; id: string }
+  /** Mete en el combate (o lo deja preparado si aún no ha empezado) a todos los del encuentro */
+  | { t: 'encounterLoad'; id: string }
   | { t: 'roomSettings'; patch: Partial<RoomSettings> }
   /** El cliente manda `data` (JPEG en base64); el servidor la guarda en disco y la sustituye por `id` */
   | { t: 'imageAdd'; title: string; data?: string; id?: string; w?: number; h?: number }
@@ -235,6 +291,8 @@ export type Command =
   | { t: 'imageUnshare'; id: string }
   | { t: 'imageRemove'; id: string }
   | { t: 'imageRename'; id: string; title: string }
+  | { t: 'chronicleShare'; title: string; text: string }
+  | { t: 'chronicleRemove'; id: string }
   /** Anula una entrega que aún no ha llegado */
   | { t: 'giftCancel'; id: string };
 

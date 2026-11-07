@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.22.2</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.23.0</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -165,7 +165,11 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a href="#partida">Partida compartida</a></li>
       <li><a class="sub" href="#partida-montar">Montar el servidor</a></li>
       <li><a class="sub" href="#partida-jugar">Jugar como jugador</a></li>
+      <li><a class="sub" href="#partida-turnos">Turnos y acciones</a></li>
       <li><a class="sub" href="#partida-dm">Pantalla del DM</a></li>
+      <li><a class="sub" href="#partida-encuentros">Encuentros preparados</a></li>
+      <li><a class="sub" href="#partida-resumen">Registro y resumen narrativo</a></li>
+      <li><a class="sub" href="#partida-campana">Copia de la campaña (DM)</a></li>
       <li><a class="sub" href="#partida-internet">Jugar a distancia</a></li>
       <li><a class="sub" href="#partida-grupo">Grupo (DM)</a></li>
       <li><a class="sub" href="#partida-imagenes">Imágenes para la mesa</a></li>
@@ -440,9 +444,8 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <div class="split">
         <div>
           <p>En <b>Partida</b> escribe la dirección y el código y pulsa <b>Unirse</b>. Cuando el DM empieza un combate salta «¡COMBATE!» y llega la <b>preparación</b>: pones tu iniciativa y tu vida, ves las de tus aliados y pulsas <b>✅ ¡Listo!</b> (se puede quitar si te equivocas). Cuando todos y el DM están listos, empiezan los turnos con «¡A LUCHAR!».</p>
-          <p>En tu turno anota <b>Daño hecho</b>, <b>Curación</b>, <b>Daño recibido</b> u <b>Otra acción</b>. Con <b>Varios objetivos</b> aplicas daño en área: toca cada objetivo una vez para el daño entero y otra para «½» si superó la salvación.</p>
           <p>De los monstruos ves «?» y su estado: <span class="badge">Ileso</span> <span class="badge">Herido</span> <span class="badge blood">🩸 Ensangrentado</span> <span class="badge">💀 Derrotado</span>. Si un monstruo te pega, el daño se aplica en tu ficha con tus resistencias y temporales.</p>
-          <p>Si alguien se equivoca, <b>Deshacer último turno</b> revierte sus daños y curaciones, también en las fichas. Lo puede hacer el DM o el jugador cuyo turno se deshace. Todo queda en el <b>registro del combate</b>, que puedes guardar en el diario.</p>
+          <p>Si alguien se equivoca, el DM puede <b>Deshacer último turno</b>: revierte sus daños y curaciones, también en las fichas. Todo queda en el <b>registro del combate</b>.</p>
         </div>
         <div class="pair">
           <figure><img class="phone" src="img/16-preparacion.jpg" alt="Preparación del combate: tus datos, botón Listo y la lista de la party" width="700" height="1515" loading="lazy"><figcaption>Preparación con «Listo».</figcaption></figure>
@@ -450,18 +453,44 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
         </div>
       </div>
 
+      <h3 id="partida-turnos">Turnos y acciones</h3>
+      <p>Una vez fijada la iniciativa, <b>cada jugador solo juega su turno</b>: no puede pasar el turno de otro, solo <b>⏭️ Terminar mi turno</b>. Después es <b>espectador</b> hasta que le vuelva a tocar. El único que puede avanzar el turno o jugar por otra criatura es el DM, que también juega el turno de los enemigos.</p>
+      <p>En tu turno aparece <b>⚔️ ¡Tu turno!</b> con tu economía de acciones (acción, acción adicional, reacción y movimiento) y todas las acciones de las reglas de 2024: <b>Atacar</b> (con tus armas o sin armas), <b>Magia</b> (con tus conjuros; gasta el espacio en tu ficha), <b>Correr</b>, <b>Destrabarse</b>, <b>Esquivar</b>, <b>Ayudar</b>, <b>Esconderse</b>, <b>Curar</b>, acción adicional, <b>Moverse</b> y, en «Todas las acciones», <b>Influir</b>, <b>Preparar</b>, <b>Buscar</b>, <b>Estudiar</b>, <b>Utilizar</b>, <b>Agarrar</b>, <b>Empujar</b>, beber una poción, levantarse, interactuar con un objeto y hablar.</p>
+      <p>Al atacar eliges <b>con qué</b> y <b>a quién</b> (los enemigos salen con el color que les haya puesto el DM), tiras con 🎲 o escribes tu tirada y marcas <b>✅ Impacta</b> (con el daño; el 20 natural dobla los dados) o <b>❌ He fallado</b> si no llegas a su CA. Con Magia puedes elegir varios objetivos y marcar quién superó la salvación (mitad de daño), curar o dejar «solo efecto».</p>
+      <p>Fuera de tu turno solo puedes usar tu <b>⚡ reacción</b>, una vez por ronda: ataque de oportunidad, un conjuro de reacción como Escudo u otra.</p>
+      <div class="trio">
+        <figure><img class="phone" src="img/46-turno-jugador.jpg" alt="Tu turno: economía de acciones y botones Atacar, Magia, Correr, Destrabarse, Esquivar, Ayudar…" width="700" height="1500" loading="lazy"><figcaption>Tu turno con las acciones de 2024.</figcaption></figure>
+        <figure><img class="phone" src="img/47-he-fallado.jpg" alt="Atacar con la gran hacha: objetivo Goblin 1, tirada 11 y He fallado" width="700" height="1500" loading="lazy"><figcaption>Arma, objetivo y «He fallado».</figcaption></figure>
+        <figure><img class="phone" src="img/48-espectador.jpg" alt="Fuera de tu turno: eres espectador y puedes usar tu reacción" width="700" height="1500" loading="lazy"><figcaption>Espectador con reacción.</figcaption></figure>
+      </div>
+
       <h3 id="partida-dm">Pantalla del DM</h3>
       <p>Desde el PC o desde la tablet el DM ve la vida exacta, la CA y las notas de todo, y lo organiza sin que lo vean los jugadores:</p>
       <ul class="list">
-        <li><b>Monstruos del SRD 5.2</b> con buscador; grupos («3 goblins») con PG medios o tirados e iniciativa automática.</li>
-        <li><b>Ocultos:</b> no llegan a los móviles de los jugadores hasta que los revelas.</li>
+        <li><b>Bestiario de casi 100 criaturas</b> (SRD 5.2) con buscador, cada una con su ataque habitual; grupos («3 goblins») con PG medios o tirados e iniciativa automática.</li>
+        <li><b>Pestaña ⚔️ Combate</b> propia del DM: el orden de turnos y el registro a la vez, y debajo el panel <b>Turno de…</b> para jugar la criatura del turno (o elegir otra) con las mismas acciones que los jugadores. Los monstruos del bestiario traen su ataque ya puesto.</li>
+        <li><b>Colores:</b> toca un enemigo y elige su color para distinguir «el goblin rojo» del verde; los jugadores lo ven igual en el orden y al elegir objetivo.</li>
+        <li><b>Ocultos:</b> no llegan a los móviles de los jugadores hasta que los revelas (ni al registro ni al resumen).</li>
         <li><b>Vida de los compañeros:</b> por defecto cada jugador solo ve su propia vida; de los demás ve su estado (herido, ensangrentado…). Marca <b>❤️ Los jugadores ven la vida de sus compañeros</b> en la sección Party para mostrarla.</li>
-        <li><b>Personajes</b> (pestaña propia en modo DM): aliados y enemigos de la campaña con nivel o VD, vida, CA, iniciativa y notas, listos para meterlos en el combate.</li>
+        <li><b>Personajes</b> (pestaña propia en modo DM): aliados y enemigos de la campaña con nivel o VD, vida, CA, iniciativa, <b>ataques</b>, <b>equipo</b>, color y notas, listos para meterlos en el combate. Al crearlos desde el bestiario puedes ajustar su <b>potencia</b> (Débil, Normal, Fuerte o Élite) y cambiar lo que quieras.</li>
         <li><b>Condiciones con duración</b> por criatura, que bajan solas al acabar su turno; <b>contadores</b> como acciones legendarias (vuelven en su turno) y resistencias legendarias.</li>
         <li><b>Dificultad del encuentro</b> con el presupuesto de PX de 2024, y quién se está concentrando o haciendo salvaciones contra la muerte.</li>
       </ul>
       <figure><img class="shot" src="img/19-dm.jpg" alt="Pantalla del DM en el PC: party, combatientes con vida exacta, CA, condiciones y dificultad" width="1200" height="806" loading="lazy"><figcaption>La pantalla del DM en el PC.</figcaption></figure>
+      <figure><img class="shot" src="img/49-dm-combate.jpg" alt="Pestaña Combate del DM: orden con colores, jefe goblin oculto, registro y panel Turno de Jefe goblin" width="1200" height="806" loading="lazy"><figcaption>La pestaña Combate del DM.</figcaption></figure>
       <figure><img class="shot" src="img/21-personajes-dm.jpg" alt="Pestaña Personajes del DM en la tablet con Capitán Vex y Hermana Lira" width="1200" height="1610" loading="lazy" style="width: min(100%, 520px)"><figcaption>Personajes del DM en la tablet.</figcaption></figure>
+
+      <h3 id="partida-encuentros">Encuentros preparados</h3>
+      <p>En <b>Personajes → Encuentros preparados</b> el DM prepara los combates antes de la sesión: <b>＋ Nuevo</b>, un nombre y notas, y la lista de enemigos (del bestiario, de tus personajes o a mano) con cuántos, vida, CA, iniciativa, color y si empiezan <b>🙈 ocultos</b>. Durante la partida, <b>▶ Cargar</b> los mete en el combate con su iniciativa tirada y numerados («Goblin 1», «Goblin 2»…). Los ocultos esperan a que los reveles tocándolos.</p>
+      <figure><img class="shot" src="img/50-encuentros.jpg" alt="Encuentros preparados: Emboscada en el puente con 2 goblins y un jefe oculto, y Copia de la campaña" width="1200" height="656" loading="lazy"></figure>
+
+      <h3 id="partida-resumen">Registro y resumen narrativo</h3>
+      <p>Todo lo que pasa queda en el <b>registro del combate</b>: quién ataca a quién, con qué arma o conjuro, la tirada, los fallos, los críticos, las reacciones, las curas y quién cae. Al acabar, <b>📖 Resumen</b> lo convierte en un relato en pasado («Brakka golpeó con fuerza al goblin y lo derrotó; intentaron alcanzarle, pero falló…»): <b>Sin IA</b> funciona siempre y <b>Con IA (Claude)</b> lo cuenta como un narrador si pusiste tu clave en Ajustes. Se puede retocar antes de guardarlo.</p>
+      <p>El DM lo <b>comparte con los jugadores</b>: a cada uno se le guarda en su diario, en la carpeta <b>🤝 Compartido</b>, donde también quedan las <b>imágenes</b> que comparta el DM. Los jugadores pueden guardarlo en su diario con 📜 Guardar.</p>
+      <figure><img class="shot" src="img/51-resumen.jpg" alt="Resumen narrativo del combate sin IA, con el botón Compartir con los jugadores" width="1200" height="806" loading="lazy"></figure>
+
+      <h3 id="partida-campana">Copia de la campaña (DM)</h3>
+      <p>En <b>Personajes</b> (y en Ajustes) del DM, <b>💾 Exportar campaña</b> guarda en un archivo todo lo creado: personajes y monstruos preparados con su equipo y ataques, encuentros, entregas de oro y objetos, el registro de los combates, las crónicas, las <b>imágenes</b> (dentro del archivo), los ajustes de la partida, los botines preparados y las plantillas de objetos. <b>📂 Restaurar campaña</b> lo devuelve a cualquier servidor (también uno nuevo) sin tocar el código de la partida ni a los jugadores, y sin duplicar lo que ya esté. Es el mismo archivo en Android, Windows y el navegador.</p>
 
       <h3 id="partida-internet">Jugar a distancia (dirección fija)</h3>
       <p>Si tienes <b>Tailscale</b> instalado, el servidor publica la partida <b>solo al abrirse</b> en una dirección fija con HTTPS (<code>https://tu-pc.tuXXXX.ts.net</code>), sin Cloudflare y sin tocar el router. La red local sigue funcionando igual. En la pantalla del DM, <b>Partida → 📨 Invitar jugadores</b> muestra el enlace de Internet y el de la misma Wi-Fi, ya con el código, para copiarlos. Alternativa: <b>ngrok</b> con su dominio fijo gratuito. Todo se configura en <code>di-en-di-servidor.json</code> junto al .exe (detalles en <i>PUBLICAR.txt</i>). Si el puerto 3000 ya lo usa otro programa del PC, el servidor elige solo otro libre y publica ese.</p>
@@ -506,16 +535,22 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
     <!-- 13 -->
     <section class="chapter" id="estilo">
       <div class="chapter-head"><span class="chapter-num">Capítulo 14</span><h2>Colores, idioma y ajustes</h2></div>
-      <h3 id="estilo-visual">Estilo visual: Clásico o Retro 16-bit</h3>
+      <h3 id="estilo-visual">Estilo visual: Clásico, Retro 16-bit o Póster</h3>
       <div class="split">
         <div>
-          <p>En <b>Ajustes → Estilo visual</b> eliges entre <b>Clásico</b> (los pósteres de fantasía oscura y las transiciones de siempre) y <b>Retro 16-bit</b>: fondos en pixel art con las mismas escenas, transiciones de RPG clásico (la pantalla se rompe en bloques en espiral para «¡COMBATE!» y estrellas pixel al subir de nivel) e icono pixel. Los botones <b>Probar transición</b> las enseñan sin empezar un combate.</p>
-          <p>Los fondos retro se pueden sustituir por imágenes hechas con tu IA local (ComfyUI con FLUX y LoRAs de pixel art o de fantasía de los 80-90): ver <code>docs/arte-retro/LEEME.md</code> del repositorio.</p>
+          <p>En <b>Ajustes → Estilo visual</b> eliges entre:</p>
+          <ul class="list">
+            <li><b>Clásico</b>: fondos en <b>pixel art detallado</b> (256 píxeles, paleta propia por escena y tramado) con las transiciones de siempre. Es el estilo por defecto, en el móvil y en la app de Windows.</li>
+            <li><b>Retro 16-bit</b>: pixel más grueso, interfaz cuadrada, transiciones de RPG clásico (la pantalla se rompe en bloques en espiral para «¡COMBATE!» y estrellas pixel al subir de nivel) e icono pixel.</li>
+            <li><b>Póster</b>: los pósteres pintados de fantasía oscura del estilo clásico anterior.</li>
+          </ul>
+          <p>Los botones <b>Probar transición</b> las enseñan sin empezar un combate. Los fondos se pueden sustituir por imágenes hechas con tu IA local (ComfyUI): ver <code>docs/arte-retro/LEEME.md</code> del repositorio.</p>
         </div>
         <figure><img class="phone" src="img/45-estilo-retro.jpg" alt="La hoja con el estilo Retro 16-bit: fondo pixel art de atardecer" width="700" height="1425" loading="lazy"><figcaption>Estilo Retro 16-bit.</figcaption></figure>
       </div>
 
-      <p>En <b>Ajustes</b> eliges entre cuatro paletas. Cada una pone de fondo un <b>póster de fantasía oscura</b> al estilo de los 90, sin títulos:</p>
+      <figure><img class="shot pixelated" src="img/52-estilo-clasico.png" alt="Los ocho fondos pixel art del estilo Clásico" width="1200" height="600" loading="lazy" style="image-rendering: pixelated"><figcaption>Los fondos pixel art del estilo Clásico.</figcaption></figure>
+      <p>En <b>Ajustes</b> eliges entre cuatro paletas. Cada una pone de fondo una escena de fantasía oscura al estilo de los 90, sin títulos (en pixel art o en póster según el estilo):</p>
       <div class="table-scroll">
         <table>
           <thead><tr><th>Paleta</th><th>Póster</th></tr></thead>

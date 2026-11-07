@@ -11,7 +11,7 @@ import { Toast } from './components/common';
 import { armorClass } from './rules/calc';
 import { classById } from './rules/srd';
 import { InfoBubble } from './components/InfoBubble';
-import { PartyTab, TvView } from './components/Party';
+import { DmCombatTab, PartyTab, TvView } from './components/Party';
 import { DmRosterTab } from './components/DmRoster';
 import { TreasureTab } from './components/Treasure';
 import { DmGroupTab } from './components/DmGroup';
@@ -25,7 +25,7 @@ import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
 import { applyScene } from './scenes';
 
-type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'group' | 'roster' | 'treasure' | 'assistant' | 'rules' | 'settings';
+type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'dmcombat' | 'group' | 'roster' | 'treasure' | 'assistant' | 'rules' | 'settings';
 
 export default function App() {
   const c = useChar();
@@ -38,6 +38,12 @@ export default function App() {
   // Al abrir un enlace de la partida (?join= / ?dm=) se va directo a «Partida»
   const [tab, setTab] = useState<Tab>(() => (/[?&](join|dm|view)=/.test(window.location.search) ? 'party' : 'sheet'));
   useEffect(() => { resumeParty(); }, []);
+  // Otras pantallas pueden pedir cambiar de pestaña (p. ej. «Ir a la pestaña Combate»)
+  useEffect(() => {
+    const go = (ev: Event) => setTab((ev as CustomEvent<Tab>).detail);
+    window.addEventListener('dnd-tab', go);
+    return () => window.removeEventListener('dnd-tab', go);
+  }, []);
   const partyOnline = useParty((s) => s.status === 'online');
   const sharedCombat = useParty((s) => !!s.view?.encounter.active);
   const sharedPhase = useParty((s) => s.view?.encounter.phase);
@@ -69,8 +75,8 @@ export default function App() {
     prev.current = { active: sharedCombat, phase: sharedPhase };
     if (!before) return;
     if (sharedCombat && !before.active) {
-      play('combat', undefined, T('Introduce tus datos y pulsa «Listo»', 'Enter your data and tap “Ready”'));
-      setTab('party');
+      play('combat', undefined, dmMode ? T('Prepara a los combatientes', 'Get the combatants ready') : T('Introduce tus datos y pulsa «Listo»', 'Enter your data and tap “Ready”'));
+      setTab(dmMode ? 'dmcombat' : 'party');
     } else if (!sharedCombat && before.active && !dmMode) {
       // Fin del combate compartido: recuperar munición y recoger armas arrojadizas
       useStore.getState().recoverConsumables();
@@ -81,7 +87,7 @@ export default function App() {
   useEffect(() => {
     if (!avatarOn && tab === 'avatar') setTab('sheet');
     if (dmMode && (tab === 'sheet' || tab === 'avatar' || tab === 'combat' || tab === 'assistant')) setTab('party');
-    if (!dmMode && (tab === 'roster' || tab === 'treasure' || tab === 'group')) setTab('party');
+    if (!dmMode && (tab === 'roster' || tab === 'treasure' || tab === 'group' || tab === 'dmcombat')) setTab('party');
   }, [dmMode, tab, avatarOn]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -95,7 +101,8 @@ export default function App() {
   const cls = classById(c.classId);
 
   const tabs: { id: Tab; icon: string; label: string; short?: string }[] = dmMode ? [
-    { id: 'party', icon: sharedCombat ? '🔴' : '🎲', label: T('Partida', 'Game') },
+    { id: 'party', icon: '🎲', label: T('Partida', 'Game') },
+    { id: 'dmcombat', icon: sharedCombat ? '🔴' : '⚔️', label: T('Combate', 'Combat') },
     { id: 'group', icon: '👥', label: T('Grupo', 'Party') },
     { id: 'roster', icon: '📋', label: T('Personajes', 'Characters') },
     { id: 'treasure', icon: '💰', label: T('Tesoro', 'Treasure') },
@@ -156,6 +163,7 @@ export default function App() {
         {tab === 'roster' && <DmRosterTab />}
         {tab === 'treasure' && <TreasureTab />}
         {tab === 'group' && <DmGroupTab />}
+        {tab === 'dmcombat' && <DmCombatTab />}
         {tab === 'assistant' && <AssistantTab />}
         {tab === 'rules' && <RulesTab />}
         {tab === 'settings' && <SettingsTab />}

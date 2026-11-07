@@ -1156,6 +1156,7 @@ button.plain { background: none; border: 0; padding: 0; color: inherit; text-ali
 .tv-figure { margin: 12px auto; text-align: center; } .tv-figure figcaption { color: var(--muted); }
 
 /* ---------- Estilo retro 16-bit ---------- */
+html[data-design='classic'] body::before { image-rendering: pixelated; image-rendering: crisp-edges; }
 html[data-design='retro'] body::before { image-rendering: pixelated; image-rendering: crisp-edges; background-position: center bottom; }
 html[data-design='retro'] .section, html[data-design='retro'] .modal, html[data-design='retro'] .btn, html[data-design='retro'] .chip, html[data-design='retro'] .theme-opt { border-radius: 0; }
 html[data-design='retro'] .section { box-shadow: 0 0 0 2px #000, 4px 4px 0 2px rgba(0, 0, 0, .55); }
@@ -1185,3 +1186,32 @@ img.pixelated, .pixelated { image-rendering: pixelated; }
 .fxr-stars b { position: absolute; bottom: -10px; width: 8px; height: 8px; background: #ffe066; box-shadow: 0 0 0 2px #fff8c8; opacity: 0; animation: fxr-star 1.4s steps(10) forwards; }
 @keyframes fxr-star { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-70vh); } }
 @media (prefers-reduced-motion: reduce) { .fx-retro, .fx-retro * { animation-duration: .9s !important; animation-delay: 0s !important; } }
+
+/* ---------- Combate: turno, acciones y DM ---------- */
+.dm-combat { display: grid; gap: 12px; }
+@media (min-width: 1000px) { .dm-combat { grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr); align-items: start; } .dm-combat-side { position: sticky; top: 8px; } }
+.dm-combat .party-order li { font-size: 1.05rem; padding: 10px 12px; }
+.economy-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.eco-chip { font-size: .78rem; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.eco-chip.used { opacity: .55; text-decoration: line-through; }
+.action-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.action-btn { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; color: inherit; font: inherit; }
+.action-btn b { font-size: .85rem; }
+.action-btn small { font-size: .68rem; color: var(--muted); }
+.action-btn.spent { opacity: .5; }
+.action-icon { font-size: 1.4rem; }
+.outcome-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.roll-lines { background: var(--card2); border-radius: 8px; padding: 6px 10px; }
+.spectator { background: var(--card2); border: 1px dashed var(--line); border-radius: 10px; padding: 10px; }
+.po-color { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.color-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.color-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #0008; padding: 0; }
+.color-dot.on { box-shadow: 0 0 0 3px var(--gold); }
+.color-dot.none { background: var(--card2); color: var(--muted); font-size: .7rem; }
+.party-log li.miss { color: var(--muted); }
+.party-log li.narrative { font-style: italic; }
+.note-img { width: 100%; max-height: 50vh; object-fit: contain; border-radius: 8px; background: #000; cursor: zoom-in; margin: 6px 0; }
+.enc-entry { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.num-small { width: 64px; display: inline-block; }
+.color-dot.small { width: 18px; height: 18px; }
+.power-row { align-items: center; }

@@ -117,6 +117,10 @@ export interface Note {
   body: string;
   kind: 'note' | 'story' | 'transcript';
   folderId?: string | null;
+  /** Imagen (JPEG en base64) compartida por el DM */
+  image?: string;
+  /** Lo que el DM compartió (para no guardarlo dos veces): 'img:<id>' o 'chr:<id>' */
+  ref?: string;
 }
 
 /** Participante en el orden de iniciativa: tu personaje, compañeros o enemigos */

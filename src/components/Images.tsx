@@ -15,23 +15,8 @@ export function useImageUrl() {
   return (id: string) => `${httpBase(conn?.url)}/img/${id}.jpg?t=${encodeURIComponent(conn?.token ?? '')}`;
 }
 
-/** Reduce la imagen a 1600 px como mucho y la pasa a JPEG (para que viaje rápido) */
-export async function compressImage(file: File, max = 1600): Promise<{ data: string; w: number; h: number }> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = url; });
-    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-    const w = Math.round(img.naturalWidth * k); const h = Math.round(img.naturalHeight * k);
-    const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(img, 0, 0, w, h);
-    return { data: canvas.toDataURL('image/jpeg', 0.82), w, h };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
+export { compressImage } from '../imageUtil';
+import { compressImage } from '../imageUtil';
 
 const when = (ms: number) => new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
