@@ -1,0 +1,20 @@
+# Servidor de partida del DM en Docker:   docker compose up -d   ·   ver el código y la clave del DM:  docker compose logs
+# El puerto es el mismo dentro y fuera para que las direcciones que imprime el servidor sean correctas.
+# Por defecto el 3100 (en el PC del DM el 3000 lo usa la IA local). Para cambiarlo: PUERTO=3200 docker compose up -d
+# Con la IP del PC en la Wi-Fi:  IP_PC=192.168.1.40 docker compose up -d   (o ponlas en un archivo .env junto a este)
+services:
+  servidor:
+    build: .
+    image: di-en-di-servidor
+    restart: unless-stopped
+    environment:
+      PORT: ${PUERTO:-3100}
+      # IP del PC en la Wi-Fi (p. ej. 192.168.1.40), para que el servidor enseñe la dirección buena a los jugadores
+      DI_EN_DI_IP: ${IP_PC:-}
+    ports:
+      - "${PUERTO:-3100}:${PUERTO:-3100}"
+    volumes:
+      - partida:/datos
+
+volumes:
+  partida:

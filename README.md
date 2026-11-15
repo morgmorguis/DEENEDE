@@ -116,6 +116,25 @@ npm run android    # compila la web, sincroniza y abre Android Studio
 
 En Android Studio pulsa ▶ con el móvil conectado (depuración USB activada), o usa `npm run apk` para generar `android/app/build/outputs/apk/debug/Di en Di.apk`.
 
+### Opción C: con Docker (sin instalar Node, JDK ni Android Studio)
+
+Solo necesitas [Docker](https://www.docker.com/products/docker-desktop/) (en Windows, Docker Desktop). Desde la carpeta del proyecto:
+
+```bash
+docker build --target apps --output salida-docker .
+```
+
+En `salida-docker/` quedan `Di en Di.apk` (Android), `Di en Di.exe` (app de Windows) y `Di en Di - Servidor.exe` (servidor del DM), con sus `LEEME.txt` y `PUBLICAR.txt`. Para una sola plataforma usa `--target apk` o `--target windows`, y para saltar los tests, `--build-arg TESTS=0`. La primera vez tarda (descarga el SDK de Android); después Docker reutiliza lo que ya tiene.
+
+El servidor de partida también funciona como contenedor (en Windows, Linux, un NAS o un servidor en la nube):
+
+```bash
+IP_PC=192.168.1.40 docker compose up -d   # la IP de tu PC en la Wi-Fi, para que el servidor enseñe la dirección buena
+docker compose logs                         # código de la partida y clave del DM
+```
+
+Sirve la app en `http://localhost:3100` (cámbialo con `PUERTO=3200`) y guarda la partida y las imágenes en el volumen `partida`, así que no se pierden al reiniciar o actualizar el contenedor. En Docker no se publica en Internet automáticamente (Tailscale/ngrok): si quieres jugar a distancia, publica el puerto con tu propio túnel o proxy.
+
 El reconocimiento de voz usa el servicio del sistema de Android (Google). Para grabar sesiones largas la app reinicia la escucha automáticamente tras cada pausa.
 
 ## Icono

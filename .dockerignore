@@ -1,0 +1,15 @@
+.git
+node_modules
+dist
+dist-ssr
+public/ocr
+public/guia
+server/build
+android/.gradle
+android/build
+android/app/build
+android/app/src/main/assets/public
+salida-docker
+scripts/retro/salida
+**/__pycache__
+*.log

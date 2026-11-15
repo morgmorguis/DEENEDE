@@ -27,3 +27,4 @@ server/build
 public/guia
 scripts/retro/salida
 __pycache__
+salida-docker

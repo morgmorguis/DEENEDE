@@ -23,6 +23,8 @@ npm run build          # tsc -b + vite build → dist/ (antes copia los recursos
 npm run dev            # app en el navegador para probar la interfaz
 npm run apk            # build + cap sync + gradlew assembleDebug → android/app/build/outputs/apk/debug/
 npm run server -- --port 3100   # servidor de partida del DM (por defecto usa el 3000, que en este PC ya está ocupado)
+docker build --target apps --output salida-docker .   # APK + .exe de Windows sin Node/JDK/SDK (o --target apk / windows)
+docker compose up -d   # servidor del DM en contenedor (puerto 3100, partida en el volumen «partida», IP_PC=… para la dirección)
 ```
 
 En Windows, para el APK a mano: `npm run build`, después `npx cap sync android`, y después
@@ -40,6 +42,7 @@ En Windows, para el APK a mano: `npm run build`, después `npx cap sync android`
 | `data/` + `scripts/build-spells.cjs` | Conjuros (SRD 5.2 + traducciones) que generan `src/rules/spellsGen.ts`. |
 | `server/` | Servidor de partida del DM (Node + ws). Se empaqueta como `.exe` en la CI. |
 | `docs/guia/index.html` | Manual ilustrado del usuario, que se copia a `public/guia` al compilar. |
+| `Dockerfile`, `docker-compose.yml` | Compilación en Docker (etapas `apk`, `windows`, `apps`) e imagen del servidor del DM (etapa final `servidor`). Si cambian los pasos de la CI, cámbialos también aquí. |
 | `.github/workflows/android.yml` | Con cada push a `main`: tests, build, APK de depuración y apps de Windows. |
 
 ## Normas del proyecto

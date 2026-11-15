@@ -222,7 +222,10 @@ wss.on('connection', (ws) => {
 let publish: PublishState = { mode: 'no', url: null, status: 'off', message: '' };
 
 function lanIpsList() { return Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i!.address); }
-const lanIps = lanIpsList;
+// En Docker las IP de dentro del contenedor no le sirven a nadie: DI_EN_DI_IP dice la IP del PC (o varias, separadas por comas)
+const IN_DOCKER = fs.existsSync('/.dockerenv');
+const FIXED_IPS = (process.env.DI_EN_DI_IP ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+const lanIps = () => (FIXED_IPS.length ? FIXED_IPS : IN_DOCKER ? [] : lanIpsList());
 
 // En Windows otro programa puede escuchar solo en 127.0.0.1 en el mismo puerto y «tapar» a este servidor
 // (el túnel de Tailscale va a 127.0.0.1). Antes de publicar comprobamos que quien responde somos nosotros.
@@ -276,6 +279,7 @@ server.on('listening', async () => {
   console.log(`  Clave del DM (para entrar como DM desde el móvil o la tablet): ${room.dmKey}`);
   console.log('\n  Jugadores en tu misma Wi-Fi: en la app, «Partida» → dirección:');
   for (const ip of lanIps()) console.log(`    http://${ip}:${PORT}`);
+  if (!lanIps().length && IN_DOCKER) console.log(`    http://<IP de este PC>:${PORT}   (en Docker: ponla en DI_EN_DI_IP para verla aquí)`);
   console.log(`\n  Partida guardada en: ${DATA_FILE}`);
   console.log(`${line}\n  Deja esta ventana abierta mientras jugáis. Ctrl+C para cerrar.\n`);
   if (process.platform === 'win32' && !args.includes('--no-open')) exec(`start "" "${dmUrl}"`);
