@@ -15,6 +15,7 @@ import { useFx } from './Transition';
 import { L, T, getLang } from '../i18n';
 import { translateCharacter } from '../rules/glossary';
 import { askOk } from './Confirm';
+import { sceneUrl } from '../scenes';
 
 export function SettingsTab() {
   const characters = useStore((s) => s.characters);
@@ -67,12 +68,12 @@ export function SettingsTab() {
       <Section title={T('Estilo visual', 'Visual style')}>
         <div className="themes design-opts" role="radiogroup" aria-label={T('Estilo visual', 'Visual style')}>
           {([
-            ['classic', T('Clásico', 'Classic'), T('Fondos pixel art detallados de fantasía oscura y las transiciones de siempre.', 'Detailed dark fantasy pixel art backgrounds and the usual transitions.'), 'design/clasico/ocaso.png'],
-            ['retro', T('Retro 16-bit', 'Retro 16-bit'), T('Pixel más grueso, interfaz cuadrada, transiciones de RPG clásico e icono pixel.', 'Chunkier pixels, square interface, classic RPG transitions and a pixel icon.'), 'design/retro/ocaso.png'],
-            ['poster', T('Póster', 'Poster'), T('Los pósteres pintados de fantasía oscura (el estilo clásico anterior).', 'The painted dark fantasy posters (the previous classic style).'), 'posters/ocaso.jpg'],
-          ] as const).map(([id, name, text, img]) => (
+            ['classic', T('Pixel', 'Pixel'), T('Fantasía oscura en pixel art detallado, como una portada de los 90 hecha píxel a píxel.', 'Dark fantasy in detailed pixel art, like a 90s book cover drawn pixel by pixel.')],
+            ['retro', T('Retro 16-bit', 'Retro 16-bit'), T('Pixel más grueso, interfaz cuadrada, transiciones de RPG clásico e icono pixel.', 'Chunkier pixels, square interface, classic RPG transitions and a pixel icon.')],
+            ['poster', T('Pintado', 'Painted'), T('Óleo y aerógrafo de portada de libro de fantasía de los 90, con títulos a juego.', '90s fantasy book cover oil and airbrush painting, with matching titles.')],
+          ] as const).map(([id, name, text]) => (
             <button key={id} role="radio" aria-checked={(settings.design ?? 'classic') === id} className={`theme-opt design-opt ${(settings.design ?? 'classic') === id ? 'on' : ''}`} onClick={() => setSettings({ design: id })}>
-              <img src={img} alt="" className={id !== 'poster' ? 'pixelated' : ''} />
+              <img src={sceneUrl(id, settings.theme)} alt="" className={id !== 'poster' ? 'pixelated' : ''} />
               <span><b>{(settings.design ?? 'classic') === id ? '✓ ' : ''}{name}</b><br /><small className="muted">{text}</small></span>
             </button>
           ))}
@@ -84,9 +85,12 @@ export function SettingsTab() {
       <Section title={T('Colores', 'Colors')}>
         <div className="themes" role="radiogroup" aria-label={T('Colores', 'Colors')}>
           {THEMES.map((th) => (
-            <button key={th.id} role="radio" aria-checked={settings.theme === th.id} className={`theme-opt ${settings.theme === th.id ? 'on' : ''}`} onClick={() => setSettings({ theme: th.id })}>
-              <span className="theme-swatch">{th.colors.map((col) => <span key={col} style={{ background: col }} />)}</span>
-              {settings.theme === th.id ? '✓ ' : ''}{L(th.name)}
+            <button key={th.id} role="radio" aria-checked={settings.theme === th.id} className={`theme-opt palette-opt ${settings.theme === th.id ? 'on' : ''}`} onClick={() => setSettings({ theme: th.id })}>
+              <img src={sceneUrl(settings.design ?? 'classic', th.id)} alt="" loading="lazy" className={(settings.design ?? 'classic') !== 'poster' ? 'pixelated' : ''} />
+              <span className="palette-name">
+                <span className="theme-swatch">{th.colors.map((col) => <span key={col} style={{ background: col }} />)}</span>
+                {settings.theme === th.id ? '✓ ' : ''}{L(th.name)}
+              </span>
             </button>
           ))}
         </div>
@@ -184,6 +188,10 @@ const THEMES: { id: Theme; name: { es: string; en: string }; colors: string[] }[
   { id: 'green', name: { es: 'Verdoso', en: 'Green' }, colors: ['#0e1611', '#79bf6f', '#e2ecdb'] },
   { id: 'gray', name: { es: 'Grises', en: 'Grayscale' }, colors: ['#121212', '#d0d0d0', '#e6e6e6'] },
   { id: 'blue', name: { es: 'Azules', en: 'Blue' }, colors: ['#0c1320', '#5d9df0', '#dfe8f4'] },
+  { id: 'red', name: { es: 'Carmesí', en: 'Crimson' }, colors: ['#170b0c', '#e0524a', '#f0dcd6'] },
+  { id: 'purple', name: { es: 'Arcano', en: 'Arcane' }, colors: ['#120c1a', '#b07ef0', '#e7def3'] },
+  { id: 'orange', name: { es: 'Otoño', en: 'Autumn' }, colors: ['#170f08', '#e8892f', '#f2e0c8'] },
+  { id: 'ice', name: { es: 'Escarcha', en: 'Frost' }, colors: ['#0b1417', '#6fd3e3', '#dcedf0'] },
 ];
 
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];

@@ -128,9 +128,9 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
 <header class="cover wrap">
   <div class="cover-inner">
-    <img class="cover-icon" src="img/goblin.png" alt="Icono de Di en Di: un goblin pixel art lanzando dados rojos" width="120" height="120">
+    <img class="cover-icon" src="img/icono.png" alt="Icono de Di en Di: un d20 carmesí sobre un escudo con dos espadas, bajo la luna roja" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.23.0</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.24.0</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -535,37 +535,42 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
     <!-- 13 -->
     <section class="chapter" id="estilo">
       <div class="chapter-head"><span class="chapter-num">Capítulo 14</span><h2>Colores, idioma y ajustes</h2></div>
-      <h3 id="estilo-visual">Estilo visual: Clásico, Retro 16-bit o Póster</h3>
+      <h3 id="estilo-visual">Estilo visual: Pixel, Retro 16-bit o Pintado</h3>
       <div class="split">
         <div>
           <p>En <b>Ajustes → Estilo visual</b> eliges entre:</p>
           <ul class="list">
-            <li><b>Clásico</b>: fondos en <b>pixel art detallado</b> (256 píxeles, paleta propia por escena y tramado) con las transiciones de siempre. Es el estilo por defecto, en el móvil y en la app de Windows.</li>
-            <li><b>Retro 16-bit</b>: pixel más grueso, interfaz cuadrada, transiciones de RPG clásico (la pantalla se rompe en bloques en espiral para «¡COMBATE!» y estrellas pixel al subir de nivel) e icono pixel.</li>
-            <li><b>Póster</b>: los pósteres pintados de fantasía oscura del estilo clásico anterior.</li>
+            <li><b>Pixel</b>: fantasía oscura en <b>pixel art detallado</b>, como una portada de los 90 hecha píxel a píxel. Es el estilo por defecto, en el móvil y en la app de Windows.</li>
+            <li><b>Retro 16-bit</b>: las mismas escenas con el pixel más grueso, interfaz cuadrada, transiciones de RPG clásico (la pantalla se rompe en bloques en espiral para «¡COMBATE!» y estrellas pixel al subir de nivel) e icono pixel.</li>
+            <li><b>Pintado</b>: óleo y aerógrafo de portada de libro de fantasía de los 90, con los títulos en letra de portada (Cinzel).</li>
           </ul>
-          <p>Los botones <b>Probar transición</b> las enseñan sin empezar un combate. Los fondos se pueden sustituir por imágenes hechas con tu IA local (ComfyUI): ver <code>docs/arte-retro/LEEME.md</code> del repositorio.</p>
+          <p>Cada fondo tiene una versión <b>vertical</b> para el móvil y otra <b>horizontal</b> para Windows, las tablets y el móvil girado. Los botones <b>Probar transición</b> las enseñan sin empezar un combate.</p>
         </div>
-        <figure><img class="phone" src="img/45-estilo-retro.jpg" alt="La hoja con el estilo Retro 16-bit: fondo pixel art de atardecer" width="700" height="1425" loading="lazy"><figcaption>Estilo Retro 16-bit.</figcaption></figure>
+        <figure><img class="shot" src="img/45-estilos.jpg" alt="La misma escena, la torre del nigromante bajo un cielo rojo, en los estilos Pixel, Retro 16-bit y Pintado" width="1168" height="672" loading="lazy"><figcaption>La paleta Carmesí en Pixel, Retro 16-bit y Pintado.</figcaption></figure>
       </div>
 
-      <figure><img class="shot pixelated" src="img/52-estilo-clasico.png" alt="Los ocho fondos pixel art del estilo Clásico" width="1200" height="600" loading="lazy" style="image-rendering: pixelated"><figcaption>Los fondos pixel art del estilo Clásico.</figcaption></figure>
-      <p>En <b>Ajustes</b> eliges entre cuatro paletas. Cada una pone de fondo una escena de fantasía oscura al estilo de los 90, sin títulos (en pixel art o en póster según el estilo):</p>
+      <p>En <b>Ajustes → Colores</b> eliges entre <b>ocho paletas</b>; cada botón enseña su fondo en el estilo que tengas:</p>
+      <figure><img class="shot pixelated" src="img/52-paletas.jpg" alt="Los ocho fondos de las paletas en pixel art" width="1200" height="344" loading="lazy"><figcaption>Arriba: Básico, Verdoso, Grises y Azules. Abajo: Carmesí, Arcano, Otoño y Escarcha.</figcaption></figure>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>Paleta</th><th>Póster</th></tr></thead>
+          <thead><tr><th>Paleta</th><th>Escena</th></tr></thead>
           <tbody>
-            <tr><td>Básico</td><td>Ocaso de sangre: la torre del nigromante sobre un risco, árboles muertos, cuervos y un dragón</td></tr>
-            <tr><td>Verdoso</td><td>Ruinas del bosque: un arco antiguo cubierto de musgo con runas y un druida con el báculo encendido</td></tr>
-            <tr><td>Grises</td><td>La puerta de los reyes enanos tallada en la montaña nevada, con braseros y un dragón bajo la luna</td></tr>
-            <tr><td>Azules</td><td>Abismo estelar: una catedral de dos torres sobre un cañón, bajo una nebulosa</td></tr>
+            <tr><td>Básico</td><td>Una gran ciudadela sobre un risco al atardecer dorado, con un jinete en el camino</td></tr>
+            <tr><td>Verdoso</td><td>Ruinas élficas cubiertas de musgo en un bosque encantado, con luciérnagas y un explorador</td></tr>
+            <tr><td>Grises</td><td>Una atalaya en ruinas en un paso de montaña con nieve y niebla, y un viajero con farol</td></tr>
+            <tr><td>Azules</td><td>Una fortaleza con faro sobre los acantilados, bajo la luna y frente al mar en tormenta</td></tr>
+            <tr><td>Carmesí</td><td>La torre del nigromante bajo un cielo de sangre, con árboles muertos, cuervos y un dragón</td></tr>
+            <tr><td>Arcano</td><td>La torre flotante de un mago entre nubes violetas y cristales mágicos</td></tr>
+            <tr><td>Otoño</td><td>Un pueblo acogedor con la taberna encendida, hojas cayendo y el castillo en la colina</td></tr>
+            <tr><td>Escarcha</td><td>La puerta enana tallada en una montaña helada, bajo una aurora</td></tr>
           </tbody>
         </table>
       </div>
-      <p>Los otros cuatro (mar del kraken, mazmorra, ciudadela del desierto y cripta) se usarán en futuras versiones.</p>
-      <figure><img class="shot" src="img/22-paisajes.jpg" alt="Los ocho pósteres: ocaso, bosque, cumbres, abismo, mar, mazmorra, ciudadela y cripta" width="1200" height="600" loading="lazy"></figure>
+
+      <h3 id="fondos-combate">Fondos de batalla</h3>
+      <p>Al empezar un combate el fondo cambia a una de <b>15 escenas</b> del momento justo antes de la lucha: dos ejércitos al amanecer, la guarida del dragón, un puente en ruinas con antorchas orcas, un pueblo en llamas, el cementerio con niebla, los lobos alrededor de la hoguera, el círculo de piedras en la tormenta, el asedio, el gigante de escarcha, la hidra del pantano, el escorpión del desierto, la necrópolis, el salón del trono del demonio, el kraken y la guarida de la araña. En <b>partida compartida</b> la elige el servidor y <b>todos ven la misma</b>, cada uno en su estilo; la transición «¡COMBATE!» la deja asomar entre las barras. Al acabar vuelve el fondo de tu paleta.</p>
+      <figure><img class="shot" src="img/22-combate.jpg" alt="Las quince escenas de combate en el estilo Pintado" width="1204" height="417" loading="lazy"><figcaption>Las quince escenas de batalla (estilo Pintado).</figcaption></figure>
       <p>También en Ajustes: <b>idioma</b> (español o inglés, toda la app), <b>tirar dados al tocar una estadística</b> (desactivado por defecto), <b>anotar tiradas a mano en combate</b>, traducir la ficha, el idioma del dictado y la clave opcional de Claude.</p>
-      <figure><img class="shot" src="img/13-colores.jpg" alt="Selector de colores: Básico, Verdoso, Grises y Azules" width="700" height="233" loading="lazy" style="width: min(100%, 420px)"></figure>
       <h3>Editor de aspecto (experimental)</h3>
       <p>En Ajustes, el interruptor <b>🎨 Editor de aspecto (experimental)</b> muestra la pestaña «Aspecto» para dibujar a tu personaje y ponerlo de retrato. Está oculta por defecto mientras se mejora.</p>
       <h3>El manual dentro de la app</h3>

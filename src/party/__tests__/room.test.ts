@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { apply, createRoom, exportCampaign, hpState, importCampaign, join, viewFor, type Room } from '../room';
-import type { Command, PcSummary } from '../protocol';
+import { COMBAT_SCENES, type Command, type PcSummary } from '../protocol';
 
 const summary = (name: string, hp = 20): PcSummary => ({ name, species: 'Humano', className: 'Guerrero', level: 3, hp, hpMax: hp, temp: 0, ac: 16, speed: 30, passive: 12, conditions: [] });
 
@@ -28,6 +28,25 @@ describe('partida compartida', () => {
     // Reconectar con el token conserva el mismo miembro
     const again = join(s.room, 'Ana', s.room.members.find((m) => m.id === s.p1)!.token);
     expect(again.member.id).toBe(s.p1);
+  });
+
+  it('el fondo de combate es el mismo para todos y cambia en el siguiente combate', () => {
+    const s = setup();
+    expect(viewFor(s.room, s.p1)!.encounter.scene).toBeNull();
+    const seen: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      s.run(s.dm, { t: 'start' });
+      const scene = viewFor(s.room, s.dm)!.encounter.scene;
+      expect(scene).not.toBeNull();
+      expect(scene).toBeGreaterThanOrEqual(0);
+      expect(scene).toBeLessThan(COMBAT_SCENES);
+      expect(viewFor(s.room, s.p1)!.encounter.scene).toBe(scene);
+      expect(viewFor(s.room, s.p2)!.encounter.scene).toBe(scene);
+      if (seen.length) expect(scene).not.toBe(seen[seen.length - 1]);
+      seen.push(scene!);
+      s.run(s.dm, { t: 'end' });
+      expect(viewFor(s.room, s.p1)!.encounter.scene).toBeNull();
+    }
   });
 
   it('los jugadores no ven monstruos ocultos ni la vida exacta, pero sí su estado', () => {

@@ -5,6 +5,7 @@ import type { ItemMods } from '../rules/itemTypes';
 import type {
   Combatant, CombatantView, Command, Encounter, Chronicle, Gift, HpState, PreparedEncounter, RoomSettings, SharedImage, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
+import { COMBAT_SCENES, pickCombatScene } from './protocol';
 
 export interface StoredMember extends Member { token: string }
 
@@ -418,7 +419,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       // Entran los personajes de los jugadores; el resto lo añade el DM
       const keep = e.order.filter((c) => c.kind !== 'pc');
       const pcs = r.members.filter((m) => m.role === 'player' && m.summary).map((m) => pcFrom(m, e.order.find((c) => c.ownerId === m.id)));
-      r.encounter = { active: true, phase: 'setup', ready: [], round: 1, turn: 0, begun: false, order: [...pcs.map((c) => ({ ...c, initiative: null })), ...keep] };
+      r.encounter = { active: true, phase: 'setup', ready: [], round: 1, turn: 0, begun: false, scene: pickCombatScene(e.scene), order: [...pcs.map((c) => ({ ...c, initiative: null })), ...keep] };
       pushLog(r, { kind: 'start' });
       r.snapshots = [snap(r)];
       r.acted = false;
@@ -686,6 +687,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
       order,
       currentId: cur && (dm || !cur.hidden) ? cur.id : null,
       hiddenTurn: !!cur && cur.hidden && !dm,
+      scene: e.active ? (e.scene ?? 0) % COMBAT_SCENES : null,
     },
     log,
     gifts: dm ? room.gifts : me.role === 'player' ? room.gifts.filter((g) => g.toId === me.id || g.fromId === me.id) : [],

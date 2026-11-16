@@ -40,11 +40,13 @@ export function TransitionFx() {
     <div key={fx.key} className={`fx fx-${fx.kind}`} onClick={stop} onAnimationEnd={(e) => { if (e.target === e.currentTarget) stop(); }} role="alert" aria-label={fx.title}>
       <div className="fx-flash" />
       <div className="fx-bars"><span /><span /><span /><span /><span /><span /><span /><span /></div>
+      {/* El escenario de la batalla (el fondo de combate que ven todos) asoma entre las barras */}
+      {fx.kind === 'combat' && <div className="fx-scene" />}
       {fx.kind === 'levelup' && (
         <div className="fx-sparks">{Array.from({ length: 18 }, (_, i) => <i key={i} style={{ left: `${(i * 53) % 100}%`, animationDelay: `${0.5 + (i % 6) * 0.12}s` }} />)}</div>
       )}
       <div className="fx-title">
-        <span className="fx-icon">{fx.kind === 'combat' ? '⚔️' : '⬆️'}</span>
+        <span className="fx-icon">{fx.kind === 'combat' ? <img src="iconos/combat.png" alt="" /> : '⬆️'}</span>
         <b data-text={fx.title}>{fx.title}</b>
         {fx.subtitle && <small>{fx.subtitle}</small>}
       </div>
@@ -86,7 +88,7 @@ function RetroFx({ fx, stop }: { fx: NonNullable<FxState['fx']>; stop: () => voi
         })}
       </div>
       {!combat && <div className="fxr-stars">{Array.from({ length: 22 }, (_, i) => <b key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${0.9 + (i % 7) * 0.09}s` }} />)}</div>}
-      <img className="fxr-art" src={`design/retro/fx-${fx.kind}.png`} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+      {combat && <div className="fxr-art fx-scene" />}
       <div className="fxr-title">
         <span className="fxr-icon">{combat ? '⚔' : '★'}</span>
         <b data-text={fx.title}>{fx.title}</b>

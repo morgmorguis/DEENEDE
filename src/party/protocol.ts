@@ -111,9 +111,20 @@ export interface Combatant {
 /** setup: cada uno introduce sus datos y marca «Listo»; running: turnos en marcha */
 export type Phase = 'setup' | 'running';
 
+/** Fondos de combate que hay (public/fondos/<estilo>/combate-01…15) */
+export const COMBAT_SCENES = 15;
+
+/** Escena de combate al azar, distinta de la anterior si se puede */
+export function pickCombatScene(prev?: number | null): number {
+  const n = Math.floor(Math.random() * (COMBAT_SCENES - 1));
+  return prev == null ? Math.floor(Math.random() * COMBAT_SCENES) : (prev + 1 + n) % COMBAT_SCENES;
+}
+
 export interface Encounter {
   active: boolean;
   phase?: Phase;
+  /** Fondo de combate que ven todos (lo elige el servidor al empezar) */
+  scene?: number;
   /** Miembros que han pulsado «Listo» durante la preparación */
   ready?: string[];
   round: number;
@@ -221,6 +232,8 @@ export interface RoomView {
   members: Member[];
   encounter: {
     active: boolean; phase: Phase; round: number; begun: boolean; order: CombatantView[]; currentId: string | null; hiddenTurn: boolean;
+    /** Fondo de combate común (0…COMBAT_SCENES-1); null fuera de combate */
+    scene: number | null;
     /** Ids de miembros listos y de quienes hace falta que lo estén */
     ready: string[];
     needed: string[];

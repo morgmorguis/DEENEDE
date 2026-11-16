@@ -10,6 +10,6 @@ android/build
 android/app/build
 android/app/src/main/assets/public
 salida-docker
-scripts/retro/salida
+scripts/arte/salida
 **/__pycache__
 *.log

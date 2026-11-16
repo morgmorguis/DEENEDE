@@ -77,12 +77,14 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 
 ## Estado y notas que no se ven en el código
 
-- Versión **0.23.0** (7 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
+- Versión **0.24.0** (16 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
 - Turnos: el servidor solo acepta `act` en tu turno o como reacción (una por ronda); `nextTurn`, solo el DM o el dueño del turno.
 - Puerto del servidor: busca uno libre desde el 3000 y comprueba con `/api/info?probe=` que responde él en 127.0.0.1
   (en el PC del DM una IA local escucha en 127.0.0.1:3000 y Windows no da error al compartir puerto). En Docker, `DI_EN_DI_IP`.
 - Imágenes del DM: en disco junto a la partida (`di-en-di-imagenes/`). Copia de campaña: `/api/export` y `/api/import` con `?dm=`.
-- Estilos visuales: Clásico (pixel), Retro 16-bit y Póster (`src/scenes.ts`, `public/design/*`); fondos generados con
-  `scripts/pixel/classic.py`, sustituibles por arte de IA local (`docs/arte-retro/LEEME.md`).
-- Iconos de Windows en `build/icons` (`scripts/icons/make-icons.cjs`), aplicados con resedit en la CI.
+- Estilos visuales: Pixel (`classic`), Retro 16-bit (`retro`) y Pintado (`poster`); 8 paletas, cada una con su fondo vertical y
+  horizontal en `public/fondos/<pixel|retro|pintado>`, y 15 fondos de combate (el servidor elige uno en `start`, `encounter.scene`).
+  Todo se genera con la IA local: `scripts/arte/` (guía en `docs/arte/LEEME.md`). Los pósteres SVG de `public/posters` ya solo son el fondo del retrato.
+- Iconos: barra inferior en `public/iconos` (32×32), icono de la app en `public/icon-*.png`, mipmaps de Android y `build/icons/*.ico`
+  (todos con `scripts/arte/iconos_procesar.py`), aplicados a los `.exe` con resedit en la CI.
 - Ideas o tareas pendientes: apúntalas aquí.

@@ -151,6 +151,8 @@ export interface CombatState {
   turn: number;
   /** Ya se ha pasado algún turno (antes de eso el turno es siempre del primero del orden) */
   begun?: boolean;
+  /** Fondo de combate (0…14, src/scenes.ts); en partida compartida manda el del servidor */
+  scene?: number;
 }
 
 export interface Coins {

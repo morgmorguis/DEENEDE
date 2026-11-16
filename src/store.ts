@@ -10,8 +10,9 @@ import { activeReminders } from './rules/calc';
 import { DEFAULT_MODEL } from './config';
 import { mergeCharacters } from './backup';
 import { setLang, T, type Lang } from './i18n';
+import { pickCombatScene } from './party/protocol';
 
-export type Theme = 'basic' | 'green' | 'gray' | 'blue';
+export type Theme = 'basic' | 'green' | 'gray' | 'blue' | 'red' | 'purple' | 'orange' | 'ice';
 
 export interface Settings {
   lang: Lang;
@@ -211,7 +212,7 @@ export const useStore = create<State>()(
       startCombat: () => get().update((c) => {
         // Los compañeros se recuerdan entre combates; los enemigos no
         const allies = c.combat.order.filter((e) => e.kind === 'ally').map((e) => ({ ...e, initiative: null }));
-        c.combat = { active: true, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0, turn: 0, begun: false, order: [{ id: SELF_ID, name: '', kind: 'self', initiative: null }, ...allies] };
+        c.combat = { active: true, round: 1, initiative: null, action: false, bonus: false, reaction: false, movementUsed: 0, turn: 0, begun: false, scene: pickCombatScene(c.combat.scene), order: [{ id: SELF_ID, name: '', kind: 'self', initiative: null }, ...allies] };
       }),
       endCombat: () => {
         get().update((c) => { c.combat.active = false; c.combat.initiative = null; c.combat.turn = 0; });

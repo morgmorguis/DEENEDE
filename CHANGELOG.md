@@ -3,6 +3,16 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.24.0 · 16 nov 2026 — Fondos nuevos, ocho paletas, fondos de batalla e iconos
+
+**Aspecto**
+- **Fondos nuevos** pintados con IA local al estilo de una portada de fantasía de los 90. Tres estilos en Ajustes → Estilo visual: **Pixel** (pixel art detallado, el de por defecto), **Retro 16-bit** (pixel gordo e interfaz cuadrada) y **Pintado** (óleo y aerógrafo, con títulos en letra de portada de libro).
+- **Ocho paletas de color** (antes cuatro): Básico, Verdoso, Grises, Azules y las nuevas **Carmesí**, **Arcano**, **Otoño** y **Escarcha**. Cada una tiene su escena, y el selector enseña una miniatura de cada fondo.
+- Cada fondo tiene una versión **vertical** para el móvil y otra **horizontal** para Windows, tablets y el móvil girado: ya no se recorta a lo bruto en pantallas anchas.
+- **Fondos de batalla**: al empezar un combate el fondo cambia a una de **15 escenas** del momento antes de la lucha (ejércitos al amanecer, la guarida del dragón, un puente en ruinas, el cementerio con niebla, el salón del trono…). En partida compartida **todos ven la misma**, cada uno en su estilo; la transición «¡COMBATE!» la deja asomar entre las barras.
+- **Iconos nuevos** en pixel art para la barra inferior (hoja, aspecto, combate, partida, asistente, reglas, ajustes, grupo, personajes y tesoro) y un punto verde o rojo cuando estás conectado o en combate.
+- **Icono de la app nuevo**: un d20 carmesí sobre un escudo con espadas bajo la luna roja (Android, Windows y el servidor).
+
 ## 0.23.0 · 7 nov 2026 — Turnos de verdad, resumen narrativo y encuentros del DM
 
 **Combate compartido**

@@ -89,33 +89,38 @@ export default function App() {
     if (dmMode && (tab === 'sheet' || tab === 'avatar' || tab === 'combat' || tab === 'assistant')) setTab('party');
     if (!dmMode && (tab === 'roster' || tab === 'treasure' || tab === 'group' || tab === 'dmcombat')) setTab('party');
   }, [dmMode, tab, avatarOn]);
+  // En combate, fondo de batalla: el de la partida compartida (el mismo para todos) o el del combate en solitario
+  const sharedScene = useParty((s) => s.view?.encounter.scene ?? null);
+  const combatScene = sharedCombat ? sharedScene : c.combat.active && !dmMode ? (c.combat.scene ?? 0) : null;
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    applyScene(theme, design);
+    applyScene(theme, design, combatScene);
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim();
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg || '#1b1512');
-  }, [theme, design]);
+  }, [theme, design, combatScene]);
   const [notesOpen, setNotesOpen] = useState(false);
   const inCombat = c.combat.active;
   const endTurn = useStore((s) => s.endTurn);
   const cls = classById(c.classId);
 
-  const tabs: { id: Tab; icon: string; label: string; short?: string }[] = dmMode ? [
-    { id: 'party', icon: '🎲', label: T('Partida', 'Game') },
-    { id: 'dmcombat', icon: sharedCombat ? '🔴' : '⚔️', label: T('Combate', 'Combat') },
-    { id: 'group', icon: '👥', label: T('Grupo', 'Party') },
-    { id: 'roster', icon: '📋', label: T('Personajes', 'Characters') },
-    { id: 'treasure', icon: '💰', label: T('Tesoro', 'Treasure') },
-    { id: 'rules', icon: '📚', label: T('Reglas', 'Rules') },
-    { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
+  // Iconos pixel art de public/iconos (scripts/arte/iconos.py); el punto indica partida conectada o combate compartido
+  const live = sharedCombat ? 'combat' : partyOnline ? 'online' : undefined;
+  const tabs: { id: Tab; icon: string; label: string; short?: string; dot?: string }[] = dmMode ? [
+    { id: 'party', icon: 'party', label: T('Partida', 'Game') },
+    { id: 'dmcombat', icon: 'combat', label: T('Combate', 'Combat'), dot: sharedCombat ? 'combat' : undefined },
+    { id: 'group', icon: 'group', label: T('Grupo', 'Party') },
+    { id: 'roster', icon: 'roster', label: T('Personajes', 'Characters') },
+    { id: 'treasure', icon: 'treasure', label: T('Tesoro', 'Treasure') },
+    { id: 'rules', icon: 'rules', label: T('Reglas', 'Rules') },
+    { id: 'settings', icon: 'settings', label: T('Ajustes', 'Settings') },
   ] : [
-    { id: 'sheet', icon: '🧙', label: T('Hoja', 'Sheet') },
-    ...(avatarOn ? [{ id: 'avatar' as Tab, icon: '🎨', label: T('Aspecto', 'Looks') }] : []),
-    { id: 'combat', icon: '⚔️', label: T('Combate', 'Combat') },
-    { id: 'party', icon: partyOnline ? (sharedCombat ? '🔴' : '🟢') : '🎲', label: T('Partida', 'Game') },
-    { id: 'assistant', icon: '💬', label: T('Asistente', 'Assistant'), short: T('Chat', 'Chat') },
-    { id: 'rules', icon: '📚', label: T('Reglas', 'Rules') },
-    { id: 'settings', icon: '⚙️', label: T('Ajustes', 'Settings') },
+    { id: 'sheet', icon: 'sheet', label: T('Hoja', 'Sheet') },
+    ...(avatarOn ? [{ id: 'avatar' as Tab, icon: 'avatar', label: T('Aspecto', 'Looks') }] : []),
+    { id: 'combat', icon: 'combat', label: T('Combate', 'Combat') },
+    { id: 'party', icon: 'party', label: T('Partida', 'Game'), dot: live },
+    { id: 'assistant', icon: 'assistant', label: T('Asistente', 'Assistant'), short: T('Chat', 'Chat') },
+    { id: 'rules', icon: 'rules', label: T('Reglas', 'Rules') },
+    { id: 'settings', icon: 'settings', label: T('Ajustes', 'Settings') },
   ];
 
   if (viewerMode) return <div className="app" key={lang}><TvView /><TransitionFx /></div>;
@@ -125,9 +130,9 @@ export default function App() {
       <header className="topbar">
         {dmMode ? (
           <div className="topbar-row dm-top">
-            <b>🎲 DM</b>
+            <b><img className="ico" src="iconos/party.png" alt="" /> DM</b>
             <span className="muted small grow">{T('Partida', 'Game')} {partyCode ?? '…'} · {partyOnline ? T('conectado', 'connected') : T('reconectando…', 'reconnecting…')}</span>
-            {sharedCombat && <button className="combat-badge" onClick={() => setTab('party')}>⚔️ {sharedPhase === 'setup' ? T('Preparando', 'Getting ready') : T('En combate', 'In combat')}</button>}
+            {sharedCombat && <button className="combat-badge" onClick={() => setTab('party')}><img className="ico" src="iconos/combat.png" alt="" /> {sharedPhase === 'setup' ? T('Preparando', 'Getting ready') : T('En combate', 'In combat')}</button>}
           </div>
         ) : (<>
         <div className="topbar-row">
@@ -137,9 +142,9 @@ export default function App() {
             <span className="muted small">{cls ? L(cls.name) : c.className} {c.level} · {T('CA', 'AC')} {armorClass(c).value}</span>
           </button>
           {inCombat ? (
-            <button className="combat-badge" onClick={() => setTab('combat')}>⚔️ {T('Ronda', 'Round')} {c.combat.round}</button>
+            <button className="combat-badge" onClick={() => setTab('combat')}><img className="ico" src="iconos/combat.png" alt="" /> {T('Ronda', 'Round')} {c.combat.round}</button>
           ) : (
-            <button className="btn small" onClick={() => setTab('combat')}>⚔️ {T('Combate', 'Combat')}</button>
+            <button className="btn small" onClick={() => setTab('combat')}><img className="ico" src="iconos/combat.png" alt="" /> {T('Combate', 'Combat')}</button>
           )}
         </div>
         <HpBar />
@@ -180,7 +185,7 @@ export default function App() {
       <nav className="bottomnav" style={{ ['--nav-cols' as string]: tabs.length }}>
         {tabs.map((t) => (
           <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
-            <span className="nav-icon">{t.icon}</span>
+            <span className="nav-icon"><img src={`iconos/${t.icon}.png`} alt="" draggable={false} />{t.dot && <i className={`nav-dot ${t.dot}`} />}</span>
             <span className="nav-label">{t.short ? <><span className="nl-long">{t.label}</span><span className="nl-short">{t.short}</span></> : t.label}</span>
           </button>
         ))}

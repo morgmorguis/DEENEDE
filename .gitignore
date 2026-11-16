@@ -28,3 +28,4 @@ public/guia
 scripts/retro/salida
 __pycache__
 salida-docker
+scripts/arte/salida/
