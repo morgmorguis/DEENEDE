@@ -43,7 +43,7 @@ En Windows, para el APK a mano: `npm run build`, después `npx cap sync android`
 | `server/` | Servidor de partida del DM (Node + ws). Se empaqueta como `.exe` en la CI. |
 | `docs/guia/index.html` | Manual ilustrado del usuario, que se copia a `public/guia` al compilar. |
 | `Dockerfile`, `docker-compose.yml` | Compilación en Docker (etapas `apk`, `windows`, `apps`) e imagen del servidor del DM (etapa final `servidor`). Si cambian los pasos de la CI, cámbialos también aquí. |
-| `.github/workflows/android.yml` | Con cada push a `main`: tests, build, APK de depuración y apps de Windows. |
+| `.github/workflows/android.yml` | Con cada push a `main`: tests, build, APK de depuración, apps de Windows y, si la versión es nueva, release `vX.Y.Z` con todo. |
 
 ## Normas del proyecto
 
@@ -57,7 +57,9 @@ En Windows, para el APK a mano: `npm run build`, después `npx cap sync android`
   2. Añade la entrada arriba del todo en `CHANGELOG.md`: `## X.Y.Z · día mes año — Título`, seguido de viñetas
      que expliquen el cambio para el jugador.
   3. Actualiza `docs/guia/index.html`: la versión en la línea «MANUAL DEL AVENTURERO · vX.Y.Z» y la sección que corresponda.
-  4. Commit con el mensaje `X.Y.Z: resumen corto en minúsculas` y push a `main`. La CI genera el APK.
+  4. Commit con el mensaje `X.Y.Z: resumen corto en minúsculas` y push a `main`. La CI genera el APK y los `.exe` y crea la
+     release `vX.Y.Z` en GitHub con las notas de su entrada del `CHANGELOG.md` (el título sale de la línea `## …`).
+     Si la versión no cambia, no se crea release: solo quedan los artefactos de Actions.
 - Cambios pequeños y completos: nada de TODOs a medias. Antes de terminar: `npm test`, `npm run lint` y `npm run build`.
 
 ## Estado

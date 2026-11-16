@@ -102,3 +102,59 @@ jobs:
         with:
           name: di-en-di-windows
           path: out/
+
+  release:
+    # Una release en GitHub por cada versión nueva (la de package.json): etiqueta vX.Y.Z, notas del
+    # CHANGELOG y el APK y los .exe para descargar. Si la versión ya tiene release, no hace nada.
+    needs: [build, servidor-windows]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Versión
+        id: v
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "v$V" > /dev/null 2>&1; then
+            echo "La release v$V ya existe: no se crea otra"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v5
+        if: steps.v.outputs.exists == 'false'
+        with:
+          path: artefactos
+
+      - name: Crear la release
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          V=${{ steps.v.outputs.version }}
+          # Notas: la entrada de esta versión en CHANGELOG.md (desde su «## X.Y.Z» hasta la siguiente)
+          awk -v v="$V" '/^## / { if (on) exit; if (index($0, "## " v " ") == 1) { on = 1; next } } on' CHANGELOG.md > notas.md
+          TITLE=$(grep -m1 "^## $V " CHANGELOG.md | sed 's/^## //')
+          [ -s notas.md ] || echo "Versión $V." > notas.md
+          cat >> notas.md <<NOTAS
+
+          ---
+          **Descargas**
+          - **Android**: \`Di-en-Di-$V.apk\` (instálalo encima de la versión anterior sin perder datos).
+          - **Windows**: \`Di-en-Di-$V.exe\` (la app) y \`Di-en-Di-Servidor-$V.exe\` (servidor de partida del DM). Lee \`LEEME.txt\` y \`PUBLICAR.txt\`.
+          NOTAS
+          mkdir sube
+          cp "artefactos/di-en-di-apk/Di en Di.apk" "sube/Di-en-Di-$V.apk"
+          cp "artefactos/di-en-di-windows/Di en Di.exe" "sube/Di-en-Di-$V.exe"
+          cp "artefactos/di-en-di-windows/Di en Di - Servidor.exe" "sube/Di-en-Di-Servidor-$V.exe"
+          cp artefactos/di-en-di-windows/LEEME.txt artefactos/di-en-di-windows/PUBLICAR.txt sube/
+          gh release create "v$V" --target "$GITHUB_SHA" --title "${TITLE:-$V}" --notes-file notas.md \
+            "sube/Di-en-Di-$V.apk#Android (APK)" \
+            "sube/Di-en-Di-$V.exe#Windows: app" \
+            "sube/Di-en-Di-Servidor-$V.exe#Windows: servidor del DM" \
+            sube/LEEME.txt sube/PUBLICAR.txt

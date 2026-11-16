@@ -103,7 +103,7 @@ npm test           # pruebas del motor de reglas
 
 ### Opción A: GitHub Actions (sin instalar nada)
 
-Sube el proyecto a un repositorio de GitHub. El workflow `.github/workflows/android.yml` compila el APK en cada push a `main` (o a mano desde la pestaña *Actions*). Descárgalo desde los *Artifacts* de la ejecución, pásalo al móvil e instálalo (permite «instalar apps de origen desconocido»).
+Sube el proyecto a un repositorio de GitHub. El workflow `.github/workflows/android.yml` compila el APK en cada push a `main` (o a mano desde la pestaña *Actions*). Cada versión nueva se publica además en **Releases** (`vX.Y.Z`, con el APK, los `.exe` de Windows y las novedades). También puedes descargarlo desde los *Artifacts* de la ejecución, pásalo al móvil e instálalo (permite «instalar apps de origen desconocido»).
 
 ### Opción B: en tu ordenador
 
