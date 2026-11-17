@@ -77,7 +77,7 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 
 ## Estado y notas que no se ven en el código
 
-- Versión **0.25.0** (17 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
+- Versión **0.26.0** (17 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
 - Turnos: el servidor solo acepta `act` en tu turno o como reacción (una por ronda); `nextTurn`, solo el DM o el dueño del turno.
 - Fases del combate compartido (`Encounter.phase`): `prep` (el DM prepara a solas; `viewFor` se lo oculta a los demás y no se anotan
   las entradas en el registro), `setup` (lanzado con `launch`: aviso que el jugador acepta con `accept` y antesala con «Listo»; empieza
@@ -86,6 +86,11 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
   Los jugadores solo ven de un monstruo su nombre y si ha caído (`state` 'unknown' o 'down'), salvo `showHp`.
 - Enlaces: jugadores `/?join=CÓDIGO`, DM `/dm?dm=CLAVE` (la app detecta la ruta `/dm` y muestra `DmLogin`; el servidor redirige `/dm/` a `/dm`).
 - Encuentros desde Excel/CSV: `src/party/encounterImport.ts` (lector de .xlsx propio con `DecompressionStream`, sin dependencias).
+- Ficha en PDF: `src/export/sheetPdf.ts` escribe con pdf-lib encima de la hoja oficial de 2024 en español (603×774 pt, sin campos):
+  posiciones en px a escala 2 medidas sobre la maqueta. **La hoja oficial (© WotC) no va en el repositorio** (es público y su licencia
+  solo permite fotocopiarla): el jugador la elige una vez y se guarda en IndexedDB (`src/export/templateStore.ts`).
+- Iconos: app = goblin (`iconos.py app`), DM = goblin tras la pantalla (`iconos.py dm` → `icon-dm-*.png`, `favicon-dm.png` y
+  `build/icons/server.ico`). `scenes.ts` → `setDmIcon` pone el del DM en `/dm` y en modo DM.
 - Puerto del servidor: busca uno libre desde el 3000 y comprueba con `/api/info?probe=` que responde él en 127.0.0.1
   (en el PC del DM una IA local escucha en 127.0.0.1:3000 y Windows no da error al compartir puerto). En Docker, `DI_EN_DI_IP`.
 - Imágenes del DM: en disco junto a la partida (`di-en-di-imagenes/`). Copia de campaña: `/api/export` y `/api/import` con `?dm=`.

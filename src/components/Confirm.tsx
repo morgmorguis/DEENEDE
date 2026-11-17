@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { create } from 'zustand';
 import { T } from '../i18n';
 
-interface Ask { title: string; text?: string; ok?: string; danger?: boolean; input?: { value: string; placeholder?: string }; resolve: (v: string | boolean | null) => void }
+interface Ask { title: string; text?: string; ok?: string; danger?: boolean; input?: { value: string; placeholder?: string; allowEmpty?: boolean }; resolve: (v: string | boolean | null) => void }
 interface ConfirmState { ask: Ask | null; open: (a: Omit<Ask, 'resolve'>) => Promise<string | boolean | null>; close: (v: string | boolean | null) => void }
 
 export const useConfirm = create<ConfirmState>((set, get) => ({
@@ -18,8 +18,8 @@ export const useConfirm = create<ConfirmState>((set, get) => ({
 export const askOk = async (title: string, opts: { text?: string; ok?: string; danger?: boolean } = {}) => (await useConfirm.getState().open({ title, ...opts })) === true;
 
 /** Pide un texto (nombre de carpeta…); resuelve null si se cancela */
-export const askText = async (title: string, value = '', placeholder?: string) => {
-  const r = await useConfirm.getState().open({ title, input: { value, placeholder }, ok: T('Aceptar', 'OK') });
+export const askText = async (title: string, value = '', placeholder?: string, allowEmpty = false) => {
+  const r = await useConfirm.getState().open({ title, input: { value, placeholder, allowEmpty }, ok: T('Aceptar', 'OK') });
   return typeof r === 'string' ? r : null;
 };
 
@@ -30,13 +30,13 @@ export const confirmDelete = (what: string) =>
 function InputAsk({ ask, close }: { ask: Ask; close: (v: string | boolean | null) => void }) {
   const [value, setValue] = useState(ask.input!.value);
   return (
-    <form className="confirm" role="dialog" aria-modal="true" aria-label={ask.title} onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); close(value.trim() ? value : null); }}>
+    <form className="confirm" role="dialog" aria-modal="true" aria-label={ask.title} onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); close(value.trim() || ask.input!.allowEmpty ? value : null); }}>
       <p className="confirm-title">{ask.title}</p>
       {ask.text && <p className="muted small">{ask.text}</p>}
       <input autoFocus value={value} placeholder={ask.input!.placeholder} onChange={(e) => setValue(e.target.value)} />
       <div className="row">
         <button type="button" className="btn grow" onClick={() => close(null)}>{T('Cancelar', 'Cancel')}</button>
-        <button type="submit" className="btn grow primary" disabled={!value.trim()}>{ask.ok ?? T('Aceptar', 'OK')}</button>
+        <button type="submit" className="btn grow primary" disabled={!ask.input!.allowEmpty && !value.trim()}>{ask.ok ?? T('Aceptar', 'OK')}</button>
       </div>
     </form>
   );

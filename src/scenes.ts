@@ -33,6 +33,20 @@ export function applyScene(theme: Theme, design: Design = 'classic', combatScene
   const abs = (rel: string) => `url("${new URL(rel, document.baseURI).href}")`;
   root.style.setProperty('--poster', abs(sceneUrl(design, name, 'v')));
   root.style.setProperty('--poster-wide', abs(sceneUrl(design, name, 'h')));
-  // Icono de la pestaña del navegador según el estilo
-  document.querySelector('link[rel="icon"]')?.setAttribute('href', new URL(design === 'retro' ? 'design/retro/icon-64.png' : 'favicon.png', document.baseURI).href);
+  lastDesign = design;
+  updateIcon();
+}
+
+let lastDesign: Design = 'classic';
+let dmIcon = false;
+/** Icono de la pestaña del navegador: el del DM en su portal; si no, el de la app según el estilo */
+function updateIcon() {
+  const icon = dmIcon ? 'favicon-dm.png' : lastDesign === 'retro' ? 'design/retro/icon-64.png' : 'favicon.png';
+  document.querySelector('link[rel="icon"]')?.setAttribute('href', new URL(icon, document.baseURI).href);
+  document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', new URL(dmIcon ? 'icon-dm-192.png' : 'icon-192.png', document.baseURI).href);
+  document.title = dmIcon ? 'Di en Di · DM' : 'Di en Di';
+}
+export function setDmIcon(on: boolean) {
+  dmIcon = on;
+  updateIcon();
 }

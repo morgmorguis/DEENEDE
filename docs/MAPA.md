@@ -15,7 +15,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 
 - `escenas.py` 6 KB
 - `generar.py` 6 KB
-- `iconos.py` 3 KB
+- `iconos.py` 4 KB
 - `iconos_procesar.py` 8 KB
 - `procesar.py` 3 KB
 
@@ -39,14 +39,14 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 
 - `App.tsx` 13 KB · exporta: App
 - `ai.ts` 23 KB — Integración opcional con Claude: interpretar frases libres, convertir transcripciones en crónica e importar fichas desde fotos o documentos. La clave la… · exporta: describeError, interpretWithClaude, narrateWithClaude, narrateCombatWithClaude, narrateOffline, SHEET_SCHEMA, ImportedSheet, ImportBlock, importWithClaude, translateLongTexts
-- `backup.ts` 6 KB — Archivo de guardado: fichas (con sus notas, categorías, objetos y monedas), su historial, las plantillas de objetos y los botines preparados del DM, en un… · exporta: BACKUP_KIND, BackupExtras, BackupFile, platformName, buildBackup, parseBackup, mergeCharacters, backupFileName, saveBackupFile, exportEverything
+- `backup.ts` 8 KB — Archivo de guardado: fichas (con sus notas, categorías, objetos y monedas), su historial, las plantillas de objetos y los botines preparados del DM, en un… · exporta: BACKUP_KIND, BackupExtras, BackupFile, platformName, buildBackup, parseBackup, APP_VERSION, newerThanApp, mergeCharacters, backupFileName, saveBackupFile, exportEverything
 - `config.ts` 1 KB · exporta: DEFAULT_MODEL
 - `features.ts` 1 KB — Interruptores de funciones. El editor de aspecto (retrato dibujado) está oculto por defecto mientras se rehace; se puede mostrar desde Ajustes → «Editor de… · exporta: FEATURES, useAvatarEditor
 - `i18n.ts` 1 KB — Idioma de la interfaz. Se guarda en un módulo para que el motor de reglas y los componentes lo lean sin pasarlo por parámetros; App lo sincroniza con los… · exporta: Lang, Tr, setLang, getLang, L, T, locale
 - `imageUtil.ts` 1 KB — Reducir imágenes en el navegador (para enviarlas al servidor o guardarlas en las notas sin ocupar mucho). · exporta: compressImage
 - `importer.ts` 16 KB — Prepara fotos, PDF y Word para que Claude lea la ficha, y convierte el resultado en un personaje. · exporta: imageFileToBase64, filesToBlocks, sheetToCharacter, sheetSummary, OfflineMethod, importOffline
 - `main.tsx` 1 KB
-- `scenes.ts` 2 KB — Fondo de cada paleta según el estilo (Pixel, Retro 16-bit o Pintado) y fondo común durante un combate. Las imágenes salen de la IA local (scripts/arte) y… · exporta: POSTERS, PosterId, posterUrl, combatSceneName, sceneUrl, applyScene
+- `scenes.ts` 3 KB — Fondo de cada paleta según el estilo (Pixel, Retro 16-bit o Pintado) y fondo común durante un combate. Las imágenes salen de la IA local (scripts/arte) y… · exporta: POSTERS, PosterId, posterUrl, combatSceneName, sceneUrl, applyScene, setDmIcon
 - `speech.ts` 5 KB — Reconocimiento de voz continuo: plugin nativo en Android, Web Speech API en navegador. · exporta: Recorder, startRecording
 - `store.ts` 18 KB · exporta: Theme, Settings, Design, LootBundle, speechLangFor, useStore, useChar
 - `types.ts` 10 KB · exporta: Ability, DamageType, ConditionId, ProfLevel, RollScope, EffectMods, Effect, Attack, Spell, Resource, Recharge, Feature… (+15)
@@ -75,16 +75,23 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `Initiative.tsx` 20 KB · exporta: InitiativePrompt, entryHp, InitiativeTracker, TurnPanel
 - `LevelUp.tsx` 30 KB — Pantalla «Subir de nivel»: muestra lo que ganas según tu clase, te deja elegir las opciones que permiten las reglas (explicadas) y al pulsar LVL UP… · exporta: LevelUpPage
 - `Manual.tsx` 1 KB — Manual de la app (la guía ilustrada) dentro de una ventana a pantalla completa. · exporta: ManualViewer
-- `Notes.tsx` 16 KB · exporta: NotesDrawer
+- `Notes.tsx` 18 KB · exporta: NotesDrawer
 - `OriginPicker.tsx` 12 KB — «Origen y habilidades»: elecciones de nivel 1 según trasfondo, clase y especie. Solo muestra lo que se puede escoger, avisa cuando dos fuentes dan la misma… · exporta: OriginPicker
 - `Party.tsx` 83 KB ⚠️ — Pestaña «Partida»: unirse a la partida del DM, ver la party, jugar el combate compartido por turnos, consultar el registro y (si eres el DM) organizarlo… · exporta: ENEMY_COLORS, StateBadge, isDmEntry, DmLogin, logLine, combatReport, CombatReportModal, TurnBanner, setPrepFocus, EncounterInvite, DmCombatTab, PartyTab… (+1)
 - `Rules.tsx` 6 KB · exporta: RulesTab
 - `Settings.tsx` 19 KB · exporta: SettingsTab
 - `Sheet.tsx` 69 KB ⚠️ · exporta: SheetTab, PartsList, SpellComp, EffectPicker
+- `SheetPdf.tsx` 4 KB — Exportar la ficha a PDF sobre la hoja oficial de 2024: el jugador elige el PDF una vez y se guarda en el dispositivo. · exporta: SheetPdfModal
 - `Suggest.tsx` 2 KB — Campo de texto con sugerencias (texto predictivo) que aparecen al escribir. · exporta: SuggestItem, SuggestInput
 - `Transition.tsx` 5 KB — Transiciones a pantalla completa al estilo de un encuentro de los RPG de los 90: destellos, barras que cierran la pantalla, el fondo se difumina y aparece… · exporta: FxKind, useFx, TransitionFx
 - `Treasure.tsx` 48 KB ⚠️ — Tesoro: catálogo de objetos, plantilla para crear objetos propios, la caja «Objetos» de la ficha y la pestaña «Tesoro» del DM para dar oro y objetos a un… · exporta: RarityTag, effectsText, ItemForm, ItemPicker, ItemsBox, CoinsTotal, CoinLabel, CoinInfoModal, Loot, LootEditor, BundleList, setGiveFocus… (+4)
 - `common.tsx` 5 KB · exporta: Modal, Section, Pips, Toast, useRoll, critDice, useDamageRoll, NumberInput, pickFiles, GearPlus
+
+## src/export/
+
+- `notesExport.ts` 5 KB — Exporta el diario (notas, crónicas e imágenes del DM) a Markdown o a un PDF propio, por carpetas y en orden de fecha. · exporta: groupNotes, notesMarkdown, notesPdf, exportFileName
+- `sheetPdf.ts` 18 KB — Exporta la ficha a PDF rellenando la hoja oficial de 2024 (2 páginas, sin campos de formulario): se escribe el texto encima. Las posiciones están medidas… · exporta: SheetFields, sheetFields, pdfSafe, buildSheetPdf
+- `templateStore.ts` 2 KB — Archivos grandes guardados en este dispositivo (IndexedDB): la hoja oficial en PDF que el jugador elige una vez. · exporta: saveFile, loadFile, removeFile, SHEET_TEMPLATE
 
 ## src/offline/
 
@@ -100,6 +107,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `encounterImport.ts` 16 KB — Listas de enemigos del DM desde Excel (.xlsx), CSV o texto pegado de una hoja de cálculo, plantilla para rellenarlas y exportación a CSV. · exporta: parseDelimited, readXlsx, parseItems, rowsToEncounters, importEncounterFile, encountersToCsv, encounterTemplateCsv, splitLoot, mergeLoot
 - `monsters.ts` 13 KB — Monstruos habituales del System Reference Document 5.2 (CC-BY-4.0) para que el DM los añada al combate. Solo lo necesario para llevar el combate: CA, PG… · exporta: MonsterInfo, MONSTERS, searchMonsters
 - `narrative.ts` 8 KB — Resumen narrativo de un combate a partir de su registro: sin IA (frases generadas aquí) o con IA (se prepara el registro en texto para que Claude lo cuente… · exporta: lastCombat, combatTranscript, localNarrative
+- `phrases.ts` 5 KB — Frases para el aviso de «¡Comienza un encuentro!»: sale una al azar cada vez que el DM lanza un combate. · exporta: COMBAT_PHRASES, randomCombatPhrase
 - `protocol.ts` 14 KB — Protocolo de la partida compartida (modo party): tipos que comparten la app y el servidor. · exporta: Role, CombatantKind, PcSummary, SharedImage, Chronicle, RoomSettings, TimedCondition, Counter, Member, Combatant, CarriedLoot, LootDrop… (+18)
 - `room.ts` 41 KB ⚠️ — Lógica de la partida compartida. Funciones puras: el servidor guarda una `Room`, le aplica los comandos de cada cliente y envía a cada uno solo lo que puede… · exporta: StoredMember, Room, Effect, Result, cleanMods, cleanGift, cleanLoot, rid, createRoom, normalizeRoom, neededReady, hpState… (+10)
 
@@ -135,6 +143,8 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 
 - `src/__tests__/backup.test.ts`
 - `src/__tests__/speech.test.ts`
+- `src/export/__tests__/notesExport.test.ts`
+- `src/export/__tests__/sheetPdf.test.ts`
 - `src/offline/__tests__/offline.test.ts`
 - `src/party/__tests__/address.test.ts`
 - `src/party/__tests__/encounterImport.test.ts`

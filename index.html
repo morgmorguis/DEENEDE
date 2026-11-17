@@ -7,6 +7,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1b1512" />
     <title>Di en Di</title>
+    <script>
+      // Enlace del DM (/dm): su propio icono y título desde el primer momento
+      if (/^\/dm\/?$/.test(location.pathname)) {
+        document.title = 'Di en Di · DM';
+        document.querySelector('link[rel=icon]').href = '/favicon-dm.png';
+        document.querySelector('link[rel=apple-touch-icon]').href = '/icon-dm-192.png';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

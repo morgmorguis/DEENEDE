@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/icono.png" alt="Icono de Di en Di: un d20 carmesí sobre un escudo con dos espadas, bajo la luna roja" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.25.0</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.26.0</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -401,7 +401,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <div class="chapter-head"><span class="chapter-num">Capítulo 11</span><h2>Diario, voz y kill count</h2></div>
       <div class="split">
         <div>
-          <p>El botón 📜 abre el <b>diario</b> desde cualquier pantalla. Tiene categorías (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees) y notas rápidas. Al escribir una nota eliges su <b>Categoría</b> o creas una con <b>＋ Nueva</b>; lo que estás escribiendo se guarda en el dispositivo aunque cierres la app. Abajo, <b>💾 Guardar archivo</b> crea el archivo de guardado con fichas y notas (capítulo 15).</p>
+          <p>El botón 📜 abre el <b>diario</b> desde cualquier pantalla. Tiene categorías (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees) y notas rápidas. Al escribir una nota eliges su <b>Categoría</b> o creas una con <b>＋ Nueva</b>; lo que estás escribiendo se guarda en el dispositivo aunque cierres la app. Abajo, <b>📝 Markdown</b> y <b>📄 PDF</b> exportan las notas que estás viendo (todas o las de la categoría elegida), ordenadas por categoría y fecha y con las imágenes del DM; y <b>💾 Guardar archivo</b> crea el archivo de guardado con fichas y notas (capítulo 15).</p>
           <p><b>Grabar sesión:</b> deja el móvil en la mesa y la app transcribe lo que se dice. Al parar, puedes corregir la transcripción y guardarla tal cual o, con una clave de Claude, convertirla en una crónica escrita como un relato.</p>
           <p><b>Kill count:</b> los enemigos a los que tu personaje da el golpe final se apuntan solos, en el combate de la app y en la partida compartida. Si el DM deshace ese turno, la baja se quita. Solo cuentan tus bajas; también puedes añadirlas a mano.</p>
         </div>
@@ -444,7 +444,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <div class="split">
         <div>
           <p>En <b>Partida</b> escribe la dirección y el código y pulsa <b>Unirse</b> (o abre el enlace que te pase el DM). Puedes seguir usando la app con normalidad: mientras el DM prepara un combate no ves nada.</p>
-          <p>Cuando el DM lo <b>lanza</b> te sale un aviso pequeño, <b>⚔️ ¡Comienza un encuentro!</b> con su nombre («Taberna Malandra»). Al pulsar <b>✅ Aceptar</b> salta «¡COMBATE!» y entras en la <b>antesala</b>: ves cómo llegas (tu vida, CA, velocidad, condiciones, equipo, espacios y recursos; esto solo lo ves tú), pones o tiras tu iniciativa y pulsas <b>✅ ¡Listo!</b> (se puede quitar). De tus compañeros solo ves si están listos. Cuando lo están todos, empiezan los turnos con «¡A LUCHAR!».</p>
+          <p>Cuando el DM lo <b>lanza</b> te sale un aviso pequeño con una frase de batalla al azar («¡Que hable el acero!», «Os estaban esperando…») y el nombre del encuentro («Taberna Malandra»). Al pulsar <b>✅ Aceptar</b> salta «¡COMBATE!» y entras en la <b>antesala</b>: ves cómo llegas (tu vida, CA, velocidad, condiciones, equipo, espacios y recursos; esto solo lo ves tú), pones o tiras tu iniciativa y pulsas <b>✅ ¡Listo!</b> (se puede quitar). De tus compañeros solo ves si están listos. Cuando lo están todos, empiezan los turnos con «¡A LUCHAR!».</p>
           <p>En el combate todos aparecéis en burbujas con vuestra iniciativa. De tus compañeros ves su estado (herido, ensangrentado…) y no su vida, salvo que el DM la muestre. De los enemigos solo sabes <b>qué son</b> (y si han caído). Cuando te toca, arriba sale el cartel <b>⚔️ ¡Tu turno!</b> (y el móvil vibra). Si un monstruo te pega, el daño se aplica en tu ficha con tus resistencias y temporales.</p>
           <p>Cuando el DM termina el combate vuelves solo a tu ficha y te sale el <b>informe del combate</b> ordenado por rondas, con el daño y las bajas de cada uno: <b>📜 Guardar en mi diario</b>, <b>⬇️ Descargar</b> o <b>📋 Copiar</b>. Sigues conectado a la partida para el siguiente combate, las imágenes o lo que te dé el DM.</p>
           <p>Si alguien se equivoca, el DM puede <b>Deshacer último turno</b>: revierte sus daños y curaciones, también en las fichas. Todo queda en el <b>registro del combate</b>.</p>
@@ -593,6 +593,9 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
           <p><b>Ajustes → Archivo de guardado</b> (o <b>💾 Guardar archivo</b> en el diario) guarda en un archivo tus fichas con todo su progreso, objetos y monedas, sus <b>notas con sus categorías</b>, el historial, tus plantillas de objetos y los botines preparados. En Android se guarda en <i>Documentos/DiEnDi</i> y se abre el menú Compartir para enviarlo a Drive, al correo o a WhatsApp.</p>
           <p><b>Es multiplataforma:</b> el mismo archivo <code>.json</code> sirve en Android, en la app de Windows y en el navegador. Guárdalo en uno y ábrelo en otro.</p>
           <p><b>Restaurar copia</b> permite añadir las fichas (las que ya tienes se actualizan) o reemplazarlo todo. Sirve para reinstalar sin perder nada o para pasar tus personajes a otro móvil o al PC.</p>
+          <p><b>Entre versiones:</b> una copia de una versión antigua se abre en una nueva (lo que no tenía se rellena con lo de por defecto), y una de una versión más nueva también se abre en una antigua, con un aviso: lo que solo exista en la nueva no se verá hasta que actualices.</p>
+          <p><b>Dónde están tus datos:</b> en Android y en la app de Windows, las fichas viven en el propio dispositivo. En el navegador se guardan en el almacenamiento de ese navegador para esa dirección: si borras los datos del sitio o abres la app desde otra dirección no los verás, así que guarda un archivo de vez en cuando.</p>
+          <p><b>📄 Exportar PDF</b> (arriba en la hoja) rellena la <b>hoja de personaje oficial de 2024</b> con tus datos: cabecera, vida, características con sus salvaciones y habilidades (con su círculo de competencia), ataques, rasgos, atributos de especie, dotes, entrenamiento con armaduras, conjuros preparados con C/R/M, espacios gastados, aspecto, historia, idiomas, equipo, sintonización y monedas. La primera vez eliges el PDF de la hoja oficial (el de 2 páginas en español, gratis en la web de D&amp;D); se guarda solo en tu dispositivo.</p>
         </div>
         <figure><img class="shot" src="img/14-copia.jpg" alt="Apartado Copia de seguridad con Exportar todo, Solo Brakka y Restaurar copia" width="700" height="581" loading="lazy"></figure>
       </div>

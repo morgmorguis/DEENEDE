@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBackup, mergeCharacters, parseBackup } from '../backup';
+import { buildBackup, mergeCharacters, newerThanApp, parseBackup } from '../backup';
 import { sampleCharacter } from '../rules/factory';
 
 describe('copia de seguridad', () => {
@@ -45,5 +45,33 @@ describe('archivo de guardado multiplataforma', () => {
     expect(back.extras.customItems?.[0].name).toBe('Espada lunar');
     expect(back.extras.lootBundles?.[0].coins.gp).toBe(50);
     expect(back.extras.log?.[a.id]).toHaveLength(1);
+  });
+
+  it('abre copias de versiones antiguas aunque falten campos', () => {
+    // Una ficha de las primeras versiones: sin objetos, carpetas, consumibles, multiclase…
+    const old = { kind: 'di-en-di-backup', version: 1, exportedAt: '2026-10-01T10:00:00Z', characters: [
+      { id: 'viejo', name: 'Gorlak', abilities: { str: 16, dex: 12, con: 14, int: 8, wis: 10, cha: 10 }, hp: { max: 20, current: 12, temp: 0 }, level: 2,
+        notes: [{ id: 'n', createdAt: 1, title: 'Pista', body: 'el molino', kind: 'note' }] },
+    ] };
+    const { characters, appVersion } = parseBackup(JSON.stringify(old));
+    const c = characters[0];
+    expect(appVersion).toBeUndefined();
+    expect(c.name).toBe('Gorlak');
+    expect(c.hp.current).toBe(12);
+    expect(Array.isArray(c.items)).toBe(true);
+    expect(Array.isArray(c.consumables)).toBe(true);
+    expect(c.noteFolders.length).toBeGreaterThan(0);
+    expect(c.notes[0].body).toBe('el molino');
+  });
+
+  it('abre copias de versiones más nuevas: ignora lo que no conoce y avisa', () => {
+    const a = sampleCharacter();
+    const future = { ...buildBackup([a]), version: 7, appVersion: '9.1.0', algoNuevo: { x: 1 }, characters: [{ ...a, campoDelFuturo: [1, 2, 3] }] };
+    const r = parseBackup(JSON.stringify(future));
+    expect(r.characters[0].name).toBe(a.name);
+    expect(r.appVersion).toBe('9.1.0');
+    expect(newerThanApp(r.appVersion, '0.25.0')).toBe(true);
+    expect(newerThanApp('0.25.0', '0.25.0')).toBe(false);
+    expect(newerThanApp('0.9.9', '0.25.0')).toBe(false);
   });
 });

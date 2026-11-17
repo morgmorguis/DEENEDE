@@ -1,6 +1,6 @@
 """Iconos pixel art de la app con la IA local (mismo flujo que generar.py, con la LoRA pixel).
 
-Uso: python scripts/arte/iconos.py [id…] [--n=3]   → scripts/arte/salida/iconos/<id>-<k>.png (varios candidatos)
+Uso: python scripts/arte/iconos.py [id…] [--n=3]   (ids: los de la barra, app y dm)   → scripts/arte/salida/iconos/<id>-<k>.png (varios candidatos)
 Después: python scripts/arte/iconos_procesar.py <id>=<k> …   (elige el candidato y lo deja en public/iconos)
 """
 import os, random, sys, time, urllib.parse
@@ -25,9 +25,15 @@ ICONOS = {
     'roster': 'an open ledger book with a feather quill and an ink pot',
     'treasure': 'an open wooden treasure chest overflowing with gold coins and gems',
 }
-APP = ('app icon, a glowing crimson twenty-sided die (d20) in front of a dark gothic shield with two crossed swords, '
-       'blood-red full moon behind, dark night sky, ornate gold rim, centered emblem, pixel art, 1990s fantasy '
-       'book cover style, rich saturated colors, no text, no letters')
+# Icono de la app (jugadores): el goblin de los primeros iconos lanzando dados, con el estilo de 0.24
+APP = ('app icon, portrait of a cheeky green goblin with big pointed ears, yellow eyes and a toothy grin, throwing three '
+       'red six-sided dice toward the viewer, blood-red full moon behind him, dark navy night sky, ornate gold square '
+       'frame, centered, pixel art, 1990s fantasy book cover style, rich saturated colors, no text, no letters')
+# Icono del DM (servidor de Windows y enlace /dm): el mismo goblin tras una pantalla de master de cuatro paneles
+DM = ('app icon, a sly green goblin game master with big pointed ears and yellow eyes peeking over a tall folding '
+      'four-panel game master screen made of dark red leather panels with gold trim and painted dragon emblems, holding '
+      'a red twenty-sided die, candle light, blood-red full moon behind, dark navy night sky, ornate gold square frame, '
+      'centered, pixel art, 1990s fantasy book cover style, rich saturated colors, no text, no letters')
 
 
 def main(args):
@@ -35,7 +41,7 @@ def main(args):
     ids = [a for a in args if not a.startswith('--')] or [*ICONOS, 'app']
     cola = []
     for i in ids:
-        prompt = APP if i == 'app' else f'{ICONOS[i]}, {FONDO}'
+        prompt = APP if i == 'app' else DM if i == 'dm' else f'{ICONOS[i]}, {FONDO}'
         for k in range(1, n + 1):
             dest = os.path.join(SALIDA, 'iconos', f'{i}-{k}.png')
             pid = api('/prompt', {'prompt': flujo(prompt, 1024, 1024, random.randrange(2**32), True)})['prompt_id']

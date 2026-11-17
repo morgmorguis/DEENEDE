@@ -3,6 +3,21 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.26.0 · 17 nov 2026 — Ficha en PDF oficial, notas en Markdown o PDF e iconos de goblin
+
+**Exportar**
+- **📄 Exportar PDF** en la hoja: rellena la **hoja de personaje oficial de 2024** con todo (características, salvaciones y habilidades con su competencia, ataques, rasgos, especie, dotes, conjuros preparados, espacios, equipo, monedas…). La hoja oficial la eliges tú una vez y se guarda solo en tu dispositivo.
+- **Notas en Markdown o PDF** desde el diario: todas o las de una categoría, ordenadas por categoría y fecha, con las imágenes del DM.
+- El archivo de guardado apunta la **versión de la app** que lo creó y avisa si lo abres en una versión más antigua.
+
+**Combate**
+- El aviso de «¡Comienza un encuentro!» trae una **frase de batalla al azar** (75 frases).
+- Al preparar un combate ya se puede dejar el nombre vacío.
+
+**Iconos**
+- Vuelve el **goblin** como icono de la app, ahora al estilo de 0.24 (marco dorado y luna roja).
+- El **portal del DM** tiene su propio icono: el goblin tras una pantalla de master. Se ve en el enlace `/dm` del navegador, en la barra del modo DM y en «Di en Di - Servidor.exe».
+
 ## 0.25.0 · 17 nov 2026 — Preparar y lanzar el combate, antesala y botín de los enemigos
 
 **Enlaces**

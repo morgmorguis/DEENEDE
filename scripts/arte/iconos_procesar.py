@@ -4,7 +4,9 @@ Uso: python scripts/arte/iconos_procesar.py sheet=2 combat=1 … app=3
 - Iconos de la barra: quita el fondo blanco (relleno desde los bordes), recorta y reduce a una rejilla de 32×32
   con 20 colores → public/iconos/<id>.png (se ve con image-rendering: pixelated).
 - app: icono de la app → public/icon-512.png, icon-192.png, favicon.png, design/retro/icon-*.png, mipmaps de Android
-  y build/icons/app.ico + server.ico (con una insignia de conexión).
+  y build/icons/app.ico.
+- dm: icono del DM → public/icon-dm-512.png, icon-dm-192.png, favicon-dm.png (enlace /dm y modo DM) y
+  build/icons/server.ico (el .exe del servidor de Windows).
 """
 import os, sys
 from collections import deque
@@ -98,7 +100,8 @@ def insignia(size):
     return im
 
 
-def app(src):
+def pixelar(src):
+    """Rejilla pixel limpia (128 celdas, 40 colores) a 512 px"""
     im = Image.open(src).convert('RGB')
     lado = min(im.size)
     im = im.crop(((im.width - lado) // 2, (im.height - lado) // 2, (im.width + lado) // 2, (im.height + lado) // 2))
@@ -108,8 +111,30 @@ def app(src):
     centers = kmeans(a.reshape(-1, 3), 40)
     base = Image.fromarray(centers[((a.reshape(-1, 1, 3) - centers[None]) ** 2).sum(-1).argmin(1)]
                            .reshape(128, 128, 3).clip(0, 255).astype(np.uint8))
-    big = base.resize((512, 512), Image.Resampling.NEAREST)
-    sz = lambda n: big.resize((n, n), Image.Resampling.LANCZOS if n < 128 else Image.Resampling.NEAREST)
+    return base, base.resize((512, 512), Image.Resampling.NEAREST)
+
+
+def tam(big, n):
+    return big.resize((n, n), Image.Resampling.LANCZOS if n < 128 else Image.Resampling.NEAREST)
+
+
+ICO = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+
+
+def dm(src):
+    _, big = pixelar(src)
+    pub = os.path.join(RAIZ, 'public')
+    big.save(os.path.join(pub, 'icon-dm-512.png'))
+    tam(big, 192).save(os.path.join(pub, 'icon-dm-192.png'))
+    tam(big, 64).save(os.path.join(pub, 'favicon-dm.png'))
+    ico = os.path.join(RAIZ, 'build', 'icons')
+    big.save(os.path.join(ico, 'server-512.png'))
+    big.save(os.path.join(ico, 'server.ico'), sizes=ICO)
+
+
+def app(src):
+    base, big = pixelar(src)
+    sz = lambda n: tam(big, n)
     pub = os.path.join(RAIZ, 'public')
     big.save(os.path.join(pub, 'icon-512.png'))
     sz(192).save(os.path.join(pub, 'icon-192.png'))
@@ -139,15 +164,10 @@ def app(src):
             splash = Image.new('RGB', (w, h), (18, 10, 12))
             splash.paste(base.resize((n, n), Image.Resampling.NEAREST), ((w - n) // 2, (h - n) // 2))
             splash.save(f)
-    # Windows: .ico con varios tamaños; el del servidor lleva la insignia de conexión
+    # Windows: .ico con varios tamaños (el del servidor es el del DM: ver dm())
     ico = os.path.join(RAIZ, 'build', 'icons')
     big.save(os.path.join(ico, 'app-512.png'))
-    big.save(os.path.join(ico, 'app.ico'), sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-    srv = big.convert('RGBA')
-    b = insignia(208)
-    srv.alpha_composite(b, (512 - 208 - 8, 512 - 208 - 8))
-    srv.save(os.path.join(ico, 'server-512.png'))
-    srv.save(os.path.join(ico, 'server.ico'), sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    big.save(os.path.join(ico, 'app.ico'), sizes=ICO)
 
 
 def main(args):
@@ -156,6 +176,8 @@ def main(args):
         src = os.path.join(CAND, f'{i}-{k}.png')
         if i == 'app':
             app(src)
+        elif i == 'dm':
+            dm(src)
         else:
             icono(src, os.path.join(RAIZ, 'public', 'iconos', f'{i}.png'))
         print('ok', a)

@@ -6,7 +6,7 @@ import type { Note, NoteFolder } from '../types';
 import { DEFAULT_FOLDERS } from '../rules/srd';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
-import { exportEverything } from '../backup';
+import { exportEverything, saveBackupFile } from '../backup';
 
 const folderLabel = (f: NoteFolder) => {
   const d = f.key ? DEFAULT_FOLDERS.find((x) => x.key === f.key) : undefined;
@@ -93,6 +93,20 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
   };
 
   const mmss = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+  /** Las notas que se ven (todas o las de la carpeta) a Markdown o PDF */
+  const exportNotes = async (kind: 'md' | 'pdf') => {
+    setError(null);
+    try {
+      const { notesMarkdown, notesPdf, exportFileName } = await import('../export/notesExport');
+      const title = folder ? `${T('Diario de', 'Journal of')} ${c.name} · ${folderLabel(folder).replace(/^\S+\s/, '')}` : undefined;
+      const file = exportFileName(T('diario', 'journal'), c.name, kind);
+      const where = kind === 'md'
+        ? await saveBackupFile(notesMarkdown(c, notes, title), file, 'text/markdown')
+        : await saveBackupFile(await notesPdf(c, notes, title), file, 'application/pdf');
+      useStore.getState().showToast(kind === 'md' ? T('📝 Notas en Markdown', '📝 Notes as Markdown') : T('📄 Notas en PDF', '📄 Notes as PDF'), [where ? T(`En ${where}.`, `In ${where}.`) : file]);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  };
 
   return (
     <>
@@ -181,6 +195,15 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
 
           {notes.length === 0 && <p className="muted">{T('Aún no hay notas aquí.', 'No notes here yet.')}</p>}
           {notes.map((n) => <NoteItem key={n.id} note={n} folders={c.noteFolders} />)}
+          {notes.length > 0 && (
+            <div className="notes-export mt">
+              <span className="small muted">{folder ? T(`Exportar «${folderLabel(folder).replace(/^\S+\s/, '')}»`, `Export “${folderLabel(folder).replace(/^\S+\s/, '')}”`) : T('Exportar todas las notas', 'Export all notes')} ({notes.length})</span>
+              <div className="row">
+                <button className="btn grow" onClick={() => void exportNotes('md')}>📝 Markdown</button>
+                <button className="btn grow" onClick={() => void exportNotes('pdf')}>📄 PDF</button>
+              </div>
+            </div>
+          )}
           <button className="btn full mt" onClick={async () => {
             try {
               const where = await exportEverything();

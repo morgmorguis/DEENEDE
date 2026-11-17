@@ -23,7 +23,7 @@ import { AvatarTab } from './components/Avatar';
 import { useAvatarEditor } from './features';
 import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
-import { applyScene } from './scenes';
+import { applyScene, setDmIcon } from './scenes';
 
 type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'dmcombat' | 'group' | 'roster' | 'treasure' | 'assistant' | 'rules' | 'settings';
 
@@ -73,6 +73,8 @@ export default function App() {
   }, [joinedAt]);
   // Conectado como DM: sin ficha de personaje, con Partida y Personajes
   const dmMode = useParty((s) => s.role === 'dm' && !!s.conn);
+  // El portal del DM tiene su propio icono y título (también en la app de Windows y en el móvil)
+  useEffect(() => { setDmIcon(dmMode || isDmEntry()); }, [dmMode]);
   const viewerMode = useParty((s) => !!s.conn?.viewer);
   const play = useFx((s) => s.play);
 
@@ -149,7 +151,7 @@ export default function App() {
       <header className="topbar">
         {dmMode ? (
           <div className="topbar-row dm-top">
-            <b><img className="ico" src="iconos/party.png" alt="" /> DM</b>
+            <b><img className="ico dm-ico" src="icon-dm-192.png" alt="" /> DM</b>
             <span className="muted small grow">{T('Partida', 'Game')} {partyCode ?? '…'} · {partyOnline ? T('conectado', 'connected') : T('reconectando…', 'reconnecting…')}</span>
             {(sharedCombat || preparing) && <button className="combat-badge" onClick={() => setTab('dmcombat')}><img className="ico" src="iconos/combat.png" alt="" /> {preparing ? T('Preparando', 'Preparing') : sharedPhase === 'setup' ? T('Antesala', 'Antechamber') : T('En combate', 'In combat')}</button>}
           </div>

@@ -36,6 +36,7 @@ import { coinName } from '../rules/items';
 import { OriginPicker } from './OriginPicker';
 import { hitDiceText } from '../rules/multiclass';
 import { featureSuggestions, spellSuggestions } from '../rules/suggest';
+import { SheetPdfModal } from './SheetPdf';
 import { useFx } from './Transition';
 import { findSpell, spellComponents } from '../rules/spells';
 import { RECHARGE_LABEL, rechargeOf } from '../rules/progression';
@@ -121,6 +122,7 @@ export function SheetTab() {
   const roll = useRoll();
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [levelUp, setLevelUp] = useState(false);
   const [origin, setOrigin] = useState(false);
   const [hpOpen, setHpOpen] = useState(false);
@@ -218,6 +220,7 @@ export function SheetTab() {
         <button className="btn small primary lvlup-btn" disabled={c.level >= 20} onClick={() => { useFx.getState().play('levelup', undefined, T(`Nivel ${c.level} → ${c.level + 1}`, `Level ${c.level} → ${c.level + 1}`)); setLevelUp(true); }}>⬆️ {T('Subir de nivel', 'Level up')}</button>
         <button className={`btn small ${c.level === 1 ? 'primary' : ''}`} onClick={() => setOrigin(true)}>🎓 {T('Origen y habilidades', 'Origin & skills')}</button>
         <button className="btn small" onClick={() => setImporting(true)}>📥 {T('Importar ficha', 'Import sheet')}</button>
+        <button className="btn small" onClick={() => setPdfOpen(true)}>📄 {T('Exportar PDF', 'Export PDF')}</button>
         <button className="btn small" onClick={() => setEditing(true)}>⚙️ {T('Más opciones', 'More options')}</button>
       </div>
 
@@ -582,6 +585,7 @@ export function SheetTab() {
       {featEdit && <FeatureModal id={featEdit} onClose={() => setFeatEdit(null)} />}
       {browse && <AvailablePicker kind={browse} onClose={() => setBrowse(null)} />}
       {importing && <ImportModal onClose={() => setImporting(false)} />}
+      {pdfOpen && <SheetPdfModal onClose={() => setPdfOpen(false)} />}
       {condOpen && (
         <Modal title={T('Añadir condición', 'Add condition')} onClose={() => setCondOpen(false)}>
           <div className="pick-list">

@@ -20,6 +20,7 @@ import { describeError, narrateCombatWithClaude } from '../ai';
 import { DmImages, SharedGallery, useImageUrl } from './Images';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
+import { randomCombatPhrase } from '../party/phrases';
 
 const STATE_LABEL: Record<HpState, [string, string, string]> = {
   unhurt: ['Ileso', 'Unhurt', 'ok'],
@@ -69,6 +70,7 @@ export function DmLogin() {
   };
   return (
     <div className="tab dm-login">
+      <img className="dm-login-icon" src="icon-dm-192.png" alt="" />
       <Section title={T('🎲 Pantalla del DM', '🎲 DM screen')}>
         <p className="small">{T('Este es el enlace del DM. Los jugadores usan el suyo (el de «Invitar jugadores»), que no da acceso a esta pantalla.', 'This is the DM link. Players use theirs (the one in “Invite players”), which gives no access to this screen.')}</p>
         <label className="field">{T('Clave del DM (la muestra el servidor)', 'DM key (shown by the server)')}
@@ -829,10 +831,13 @@ function LootPanel({ view }: { view: RoomView }) {
 export function EncounterInvite({ view, onAccept }: { view: RoomView; onAccept?: () => void }) {
   const send = useParty((s) => s.send);
   const e = view.encounter;
+  // Una frase de la lista al azar cada vez que sale el aviso
+  const [phrase] = useState(() => randomCombatPhrase());
   return (
     <div className="encounter-invite">
       <span className="ei-icon" aria-hidden>⚔️</span>
-      <b>{T('¡Comienza un encuentro!', 'An encounter begins!')}</b>
+      <b className="ei-phrase">«{L(phrase)}»</b>
+      <span className="small">{T('¡Comienza un encuentro!', 'An encounter begins!')}</span>
       {e.title && <span className="ei-title">{e.title}</span>}
       <span className="small muted">{T('El DM ha lanzado un combate. Acepta para entrar en la antesala.', 'The DM has launched a combat. Accept to enter the antechamber.')}</span>
       <button className="btn primary big" onClick={() => { send({ t: 'accept' }); onAccept?.(); }}>✅ {T('Aceptar', 'Accept')}</button>
@@ -851,7 +856,7 @@ function SharedCombat({ view }: { view: RoomView }) {
   const myTurn = !!cur && !!myPc && cur.id === myPc.id;
   const accepted = e.accepted.includes(view.you.id) || e.ready.includes(view.you.id);
   const prepare = async () => {
-    const title = await askText(T('Nombre del encuentro (lo verán los jugadores al lanzarlo; puedes dejarlo vacío)', 'Encounter name (players see it when it’s launched; can be empty)'), '');
+    const title = await askText(T('Nombre del encuentro (lo verán los jugadores al lanzarlo; puedes dejarlo vacío)', 'Encounter name (players see it when it’s launched; can be empty)'), '', T('Taberna Malandra', 'Rascal Tavern'), true);
     if (title === null) return;
     send({ t: 'prepare', title });
   };

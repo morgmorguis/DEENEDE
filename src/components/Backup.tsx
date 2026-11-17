@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useChar, useStore } from '../store';
 import type { Character } from '../types';
-import { backupFileName, buildBackup, parseBackup, saveBackupFile } from '../backup';
+import { APP_VERSION, backupFileName, buildBackup, newerThanApp, parseBackup, saveBackupFile } from '../backup';
 import { classById } from '../rules/srd';
 import { Modal, Section, pickFiles } from './common';
 import { L, T, locale } from '../i18n';
@@ -97,7 +97,8 @@ function RestoreModal({ data, onClose, onDone }: { data: ReturnType<typeof parse
 
   return (
     <Modal title={T('Restaurar copia', 'Restore backup')} onClose={onClose}>
-      {data.exportedAt && <p className="hint">{T('Copia del', 'Backup from')} {when(Date.parse(data.exportedAt))}{data.platform ? ` · ${T('guardada en', 'saved on')} ${data.platform}` : ''}</p>}
+      {data.exportedAt && <p className="hint">{T('Copia del', 'Backup from')} {when(Date.parse(data.exportedAt))}{data.platform ? ` · ${T('guardada en', 'saved on')} ${data.platform}` : ''}{data.appVersion ? ` · v${data.appVersion}` : ''}</p>}
+      {newerThanApp(data.appVersion) && <p className="hint warn">⚠️ {T(`La copia es de una versión más nueva (${data.appVersion}) que esta app (${APP_VERSION}). Se abre igual, pero lo que solo exista en la nueva no se verá aquí: actualiza la app para no perderlo.`, `The backup comes from a newer version (${data.appVersion}) than this app (${APP_VERSION}). It still opens, but anything that only exists in the new version won’t show here: update the app so you don’t lose it.`)}</p>}
       {(data.extras.customItems?.length || data.extras.lootBundles?.length) ? <p className="hint">{T(`También trae ${data.extras.customItems?.length ?? 0} plantilla(s) de objeto y ${data.extras.lootBundles?.length ?? 0} botín(es) preparado(s).`, `It also has ${data.extras.customItems?.length ?? 0} item template(s) and ${data.extras.lootBundles?.length ?? 0} prepared loot bundle(s).`)}</p> : null}
       <ul className="restore-list">
         {data.characters.map((c) => {
