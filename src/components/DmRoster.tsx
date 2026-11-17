@@ -1,17 +1,25 @@
 // Pestaña «Personajes» del DM: aliados y enemigos preparados con su nivel y datos básicos para
 // tenerlos a mano y meterlos en el combate. Se guardan en el servidor de la partida.
 import { DmBackupSection } from './DmBackup';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParty } from '../party/client';
 import { useStore } from '../store';
 import type { EncounterEntry, PreparedEncounter, RosterEntry } from '../party/protocol';
 import { MONSTERS, searchMonsters } from '../party/monsters';
-import { ENEMY_COLORS } from './Party';
+import { ENEMY_COLORS, setPrepFocus } from './Party';
+import { LootEditor } from './Treasure';
+import { encounterTemplateCsv, encountersToCsv, importEncounterFile, parseDelimited, rowsToEncounters } from '../party/encounterImport';
+import { NO_COINS, coinsText, hasCoins, itemLine } from '../rules/items';
+import { saveBackupFile } from '../backup';
+import { getLang } from '../i18n';
 import { confirmDelete } from './Confirm';
 import { uid } from '../rules/factory';
 import { fmt } from '../rules/calc';
 import { Modal, Section } from './common';
 import { L, T } from '../i18n';
+
+const goCombat = () => window.dispatchEvent(new CustomEvent('dnd-tab', { detail: 'dmcombat' }));
+const lootLine = (l?: EncounterEntry['loot']) => (l ? [hasCoins(l.coins) ? coinsText(l.coins!) : '', ...(l.items ?? []).map(itemLine)].filter(Boolean).join(' · ') : '');
 import { askOk } from './Confirm';
 
 const empty = (kind: RosterEntry['kind']): RosterEntry => ({ id: '', name: '', kind, level: '', hpMax: null, ac: null, initBonus: 0, notes: '' });
@@ -169,8 +177,15 @@ function EncounterModal({ encounter, onClose }: { encounter: PreparedEncounter; 
             <label>{T('CA', 'AC')} <input type="number" className="num-small" value={x.ac ?? ''} onChange={(e) => setEntry(i, { ac: e.target.value === '' ? null : Number(e.target.value) })} /></label>
             <label>{T('Ini', 'Init')} <input type="number" className="num-small" value={x.initBonus} onChange={(e) => setEntry(i, { initBonus: Number(e.target.value) || 0 })} /></label>
             <label className="check"><input type="checkbox" checked={x.hidden} onChange={(e) => setEntry(i, { hidden: e.target.checked })} /> 🙈 {T('Oculto', 'Hidden')}</label>
+            <button className="btn small" onClick={() => setEntry(i, { kind: x.kind === 'npc' ? 'monster' : 'npc' })}>{x.kind === 'npc' ? `🤝 ${T('Aliado', 'Ally')}` : `👹 ${T('Enemigo', 'Enemy')}`}</button>
             <span className="color-row">{ENEMY_COLORS.map((col) => <button key={col} className={`color-dot small ${x.color === col ? 'on' : ''}`} style={{ background: col }} aria-label={col} onClick={() => setEntry(i, { color: x.color === col ? undefined : col })} />)}</span>
           </div>
+          <details className="carried">
+            <summary className="small">📝💰 {T('Notas y lo que lleva cada uno', 'Notes and what each one carries')}{x.loot ? `: ${lootLine(x.loot)}` : ''}</summary>
+            <label className="field">{T('Notas privadas', 'Private notes')}<textarea value={x.notes ?? ''} onChange={(e) => setEntry(i, { notes: e.target.value })} /></label>
+            <LootEditor loot={{ coins: { ...NO_COINS, ...x.loot?.coins }, items: x.loot?.items ?? [], note: '' }} noNote
+              onChange={(l) => setEntry(i, { loot: hasCoins(l.coins) || l.items.length ? { coins: l.coins, items: l.items } : undefined })} />
+          </details>
         </div>
       ))}
       <div className="grid2">
@@ -197,28 +212,67 @@ function EncounterModal({ encounter, onClose }: { encounter: PreparedEncounter; 
 function EncountersSection() {
   const view = useParty((s) => s.view);
   const send = useParty((s) => s.send);
+  const showToast = useStore((s) => s.showToast);
   const [edit, setEdit] = useState<PreparedEncounter | null>(null);
+  const [paste, setPaste] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   if (!view) return null;
+  const lang = getLang() === 'en' ? 'en' : 'es';
+  /** Guarda los encuentros importados; si ya hay uno con el mismo nombre, lo sustituye */
+  const saveAll = (list: PreparedEncounter[]) => {
+    if (!list.length) { showToast(T('⚠️ No he encontrado enemigos', '⚠️ No enemies found'), [T('La primera fila deben ser las cabeceras (Nombre, Cantidad, PG, CA…). Descarga la plantilla para ver el formato.', 'The first row must be the headers (Name, Count, HP, AC…). Download the template to see the format.')]); return; }
+    for (const enc of list) {
+      const same = view.encounters.find((x) => x.name.trim().toLowerCase() === enc.name.trim().toLowerCase());
+      send({ t: 'encounterSave', encounter: { ...enc, id: same?.id ?? '', notes: same?.notes ?? enc.notes } });
+    }
+    showToast(T('📥 Importado', '📥 Imported'), list.map((x) => `${x.name}: ${x.entries.reduce((n, y) => n + y.count, 0)} ${T('criaturas', 'creatures')}`));
+  };
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    try { saveAll(await importEncounterFile(f)); } catch { showToast(T('⚠️ No puedo leer ese archivo', '⚠️ Can’t read that file'), [T('Usa un .xlsx de Excel, un .csv o copia las celdas y pégalas.', 'Use an Excel .xlsx, a .csv or copy the cells and paste them.')]); }
+    if (fileRef.current) fileRef.current.value = '';
+  };
+  const prepareFrom = (enc: PreparedEncounter) => {
+    setPrepFocus(enc.id);
+    if (!view.encounter.active) send({ t: 'prepare', title: enc.name });
+    goCombat();
+  };
   return (
-    <Section title={T('⚔️ Encuentros preparados', '⚔️ Prepared encounters')} right={<button className="btn small" onClick={() => setEdit({ id: '', name: '', notes: '', entries: [] })}>＋ {T('Nuevo', 'New')}</button>}>
-      <p className="small muted">{T('Prepara combates antes de la sesión: enemigos del bestiario o de tu lista, cuántos, su color y si empiezan ocultos. Al cargarlos entran con la iniciativa ya tirada.', 'Prepare fights before the session: enemies from the bestiary or your list, how many, their color and whether they start hidden. When loaded they join with initiative already rolled.')}</p>
-      {view.encounters.length === 0 && <p className="muted small">{T('Aún no tienes encuentros preparados.', 'No prepared encounters yet.')}</p>}
+    <Section title={T('⚔️ Encuentros y lugares', '⚔️ Encounters and places')} right={<button className="btn small" onClick={() => setEdit({ id: '', name: '', notes: '', entries: [] })}>＋ {T('Nuevo', 'New')}</button>}>
+      <p className="small muted">{T('Listas de los enemigos posibles de cada lugar («Taberna Malandra»): del bestiario, de tu lista o importados de Excel, con cuántos son, si empiezan ocultos y lo que lleva cada uno. Al preparar un combate eliges cuáles entran.', 'Lists of the possible enemies in each place (“Rascal Tavern”): from the bestiary, your list or imported from Excel, with how many, whether they start hidden and what each carries. When preparing a combat you choose who joins.')}</p>
+      <div className="row wrap">
+        <button className="btn small" onClick={() => fileRef.current?.click()}>📥 {T('Importar Excel / CSV', 'Import Excel / CSV')}</button>
+        <button className="btn small" onClick={() => setPaste('')}>📋 {T('Pegar desde Excel', 'Paste from Excel')}</button>
+        <button className="btn small" onClick={() => void saveBackupFile(encounterTemplateCsv(lang), T('plantilla-encuentros.csv', 'encounters-template.csv'), 'text/csv')}>📄 {T('Plantilla', 'Template')}</button>
+        {view.encounters.length > 0 && <button className="btn small" onClick={() => void saveBackupFile(encountersToCsv(view.encounters, lang), T('encuentros.csv', 'encounters.csv'), 'text/csv')}>📤 {T('Exportar a Excel', 'Export to Excel')}</button>}
+        <input ref={fileRef} type="file" hidden accept=".xlsx,.csv,.txt,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => void onFile(e.target.files?.[0])} />
+      </div>
+      {view.encounters.length === 0 && <p className="muted small">{T('Aún no tienes encuentros ni lugares.', 'No encounters or places yet.')}</p>}
       <div className="roster-grid">
         {view.encounters.map((enc) => (
           <div key={enc.id} className="roster-card monster">
             <button className="roster-main" onClick={() => setEdit(enc)}>
               <b>⚔️ {enc.name}</b>
-              <span className="small">{enc.entries.map((x) => `${x.count > 1 ? `${x.count}× ` : ''}${x.name}${x.hidden ? ' 🙈' : ''}`).join(' · ')}</span>
+              <span className="small">{enc.entries.map((x) => `${x.count > 1 ? `${x.count}× ` : ''}${x.name}${x.hidden ? ' 🙈' : ''}${x.loot ? ' 💰' : ''}`).join(' · ')}</span>
               {enc.notes && <span className="small muted roster-notes">{enc.notes}</span>}
             </button>
             <div className="row">
-              <button className="btn small primary grow" onClick={() => { send({ t: 'encounterLoad', id: enc.id }); useStore.getState().showToast(T('⚔️ Encuentro cargado', '⚔️ Encounter loaded'), [enc.name, view.encounter.active ? T('Ya están en el combate.', 'They’re in the combat now.') : T('Están preparados: pulsa «Empezar combate» cuando quieras.', 'They’re ready: press “Start combat” whenever you want.')]); }}>▶ {T('Cargar', 'Load')}</button>
+              {(!view.encounter.active || view.encounter.phase === 'prep')
+                ? <button className="btn small primary grow" onClick={() => prepareFrom(enc)}>🛠️ {view.encounter.active ? T('Elegir de aquí', 'Pick from here') : T('Preparar combate', 'Prepare combat')}</button>
+                : <button className="btn small grow" onClick={async () => { if (await askOk(T(`¿Meter a todos los de «${enc.name}» en el combate en marcha?`, `Put everyone from “${enc.name}” into the running combat?`))) { send({ t: 'encounterLoad', id: enc.id }); goCombat(); } }}>⤵️ {T('Refuerzos', 'Reinforcements')}</button>}
               <button className="btn small" aria-label={T('Borrar', 'Delete')} onClick={async () => { if (await confirmDelete(enc.name)) send({ t: 'encounterRemove', id: enc.id }); }}>🗑️</button>
             </div>
           </div>
         ))}
       </div>
       {edit && <EncounterModal encounter={edit} onClose={() => setEdit(null)} />}
+      {paste != null && (
+        <Modal title={T('📋 Pegar desde Excel', '📋 Paste from Excel')} onClose={() => setPaste(null)}>
+          <p className="small">{T('Selecciona en Excel las celdas (con la fila de cabeceras: Lugar, Nombre, Cantidad, PG, CA, Iniciativa, Oculto, Oro, Objetos…), cópialas y pégalas aquí.', 'Select the cells in Excel (with the header row: Location, Name, Count, HP, AC, Initiative, Hidden, Gold, Items…), copy and paste them here.')}</p>
+          <textarea className="tall" value={paste} autoFocus onChange={(e) => setPaste(e.target.value)} />
+          <button className="btn primary full" disabled={!paste.trim()} onClick={() => { saveAll(rowsToEncounters(parseDelimited(paste), T('Encuentro pegado', 'Pasted encounter'))); setPaste(null); }}>📥 {T('Importar', 'Import')}</button>
+        </Modal>
+      )}
     </Section>
   );
 }

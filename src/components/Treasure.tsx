@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useChar, useStore } from '../store';
 import { useParty, giftLines } from '../party/client';
+import { splitLoot } from '../party/encounterImport';
 import type { Gift, RoomView } from '../party/protocol';
 import type { OwnedItem } from '../types';
 import {
@@ -439,7 +440,7 @@ const emptyLoot = (): Loot => ({ coins: { ...NO_COINS }, items: [], note: '' });
 const NO_BUNDLES: LootBundle[] = [];
 
 /** Monedas, objetos y nota: se usa para dar ahora y para preparar botines antes de la partida */
-function LootEditor({ loot, onChange }: { loot: Loot; onChange: (l: Loot) => void }) {
+export function LootEditor({ loot, onChange, noNote }: { loot: Loot; onChange: (l: Loot) => void; noNote?: boolean }) {
   const [picking, setPicking] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const { coins, items, note } = loot;
@@ -466,7 +467,7 @@ function LootEditor({ loot, onChange }: { loot: Loot; onChange: (l: Loot) => voi
         </div>
       ))}
       <button className="btn full" onClick={() => setPicking(true)}>📦 {T('Añadir objeto (catálogo, plantillas o crear)', 'Add item (catalog, templates or create)')}</button>
-      <label className="field">{T('Nota para el jugador (opcional)', 'Note for the player (optional)')}<input value={note} placeholder={T('Botín del dragón de la cripta', 'Loot from the crypt dragon')} onChange={(e) => onChange({ ...loot, note: e.target.value })} /></label>
+      {!noNote && <label className="field">{T('Nota para el jugador (opcional)', 'Note for the player (optional)')}<input value={note} placeholder={T('Botín del dragón de la cripta', 'Loot from the crypt dragon')} onChange={(e) => onChange({ ...loot, note: e.target.value })} /></label>}
       {picking && <ItemPicker title={T('Objeto para dar', 'Item to give')} onClose={() => setPicking(false)} onPick={(i) => { onChange({ ...loot, items: [...items, i] }); setPicking(false); }} />}
       {editing != null && items[editing] && <ItemForm initial={items[editing]} title={T('Editar objeto', 'Edit item')} onClose={() => setEditing(null)} onSave={(i, tpl) => {
         if (tpl) { const st = useStore.getState(); const custom = st.settings.customItems ?? []; st.setSettings({ customItems: [...custom.filter((x) => x.name !== i.name), { ...i, qty: 1 }] }); }
@@ -513,21 +514,40 @@ export function BundleList({ onLoad }: { onLoad?: (b: LootBundle) => void }) {
   );
 }
 
+/** Jugador al que dar algo al abrir «Tesoro» (botón 🎁 de la pestaña Grupo) */
+let giveFocus = '';
+export const setGiveFocus = (id: string) => { giveFocus = id; };
+
 function GiveForm({ view }: { view: RoomView }) {
   const send = useParty((s) => s.send);
   const showToast = useStore((s) => s.showToast);
   const setSettings = useStore((s) => s.setSettings);
   // Conectados primero: es a quien normalmente se le da algo en la mesa
   const players = view.members.filter((m) => m.role === 'player').sort((a, b) => Number(b.online) - Number(a.online));
-  const [to, setTo] = useState('');
+  const [to, setTo] = useState<string[]>(() => {
+    const f = giveFocus; giveFocus = '';
+    return f && players.some((m) => m.id === f) ? [f] : players[0] ? [players[0].id] : [];
+  });
+  const [mode, setMode] = useState<'each' | 'split'>('each');
   const [loot, setLoot] = useState<Loot>(emptyLoot());
   const [fromBundle, setFromBundle] = useState<string | null>(null);
-  const target = players.find((m) => m.id === to) ?? players[0];
-  const ok = !!target && !lootEmpty(loot);
+  const targets = players.filter((m) => to.includes(m.id));
+  const nameOf = (m: { name: string; summary?: { name: string } }) => m.summary?.name ?? m.name;
+  // Lo que recibe cada uno: todo a cada uno, o repartido (monedas a partes iguales, objetos por turnos)
+  const parts = mode === 'split' && targets.length > 1 ? splitLoot(loot, targets.length) : targets.map(() => ({ coins: loot.coins, items: loot.items }));
+  const ok = targets.length > 0 && !lootEmpty(loot);
+  const toggle = (id: string) => setTo(to.includes(id) ? to.filter((x) => x !== id) : [...to, id]);
   const give = () => {
-    if (!target) return;
-    send({ t: 'give', toId: target.id, coins: loot.coins, items: loot.items, note: loot.note });
-    showToast(T(`🎁 Entregado a ${target.summary?.name ?? target.name}`, `🎁 Given to ${target.summary?.name ?? target.name}`), [...giftLines(loot), target.online ? T('Llega a su ficha ahora.', 'It reaches their sheet now.') : T('Está desconectado: le llegará al volver a conectarse.', 'They’re offline: it’ll arrive when they reconnect.')]);
+    if (!ok) return;
+    const lines: string[] = [];
+    targets.forEach((m, i) => {
+      const part = parts[i];
+      if (!hasCoins(part.coins) && !part.items.length) return;
+      send({ t: 'give', toId: m.id, coins: part.coins, items: part.items, note: loot.note });
+      lines.push(`${m.online ? '🟢' : '⚪'} ${nameOf(m)}: ${bundleLine({ ...part, id: '', name: '', note: '' })}`);
+    });
+    showToast(targets.length === 1 ? T(`🎁 Entregado a ${nameOf(targets[0])}`, `🎁 Given to ${nameOf(targets[0])}`) : T(`🎁 Entregado a ${lines.length} jugadores`, `🎁 Given to ${lines.length} players`),
+      [...(targets.length === 1 ? giftLines(loot) : lines), targets.some((m) => !m.online) ? T('A quien esté desconectado le llegará al volver a conectarse.', 'Anyone offline will get it when they reconnect.') : T('Llega a su ficha ahora.', 'It reaches their sheet now.')]);
     setLoot(emptyLoot()); setFromBundle(null);
   };
   const saveBundle = () => {
@@ -545,16 +565,29 @@ function GiveForm({ view }: { view: RoomView }) {
   );
   return (
     <>
-      <label className="field">{T('Para', 'To')}
-        <select value={target?.id ?? ''} onChange={(e) => setTo(e.target.value)}>
-          {players.map((m) => <option key={m.id} value={m.id}>{m.online ? '🟢' : '⚪'} {m.summary?.name ?? m.name}{m.summary && m.summary.name !== m.name ? ` (${m.name})` : ''}</option>)}
-        </select>
-      </label>
+      <span className="p-mini">{T('Para', 'To')}</span>
+      <div className="chips give-to">
+        {players.map((m) => (
+          <button key={m.id} className={`chip ${to.includes(m.id) ? 'on' : ''}`} onClick={() => toggle(m.id)}>{m.online ? '🟢' : '⚪'} {nameOf(m)}{m.summary && m.summary.name !== m.name ? <small> ({m.name})</small> : null}</button>
+        ))}
+        {players.length > 1 && <button className="chip" onClick={() => setTo(to.length === players.length ? [] : players.map((m) => m.id))}>{to.length === players.length ? T('Ninguno', 'None') : T('👥 Todos', '👥 Everyone')}</button>}
+      </div>
+      {targets.length > 1 && (
+        <div className="segmented">
+          <button className={mode === 'each' ? 'on' : ''} onClick={() => setMode('each')}>🎁 {T('Esto a cada uno', 'This to each')}</button>
+          <button className={mode === 'split' ? 'on' : ''} onClick={() => setMode('split')}>⚖️ {T('Repartir entre ellos', 'Split between them')}</button>
+        </div>
+      )}
       {fromBundle && <p className="hint">🎒 {T(`Cargado: ${fromBundle}`, `Loaded: ${fromBundle}`)}</p>}
       <LootEditor loot={loot} onChange={setLoot} />
+      {targets.length > 1 && !lootEmpty(loot) && (
+        <ul className="small loot-preview">
+          {targets.map((m, i) => <li key={m.id}><b>{nameOf(m)}</b>: {bundleLine({ ...parts[i], id: '', name: '', note: '' })}</li>)}
+        </ul>
+      )}
       <div className="row">
         <button className="btn" disabled={lootEmpty(loot)} onClick={saveBundle}>💾 {T('Guardar para luego', 'Save for later')}</button>
-        <button className="btn primary grow" disabled={!ok} onClick={give}>🎁 {T(`Dar a ${target?.summary?.name ?? target?.name ?? ''}`, `Give to ${target?.summary?.name ?? target?.name ?? ''}`)}</button>
+        <button className="btn primary grow" disabled={!ok} onClick={give}>🎁 {targets.length === 1 ? T(`Dar a ${nameOf(targets[0])}`, `Give to ${nameOf(targets[0])}`) : targets.length > 1 ? T(`Dar a ${targets.length} jugadores`, `Give to ${targets.length} players`) : T('Elige a quién', 'Choose who')}</button>
       </div>
       <details className="bundles">
         <summary className="small"><b>🎒 {T('Botines preparados', 'Prepared loot')}</b></summary>

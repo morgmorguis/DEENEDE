@@ -8,6 +8,7 @@ import type { ClientMessage, Command, Gift, PcSummary, Role, RoomView, ServerMes
 import { COIN_KEYS, coinsInGold, coinsText, itemLine } from '../rules/items';
 import { hitDiceText } from '../rules/multiclass';
 import { uid } from '../rules/factory';
+import { backupFileName, buildBackup, parseBackup, saveBackupFile } from '../backup';
 import { armorClass, maxHp, passivePerception, speed } from '../rules/calc';
 import { classById, conditionName } from '../rules/srd';
 import { L, T } from '../i18n';
@@ -37,6 +38,8 @@ interface PartyState {
   connect: (c: PartyConn) => void;
   leave: () => void;
   send: (cmd: Command) => void;
+  /** Jugador: sube su ficha completa al servidor (copia que guarda el DM) */
+  uploadSheet: () => boolean;
 }
 
 const KEY = 'di-en-di-party';
@@ -47,10 +50,13 @@ const saveConn = (c: PartyConn | null) => {
   try { if (c) localStorage.setItem(KEY, JSON.stringify(c)); else localStorage.removeItem(KEY); } catch { /* sin almacenamiento */ }
 };
 
+/** Servicios que solo funcionan con HTTPS: si se escriben sin «https://» se les pone */
+const PUBLIC_HTTPS = /\.ts\.net|ngrok|\.run\.app|\.web\.app|\.firebaseapp\.com/i;
+
 /** «192.168.1.20:3000», «http://…» o «https://pc.tail1234.ts.net» → URL del WebSocket */
 export function wsUrl(input: string): string {
   let u = input.trim();
-  if (!/^https?:\/\//i.test(u) && !/^wss?:\/\//i.test(u)) u = `${/\.ts\.net|ngrok/i.test(u) ? 'https' : 'http'}://${u}`;
+  if (!/^https?:\/\//i.test(u) && !/^wss?:\/\//i.test(u)) u = `${PUBLIC_HTTPS.test(u) ? 'https' : 'http'}://${u}`;
   const url = new URL(u);
   url.protocol = url.protocol === 'https:' || url.protocol === 'wss:' ? 'wss:' : 'ws:';
   url.pathname = '/ws';
@@ -63,7 +69,7 @@ export function httpBase(input?: string): string {
   const u = (input ?? '').trim();
   if (/^https?:\/\//i.test(u)) return u.replace(/\/+$/, '');
   if (/^wss?:\/\//i.test(u)) return u.replace(/^ws/i, 'http').replace(/\/ws\/?$/, '').replace(/\/+$/, '');
-  if (u) return `${/\.ts\.net|ngrok/i.test(u) ? 'https' : 'http'}://${u.replace(/\/+$/, '')}`;
+  if (u) return `${PUBLIC_HTTPS.test(u) ? 'https' : 'http'}://${u.replace(/\/+$/, '')}`;
   return window.location.origin;
 }
 
@@ -79,6 +85,7 @@ export const ERRORS: Record<string, [string, string]> = {
   'need-initiative': ['Pon tu iniciativa antes de marcar Listo.', 'Enter your initiative before marking Ready.'],
   'not-your-turn': ['No es tu turno: espera a que te toque (fuera de tu turno solo puedes usar una reacción).', 'It’s not your turn: wait until it is (off-turn you can only use a reaction).'],
   'reaction-used': ['Ya has usado tu reacción en esta ronda.', 'You’ve already used your reaction this round.'],
+  'bad-sheet': ['No se ha podido guardar tu ficha en el servidor.', 'Your sheet couldn’t be saved on the server.'],
   'bad-image': ['No se ha podido subir la imagen (¿es demasiado grande?).', 'The image couldn’t be uploaded (is it too large?).'],
   'empty-gift': ['Añade monedas u objetos antes de dar.', 'Add coins or items before giving.'],
   'gift-delivered': ['Esa entrega ya ha llegado a la ficha del jugador.', 'That gift has already reached the player’s sheet.'],
@@ -141,6 +148,8 @@ let retryTimer: number | null = null;
 let attempts = 0;
 let unsubSheet: (() => void) | null = null;
 let lastSummary = '';
+/** Última petición de sincronizar a la que ya se ha respondido */
+let syncedFor = 0;
 /** La conexión en curso la ha pedido el usuario (no es una reconexión automática) */
 let freshJoin = false;
 /** Entregas ya sumadas en esta sesión (por si llega otro estado antes de confirmar) */
@@ -189,6 +198,23 @@ export const useParty = create<PartyState>((set, get) => {
     });
     const fresh = add.filter((d) => Date.now() - d.at < 60000);
     if (fresh.length) st.showToast(T(`☠️ ¡Golpe final! +${fresh.length} en tu kill count`, `☠️ Final blow! +${fresh.length} to your kill count`), fresh.map((d) => d.target ?? ''));
+  };
+
+  const uploadSheet = () => {
+    const c = sharedChar();
+    if (!c || get().role !== 'player' || ws?.readyState !== WebSocket.OPEN) return false;
+    out({ t: 'cmd', cmd: { t: 'sheetUpload', data: JSON.stringify(buildBackup([c], { log: useStore.getState().log })) } });
+    return true;
+  };
+
+  /** El DM ha pedido sincronizar: se sube la ficha una vez por petición */
+  const reconcileSync = (view: RoomView) => {
+    if (view.you.role !== 'player' || !view.syncRequest || syncedFor === view.syncRequest) return;
+    const me = view.members.find((m) => m.id === view.you.id);
+    if ((me?.sheetAt ?? 0) >= view.syncRequest) return;
+    if (!uploadSheet()) return;
+    syncedFor = view.syncRequest;
+    useStore.getState().showToast(T('☁️ El DM ha guardado tu ficha en el servidor', '☁️ The DM saved your sheet on the server'), []);
   };
 
   /** Entregas del DM: se suman a la ficha compartida una sola vez y se confirma al servidor */
@@ -294,6 +320,7 @@ export const useParty = create<PartyState>((set, get) => {
         reconcileKills(msg.view);
         reconcileGifts(msg.view);
         reconcileShared(msg.view);
+        reconcileSync(msg.view);
       } else if (msg.t === 'sheet') {
         applySheet(msg);
       } else if (msg.t === 'error') {
@@ -327,8 +354,17 @@ export const useParty = create<PartyState>((set, get) => {
       saveConn(c);
       attempts = 0;
       freshJoin = true;
-      set({ conn: c, error: null, view: null, role: null });
-      open();
+      set({ conn: c, error: null, view: null, role: null, status: 'connecting' });
+      // Una dirección corta (p. ej. https://di-en-di.web.app) dice cuál es el servidor de verdad
+      void resolveServer(c.url).then((real) => {
+        if (get().conn !== c) return; // ha salido o se ha conectado a otra mientras tanto
+        if (real && real !== c.url) {
+          const next = { ...c, url: real };
+          saveConn(next);
+          set({ conn: next });
+        }
+        open();
+      });
     },
     leave: () => {
       if (retryTimer) clearTimeout(retryTimer);
@@ -345,8 +381,54 @@ export const useParty = create<PartyState>((set, get) => {
       set({ error: null });
       out({ t: 'cmd', cmd });
     },
+    uploadSheet,
   };
 });
+
+/**
+ * Dirección corta: Firebase Hosting (o un dominio propio) no deja pasar el WebSocket de la partida, así que
+ * publica /servidor.json con la dirección del servidor real ({ "url": "https://….run.app" }). Null si no hay.
+ */
+export async function resolveServer(input: string): Promise<string | null> {
+  let base: string;
+  try { base = httpBase(input); } catch { return null; }
+  // En la red local no hace falta preguntar
+  if (!/^https:\/\//i.test(base)) return null;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 4000);
+  try {
+    const r = await fetch(`${base}/servidor.json`, { signal: ctl.signal, cache: 'no-store' });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { url?: unknown };
+    return typeof j.url === 'string' && /^https:\/\//i.test(j.url) ? j.url.replace(/\/+$/, '') : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Jugador: la ficha que guardó el servidor la última vez que se sincronizó (o null si no hay) */
+export async function fetchSavedSheet(): Promise<Character[] | null> {
+  const conn = useParty.getState().conn;
+  if (!conn?.token) return null;
+  const r = await fetch(`${httpBase(conn.url)}/api/sheet?token=${encodeURIComponent(conn.token)}`);
+  if (!r.ok) return null;
+  const chars = parseBackup(await r.text()).characters;
+  return chars.length ? chars : null;
+}
+
+/** DM: descarga todas las fichas guardadas en un archivo de copia (se importa en Ajustes → Copia de seguridad) */
+export async function downloadAllSheets(): Promise<number> {
+  const conn = useParty.getState().conn;
+  if (!conn?.dmKey) return 0;
+  const r = await fetch(`${httpBase(conn.url)}/api/sheets?dm=${encodeURIComponent(conn.dmKey)}`);
+  if (!r.ok) throw new Error(String(r.status));
+  const text = await r.text();
+  const n = parseBackup(text).characters.length;
+  if (n) await saveBackupFile(text, backupFileName(T('fichas-de-la-partida', 'party-sheets')));
+  return n;
+}
 
 /** Reanuda la conexión guardada al abrir la app, o se une desde un enlace ?join=CÓDIGO / ?dm=CLAVE del servidor */
 export function resumeParty() {

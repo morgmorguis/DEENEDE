@@ -2,15 +2,18 @@
 // consultar el registro y (si eres el DM) organizarlo todo, incluidos monstruos ocultos.
 import { useEffect, useMemo, useState } from 'react';
 import { useChar, useStore } from '../store';
-import { httpBase, useParty } from '../party/client';
-import type { CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
+import { downloadAllSheets, fetchSavedSheet, httpBase, summaryOf, useParty } from '../party/client';
+import type { CarriedLoot, CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
+import { mergeLoot, splitLoot } from '../party/encounterImport';
+import { NO_COINS, coinsText, hasCoins, itemLine } from '../rules/items';
+import { saveBackupFile } from '../backup';
 import { MONSTERS, searchMonsters, type MonsterInfo } from '../party/monsters';
 import { rollExpr, fmt, initiativeBonus } from '../rules/calc';
 import { Modal, Pips, Section } from './common';
 import { CONDITIONS } from '../rules/srd';
 import { encounterDifficulty } from '../party/difficulty';
 import { Consumables } from './Consumables';
-import { BundleList, MyGifts } from './Treasure';
+import { BundleList, LootEditor, MyGifts } from './Treasure';
 import { TurnPanel, actionName } from './CombatActions';
 import { combatTranscript, lastCombat, localNarrative } from '../party/narrative';
 import { describeError, narrateCombatWithClaude } from '../ai';
@@ -42,6 +45,44 @@ function hpText(c: CombatantView) {
 
 // ---------- Unirse ----------
 
+/** La app se ha abierto con el enlace del DM (…/dm) */
+const DM_ENTRY = typeof window !== 'undefined' && /^\/dm\/?$/.test(window.location.pathname);
+export const isDmEntry = () => DM_ENTRY;
+const DM_KEY_STORE = 'di-en-di-dm-key';
+
+/** Entrada del DM por su enlace propio: solo pide la clave (se recuerda en este dispositivo) */
+export function DmLogin() {
+  const connect = useParty((s) => s.connect);
+  const conn = useParty((s) => s.conn);
+  const status = useParty((s) => s.status);
+  const error = useParty((s) => s.error);
+  const leave = useParty((s) => s.leave);
+  const [key, setKey] = useState(() => { try { return conn?.dmKey ?? localStorage.getItem(DM_KEY_STORE) ?? ''; } catch { return conn?.dmKey ?? ''; } });
+  const busy = !!conn?.dmKey && status !== 'off';
+  const go = () => {
+    const k = key.trim();
+    if (!k) return;
+    try { localStorage.setItem(DM_KEY_STORE, k); } catch { /* sin almacenamiento */ }
+    // Si estaba conectado como jugador en este navegador, se cambia a DM
+    if (conn && !conn.dmKey) leave();
+    connect({ url: window.location.origin, code: '', name: 'DM', dmKey: k });
+  };
+  return (
+    <div className="tab dm-login">
+      <Section title={T('🎲 Pantalla del DM', '🎲 DM screen')}>
+        <p className="small">{T('Este es el enlace del DM. Los jugadores usan el suyo (el de «Invitar jugadores»), que no da acceso a esta pantalla.', 'This is the DM link. Players use theirs (the one in “Invite players”), which gives no access to this screen.')}</p>
+        <label className="field">{T('Clave del DM (la muestra el servidor)', 'DM key (shown by the server)')}
+          <input value={key} autoCapitalize="off" autoCorrect="off" autoFocus onChange={(e) => setKey(e.target.value.trim())} onKeyDown={(e) => e.key === 'Enter' && go()} />
+        </label>
+        {error && <p className="error">⚠️ {error}</p>}
+        <button className="btn primary full big" disabled={!key || busy} onClick={go}>{busy ? T('Conectando…', 'Connecting…') : `🎲 ${T('Entrar como DM', 'Enter as DM')}`}</button>
+        <p className="hint">{T('Guarda este enlace en favoritos: la próxima vez la clave ya estará puesta.', 'Bookmark this link: next time the key will already be filled in.')}</p>
+      </Section>
+      <p className="small muted center"><a href="/">{T('¿Eres jugador? Ir a la app del jugador', 'Are you a player? Go to the player app')}</a></p>
+    </div>
+  );
+}
+
 function JoinForm() {
   const c = useChar();
   const connect = useParty((s) => s.connect);
@@ -66,7 +107,11 @@ function JoinForm() {
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
         </div>
-        <label className="check"><input type="checkbox" checked={asDm} onChange={(e) => setAsDm(e.target.checked)} /> {T('Soy el DM', 'I’m the DM')}</label>
+        <details className="dm-option" open={asDm}>
+          <summary className="small muted">{T('¿Eres el DM?', 'Are you the DM?')}</summary>
+          <p className="small muted">{T('Lo más cómodo es tu enlace de DM (termina en /dm). Desde aquí también puedes entrar con la clave:', 'The easiest way is your DM link (it ends in /dm). You can also enter with the key here:')}</p>
+          <label className="check"><input type="checkbox" checked={asDm} onChange={(e) => setAsDm(e.target.checked)} /> {T('Soy el DM', 'I’m the DM')}</label>
+        </details>
         {asDm && (
           <label className="field">{T('Clave del DM (la muestra el servidor)', 'DM key (shown by the server)')}
             <input value={dmKey} autoCapitalize="off" onChange={(e) => setDmKey(e.target.value.trim())} />
@@ -175,15 +220,12 @@ function CombatLog({ view }: { view: RoomView }) {
   // El último combate: desde el último «empieza el combate»
   const lastStart = view.log.map((e) => e.kind).lastIndexOf('start');
   const events = all || lastStart < 0 ? view.log : view.log.slice(lastStart);
-  const save = () => {
-    const lines = events.filter((e) => !e.undone).map((e) => logLine(e, dm));
-    const folder = c.noteFolders.find((f) => f.key === 'chronicles')?.id ?? null;
-    addNote({ title: T(`Combate del ${new Date().toLocaleDateString(locale())}`, `Combat on ${new Date().toLocaleDateString(locale())}`), body: lines.join('\n'), kind: 'note', folderId: folder });
-    useStore.getState().showToast(T('📜 Guardado en el diario (Crónicas)', '📜 Saved to the journal (Chronicles)'), []);
-  };
+  const [report, setReport] = useState(false);
+  void addNote; void c;
   return (
-    <Section title={T('Registro del combate', 'Combat log')} right={<span className="row"><button className="btn small" disabled={!events.length} onClick={() => setStory(true)}>📖 {T('Resumen', 'Story')}</button><button className="btn small" disabled={!events.length} onClick={save}>📜 {T('Guardar', 'Save')}</button></span>}>
+    <Section title={T('Registro del combate', 'Combat log')} right={<span className="row"><button className="btn small" disabled={!events.length} onClick={() => setStory(true)}>📖 {T('Resumen', 'Story')}</button><button className="btn small" disabled={!events.length} onClick={() => setReport(true)}>📜 {T('Informe', 'Report')}</button></span>}>
       {story && <NarrativeModal view={view} onClose={() => setStory(false)} />}
+      {report && <CombatReportModal view={view} onClose={() => setReport(false)} />}
       {events.length === 0 && <p className="muted">{T('Aún no ha pasado nada.', 'Nothing has happened yet.')}</p>}
       <ol className="party-log">
         {[...events].reverse().map((ev) => (
@@ -197,9 +239,110 @@ function CombatLog({ view }: { view: RoomView }) {
   );
 }
 
+/** Informe del último combate bien ordenado: cabecera, quién participó, ronda a ronda y totales */
+export function combatReport(view: RoomView): { title: string; text: string } {
+  const dm = view.you.role === 'dm';
+  const events = lastCombat(view.log, dm ? [] : view.encounter.order);
+  const start = events.find((e) => e.kind === 'start');
+  const name = start?.text || T('Combate', 'Combat');
+  const when = new Date(start?.at ?? Date.now());
+  const date = when.toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+  const time = (at: number) => new Date(at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+  const party = view.encounter.order.filter((c) => c.kind === 'pc').map((c) => c.name);
+  const others = [...new Set(events.filter((e) => e.kind === 'add' && e.target).map((e) => e.target!))];
+  const begun = events.some((e) => e.kind === 'begin');
+  const rounds = begun ? Math.max(1, ...events.map((e) => e.round)) : 0;
+  const lines = [`⚔️ ${name.toUpperCase()}`, `${date} · ${time(when.getTime())}${events.length ? `–${time(events[events.length - 1].at)}` : ''}`];
+  if (party.length) lines.push(`${T('Party', 'Party')}: ${party.join(', ')}`);
+  if (others.length) lines.push(`${T('Enemigos y aliados', 'Enemies and allies')}: ${others.join(', ')}`);
+  if (rounds) lines.push(T(`Duración: ${rounds} ronda(s)`, `Length: ${rounds} round(s)`));
+  let started = false;
+  for (const e of events) {
+    if (e.kind === 'begin') started = true;
+    // Quién entra ya está en la cabecera; dentro de las rondas solo los refuerzos
+    if (e.kind === 'start' || (e.kind === 'add' && !started)) continue;
+    if (e.kind === 'begin' || e.kind === 'round') { lines.push('', T(`— RONDA ${e.kind === 'begin' ? 1 : e.round} —`, `— ROUND ${e.kind === 'begin' ? 1 : e.round} —`)); continue; }
+    if (e.kind === 'turn') { lines.push(logLine(e, dm)); continue; }
+    if (e.kind === 'end') { lines.push('', logLine(e, dm)); continue; }
+    lines.push(`   ${logLine(e, dm)}`);
+  }
+  // Daño hecho y bajas de cada uno
+  const dmg = new Map<string, number>();
+  const kills = new Map<string, number>();
+  for (const e of events) {
+    if (e.kind === 'hit' && e.actor) dmg.set(e.actor, (dmg.get(e.actor) ?? 0) + (e.amount ?? 0));
+    if (e.kind === 'down' && e.actor) kills.set(e.actor, (kills.get(e.actor) ?? 0) + 1);
+  }
+  if (dmg.size) {
+    lines.push('', T('— RESUMEN —', '— SUMMARY —'));
+    for (const [actor, n] of [...dmg].sort((a, b) => b[1] - a[1])) {
+      const k = kills.get(actor);
+      lines.push(T(`   ${actor}: ${n} de daño${k ? ` · ${k} baja(s)` : ''}`, `   ${actor}: ${n} damage${k ? ` · ${k} kill(s)` : ''}`));
+    }
+  }
+  return { title: `${name} · ${date}`, text: lines.join('\n').trim() };
+}
+
+/** Informe del combate: leerlo, guardarlo en el diario, descargarlo o copiarlo */
+export function CombatReportModal({ view, onClose, ended }: { view: RoomView; onClose: () => void; ended?: boolean }) {
+  const addNote = useStore((s) => s.addNote);
+  const c = useChar();
+  const dm = view.you.role === 'dm';
+  const { title, text } = useMemo(() => combatReport(view), [view]);
+  const [saved, setSaved] = useState(false);
+  const save = () => {
+    addNote({ title: `⚔️ ${title}`, body: text, kind: 'note', folderId: c.noteFolders.find((f) => f.key === 'chronicles')?.id ?? null });
+    setSaved(true);
+    useStore.getState().showToast(T('📜 Guardado en el diario (Crónicas)', '📜 Saved to the journal (Chronicles)'), []);
+  };
+  const download = () => void saveBackupFile(text, `${title.replace(/[^\p{L}\p{N} _-]+/gu, '').replace(/\s+/g, '-').toLowerCase()}.txt`, 'text/plain');
+  return (
+    <Modal title={ended ? T('🏁 Fin del combate', '🏁 Combat over') : T('📜 Informe del combate', '📜 Combat report')} onClose={onClose}>
+      {ended && <p className="small">{T('El combate ha terminado. Sigues conectado a la partida: vuelves a tu ficha y aquí tienes el registro completo.', 'The combat is over. You’re still connected to the game: you’re back on your sheet and here is the full log.')}</p>}
+      <pre className="combat-report">{text}</pre>
+      <div className="row wrap">
+        {!dm && <button className="btn primary grow" disabled={saved} onClick={save}>📜 {saved ? T('Guardado', 'Saved') : T('Guardar en mi diario', 'Save to my journal')}</button>}
+        <button className="btn" onClick={download}>⬇️ {T('Descargar', 'Download')}</button>
+        <button className="btn" onClick={() => void navigator.clipboard?.writeText(text)}>📋 {T('Copiar', 'Copy')}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Cartel pequeño de «¡Tu turno!» cuando te toca (en cualquier pestaña) */
+export function TurnBanner() {
+  const view = useParty((s) => s.view);
+  const [shown, setShown] = useState<string | null>(null);
+  const e = view?.encounter;
+  const myPc = e?.order.find((c) => c.kind === 'pc' && c.ownerId === view?.you.id);
+  const key = e && e.phase === 'running' && myPc && e.currentId === myPc.id ? `${e.round}:${myPc.id}` : null;
+  useEffect(() => {
+    if (!key) { setShown(null); return; }
+    setShown(key);
+    try { navigator.vibrate?.([120, 60, 120]); } catch { /* sin vibración */ }
+    const t = window.setTimeout(() => setShown((k) => (k === key ? `${key}:off` : k)), 3500);
+    return () => clearTimeout(t);
+  }, [key]);
+  if (!key || shown !== key) return null;
+  return (
+    <button className="turn-banner" onClick={() => { setShown(`${key}:off`); window.dispatchEvent(new CustomEvent('dnd-tab', { detail: 'party' })); }}>
+      ⚔️ <b>{T('¡Tu turno!', 'Your turn!')}</b> <span className="small">{myPc?.name}</span>
+    </button>
+  );
+}
+
 // ---------- DM ----------
 
-function MonsterPicker({ onClose }: { onClose: () => void }) {
+/** «Goblin 3», «Goblin 4»… siguiendo a los que ya hay en el combate */
+function nextNames(view: RoomView, name: string, n: number): string[] {
+  const taken = view.encounter.order.filter((c) => c.name === name || (c.name.startsWith(`${name} `) && /^\d+$/.test(c.name.slice(name.length + 1))))
+    .map((c) => (c.name === name ? 1 : Number(c.name.slice(name.length + 1))));
+  if (n === 1 && !taken.length) return [name];
+  const start = taken.length ? Math.max(...taken) + 1 : 1;
+  return Array.from({ length: n }, (_, i) => `${name} ${start + i}`);
+}
+
+function MonsterPicker({ view, onClose }: { view: RoomView; onClose: () => void }) {
   const send = useParty((s) => s.send);
   const [q, setQ] = useState('');
   const [pick, setPick] = useState<MonsterInfo | null>(null);
@@ -210,10 +353,11 @@ function MonsterPicker({ onClose }: { onClose: () => void }) {
   const [custom, setCustom] = useState({ name: '', hp: '', ac: '', init: '0', kind: 'monster' as 'monster' | 'npc' });
   const list = useMemo(() => searchMonsters(q), [q]);
   const add = (base: { name: string; hp: number; ac: number | null; init: number; kind: 'monster' | 'npc'; dice?: string; monster?: string }) => {
+    const names = nextNames(view, base.name, count);
     const combatants = Array.from({ length: count }, (_, i) => {
       const hp = rollHp && base.dice ? Math.max(1, rollExpr(base.dice).total) : base.hp;
       return {
-        name: count > 1 ? `${base.name} ${i + 1}` : base.name,
+        name: names[i],
         kind: base.kind,
         hpMax: hp,
         hp,
@@ -307,6 +451,14 @@ function DmCombatantModal({ c, onClose }: { c: CombatantView; onClose: () => voi
         </label>
       )}
       {c.kind !== 'pc' && <label className="field">{T('Notas privadas del DM', 'Private DM notes')}<textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>}
+      {c.kind !== 'pc' && (
+        <details className="mt carried" open={!!c.loot}>
+          <summary>💰 {T('Lo que lleva encima', 'What it carries')}{c.loot ? `: ${lootText(c.loot)}` : ''}</summary>
+          <p className="small muted">{T('Solo lo ves tú. Al terminar el combate pasa al botín para repartirlo.', 'Only you see this. When the combat ends it goes to the loot to hand out.')}</p>
+          <LootEditor loot={{ coins: { ...NO_COINS, ...c.loot?.coins }, items: c.loot?.items ?? [], note: '' }} noNote
+            onChange={(l) => send({ t: 'update', id: c.id, patch: { loot: { coins: l.coins, items: l.items } } })} />
+        </details>
+      )}
       {c.kind === 'pc' && <p className="hint">{T('Si cambias la vida de un jugador, se actualiza también en su ficha.', 'If you change a player’s HP, their sheet is updated too.')}</p>}
       <div className="row">
         <button className="btn danger" onClick={async () => { if (await askOk(T(`¿Quitar a ${c.name} del combate?`, `Remove ${c.name} from combat?`))) { send({ t: 'remove', id: c.id }); onClose(); } }}>{T('Quitar', 'Remove')}</button>
@@ -388,32 +540,44 @@ function DifficultyBar({ view }: { view: RoomView }) {
 // ---------- Combate compartido ----------
 
 /** Preparación: cada jugador introduce sus datos, ve los de sus aliados y marca «Listo» */
-function SetupPanel({ view }: { view: RoomView }) {
+/** Antesala del jugador: su estado actual (solo el suyo), su iniciativa y «Listo» */
+function Lobby({ view }: { view: RoomView }) {
   const send = useParty((s) => s.send);
   const c = useChar();
   const update = useStore((s) => s.update);
-  const dm = view.you.role === 'dm';
   const e = view.encounter;
   const myPc = e.order.find((x) => x.kind === 'pc' && x.ownerId === view.you.id);
   const [init, setInit] = useState(myPc?.initiative != null ? String(myPc.initiative) : '');
   const meReady = e.ready.includes(view.you.id);
   const dex = initiativeBonus(c);
-  const waiting = e.needed.filter((id) => !e.ready.includes(id)).map((id) => view.members.find((m) => m.id === id)).filter(Boolean);
+  const s = summaryOf(c);
   const pcs = e.order.filter((x) => x.kind === 'pc');
-  const nameOf = (id: string) => view.members.find((m) => m.id === id);
-  const dmMember = view.members.find((m) => m.role === 'dm' && e.needed.includes(m.id));
-
+  const waiting = pcs.filter((p) => p.ownerId && e.needed.includes(p.ownerId) && !e.ready.includes(p.ownerId));
+  if (!myPc) return null;
+  const roll = () => { const v = rollExpr('1d20').total + dex; setInit(String(v)); send({ t: 'setInitiative', id: myPc.id, value: v }); };
   return (
-    <Section title={T('⚔️ Preparación del combate', '⚔️ Getting ready for combat')} className="setup-panel">
-      {myPc && (
-        <div className="setup-me">
-          <h3>{T('Tus datos', 'Your data')}</h3>
-          <div className="grid3">
-            <label className="field">{T('Iniciativa (total)', 'Initiative (total)')}
-              <input type="number" inputMode="numeric" value={init} disabled={meReady} placeholder={`1d20 ${fmt(dex)}`}
-                onChange={(ev) => setInit(ev.target.value)}
-                onBlur={() => init !== '' && send({ t: 'setInitiative', id: myPc.id, value: Number(init) })} />
-            </label>
+    <Section title={T('🏰 Antesala del combate', '🏰 Combat antechamber')} className="setup-panel lobby">
+      {e.title && <p className="lobby-title">⚔️ {e.title}</p>}
+      <p className="small muted">{T('Revisa cómo llegas al combate. Esto solo lo ves tú.', 'Check how you arrive at the fight. Only you can see this.')}</p>
+      <div className="lobby-me">
+        <div className="lobby-hp">
+          <span className="lobby-big">❤️ {s.hp}<small>/{s.hpMax}</small>{s.temp ? <small> +{s.temp}</small> : null}</span>
+          <span className="lobby-big">🛡️ {s.ac}<small> {T('CA', 'AC')}</small></span>
+          <span className="lobby-big">👣 {s.speed}<small> {T('pies', 'ft')}</small></span>
+        </div>
+        {(s.conditions.length > 0 || s.concentration || (s.exhaustion ?? 0) > 0) && (
+          <div className="chips">
+            {s.concentration && <span className="cond-chip conc">🧠 {s.concentration}</span>}
+            {(s.exhaustion ?? 0) > 0 && <span className="cond-chip bad">😩 {T('Agotamiento', 'Exhaustion')} {s.exhaustion}</span>}
+            {s.conditions.map((x, i) => <span key={i} className="cond-chip">{x}</span>)}
+          </div>
+        )}
+        {(s.items?.length ?? 0) > 0 && <p className="small"><b>🎒 {T('Equipo', 'Gear')}:</b> {s.items!.join(' · ')}</p>}
+        {(s.slots?.length ?? 0) > 0 && <p className="small"><b>✨ {T('Espacios', 'Slots')}:</b> {s.slots!.map((x) => `${x.pact ? T('pacto ', 'pact ') : ''}${x.level}º ${x.left}/${x.max}`).join(' · ')}</p>}
+        {(s.resources?.length ?? 0) > 0 && <p className="small"><b>🔋 {T('Recursos', 'Resources')}:</b> {s.resources!.map((x) => `${x.name} ${x.left}/${x.max}`).join(' · ')}</p>}
+        <details className="mt">
+          <summary className="small">✏️ {T('Corregir vida antes de empezar', 'Fix HP before starting')}</summary>
+          <div className="grid2">
             <label className="field">{T('PG actuales', 'Current HP')}
               <input type="number" inputMode="numeric" value={c.hp.current} disabled={meReady} onChange={(ev) => update((x) => { x.hp.current = Math.max(0, Math.min(x.hp.max, Number(ev.target.value) || 0)); })} />
             </label>
@@ -421,35 +585,64 @@ function SetupPanel({ view }: { view: RoomView }) {
               <input type="number" inputMode="numeric" value={c.hp.temp} disabled={meReady} onChange={(ev) => update((x) => { x.hp.temp = Math.max(0, Number(ev.target.value) || 0); })} />
             </label>
           </div>
-          <p className="small muted">{T(`CA ${myPc.ac ?? '—'} · los demás datos salen de tu ficha.`, `AC ${myPc.ac ?? '—'} · everything else comes from your sheet.`)}</p>
-          {!meReady
-            ? <button className="btn primary full big ready-btn" disabled={init === ''} onClick={() => { send({ t: 'setInitiative', id: myPc.id, value: Number(init) }); send({ t: 'ready', value: true }); }}>✅ {T('¡Listo!', 'Ready!')}</button>
-            : <button className="btn full ready-btn on" onClick={() => send({ t: 'ready', value: false })}>✅ {T('Listo · tocar para quitar', 'Ready · tap to undo')}</button>}
-        </div>
-      )}
-      {dm && (
-        <div className="row wrap">
-          {!meReady
-            ? <button className="btn primary grow ready-btn" onClick={() => send({ t: 'ready', value: true })}>✅ {T('DM listo', 'DM ready')}</button>
-            : <button className="btn grow ready-btn on" onClick={() => send({ t: 'ready', value: false })}>✅ {T('DM listo · quitar', 'DM ready · undo')}</button>}
-          <button className="btn" onClick={async () => { if (await askOk(T('¿Empezar ya, sin esperar a que estén todos listos?', 'Start now without waiting for everyone?'))) send({ t: 'begin' }); }}>⏩ {T('Empezar ya', 'Start now')}</button>
-        </div>
-      )}
-      <h3 className="mt">{T('La party', 'The party')}</h3>
+        </details>
+      </div>
+      <div className="row lobby-init">
+        <label className="field grow">{T('Iniciativa (total)', 'Initiative (total)')}
+          <input type="number" inputMode="numeric" value={init} disabled={meReady} placeholder={`1d20 ${fmt(dex)}`}
+            onChange={(ev) => setInit(ev.target.value)}
+            onBlur={() => init !== '' && send({ t: 'setInitiative', id: myPc.id, value: Number(init) })} />
+        </label>
+        <button className="btn" disabled={meReady} onClick={roll}>🎲 {T('Tirar', 'Roll')} {fmt(dex)}</button>
+      </div>
+      {!meReady
+        ? <button className="btn primary full big ready-btn" disabled={init === ''} onClick={() => { send({ t: 'setInitiative', id: myPc.id, value: Number(init) }); send({ t: 'ready', value: true }); }}>✅ {T('¡Listo!', 'Ready!')}</button>
+        : <button className="btn full ready-btn on" onClick={() => send({ t: 'ready', value: false })}>✅ {T('Listo · tocar para quitar', 'Ready · tap to undo')}</button>}
+      <h3 className="mt">{T('Tus compañeros', 'Your companions')}</h3>
       <ul className="setup-list">
         {pcs.map((p) => {
           const ready = !!p.ownerId && e.ready.includes(p.ownerId);
           return (
             <li key={p.id} className={ready ? 'ready' : ''}>
-              <span className="grow"><b>{p.name}</b>{nameOf(p.ownerId ?? '')?.name !== p.name && <span className="small muted"> {nameOf(p.ownerId ?? '')?.name}</span>}</span>
-              <span className="small">🎲 {p.initiative ?? '—'} · {p.hp != null ? `❤️ ${hpText(p)}` : <StateBadge state={p.state} />} · {T('CA', 'AC')} {p.ac ?? '—'}</span>
+              <span className="grow"><b>{p.name}</b>{p.id === myPc.id && <span className="small muted"> {T('(tú)', '(you)')}</span>}</span>
               <span className="ready-mark">{ready ? '✅' : '⏳'}</span>
             </li>
           );
         })}
-        {dmMember && <li className={e.ready.includes(dmMember.id) ? 'ready' : ''}><span className="grow"><b>🎲 DM</b></span><span className="ready-mark">{e.ready.includes(dmMember.id) ? '✅' : '⏳'}</span></li>}
       </ul>
-      {waiting.length > 0 && <p className="hint">{T('Esperando a', 'Waiting for')}: {waiting.map((m) => m!.summary?.name ?? m!.name).join(', ')}</p>}
+      {waiting.length > 0 && <p className="hint">{T('Esperando a', 'Waiting for')}: {waiting.map((p) => p.name).join(', ')}</p>}
+    </Section>
+  );
+}
+
+/** DM en la antesala: quién ha aceptado y quién está listo, con todos los datos */
+function DmLobby({ view }: { view: RoomView }) {
+  const send = useParty((s) => s.send);
+  const e = view.encounter;
+  const pcs = e.order.filter((x) => x.kind === 'pc');
+  const member = (id?: string) => view.members.find((m) => m.id === id);
+  return (
+    <Section title={T('🏰 Antesala · esperando a los jugadores', '🏰 Antechamber · waiting for players')} className="setup-panel">
+      {e.title && <p className="lobby-title">⚔️ {e.title}</p>}
+      <ul className="setup-list">
+        {pcs.map((p) => {
+          const m = member(p.ownerId);
+          const ready = !!p.ownerId && e.ready.includes(p.ownerId);
+          const accepted = ready || (!!p.ownerId && e.accepted.includes(p.ownerId));
+          return (
+            <li key={p.id} className={ready ? 'ready' : ''}>
+              <span className="grow"><b>{m?.online ? '🟢' : '⚪'} {p.name}</b>{m && m.name !== p.name && <span className="small muted"> {m.name}</span>}</span>
+              <span className="small">🎲 {p.initiative ?? '—'} · ❤️ {hpText(p)} · {T('CA', 'AC')} {p.ac ?? '—'}</span>
+              <span className="ready-mark" title={ready ? T('Listo', 'Ready') : accepted ? T('Ha aceptado', 'Accepted') : T('Aún no ha aceptado', 'Not accepted yet')}>{ready ? '✅' : accepted ? '👀' : '📨'}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="small muted">📨 {T('aviso enviado', 'invite sent')} · 👀 {T('en la antesala', 'in the antechamber')} · ✅ {T('listo', 'ready')}</p>
+      <div className="row wrap">
+        <button className="btn primary grow" onClick={async () => { if (await askOk(T('¿Empezar ya, sin esperar a que estén todos listos? A quien no tenga iniciativa se le quedará sin turno hasta que la ponga.', 'Start now without waiting for everyone? Anyone without initiative will have no turn until they set it.'))) send({ t: 'begin' }); }}>⏩ {T('Empezar ya', 'Start now')}</button>
+        <button className="btn" onClick={() => e.order.filter((c) => c.kind !== 'pc' && c.initiative == null).forEach((c) => send({ t: 'setInitiative', id: c.id, value: rollExpr('1d20').total + (c.initBonus ?? 0) }))}>🎲 {T('Iniciativa de monstruos', 'Monster initiative')}</button>
+      </div>
     </Section>
   );
 }
@@ -486,6 +679,167 @@ function DmTurn({ view }: { view: RoomView }) {
   );
 }
 
+/** Lista del orden de combate (burbujas): el DM la ve con todo; los jugadores, la iniciativa y los estados */
+function OrderList({ view, onEdit }: { view: RoomView; onEdit?: (c: CombatantView) => void }) {
+  const dm = view.you.role === 'dm';
+  const e = view.encounter;
+  return (
+    <ol className={`party-order ${dm ? '' : 'bubbles'}`}>
+      {e.order.map((c) => {
+        const active = c.id === e.currentId;
+        const mine = c.kind === 'pc' && c.ownerId === view.you.id;
+        return (
+          <li key={c.id} className={`${c.kind} ${active ? 'active' : ''} ${mine ? 'mine' : ''} ${c.state === 'down' ? 'down' : ''} ${c.hidden ? 'hidden' : ''}`} style={c.color ? { borderLeft: `6px solid ${c.color}` } : undefined} onClick={() => dm && onEdit?.(c)}>
+            <span className="po-init">{c.initiative ?? '–'}</span>
+            <span className="po-name" style={c.color ? { color: c.color } : undefined}>{kindIcon(c)} {c.name}{c.hidden && <span className="hidden-tag">🙈 {T('oculto', 'hidden')}</span>}{active && <span className="bubble-turn">{T('turno', 'turn')}</span>}</span>
+            <span className="po-hp">
+              {c.hp != null && <b>❤️ {hpText(c)}</b>}
+              {c.state !== 'unknown' && (c.kind !== 'pc' || c.hp == null) && <StateBadge state={c.state} />}
+              {dm && c.ac != null && <span className="muted small"> · {T('CA', 'AC')} {c.ac}</span>}
+              {dm && c.loot && <span className="muted small" title={lootText(c.loot)}> · 💰</span>}
+            </span>
+            {(() => {
+              // Condiciones de la criatura, y de los jugadores las de su ficha, concentración y salvaciones de muerte
+              const sum = c.kind === 'pc' ? view.members.find((m) => m.id === c.ownerId)?.summary : undefined;
+              const conds = [...(c.conditions ?? []).map((x) => `${x.name}${x.rounds != null ? ` ${x.rounds}r` : ''}`), ...(sum?.conditions ?? [])];
+              if (!conds.length && !sum?.concentration && !sum?.deathSaves && !(dm && c.counters?.length)) return null;
+              return (
+                <span className="po-extra">
+                  {sum?.deathSaves && <span className="cond-chip bad">💀 {sum.hpHidden ? T('salvaciones de muerte', 'death saves') : `${sum.deathSaves.success}✓ ${sum.deathSaves.fail}✗`}</span>}
+                  {sum?.concentration && <span className="cond-chip conc">🧠 {sum.concentration}</span>}
+                  {conds.map((x, i) => <span key={i} className="cond-chip">{x}</span>)}
+                  {dm && c.counters?.map((ct) => <span key={ct.id} className="cond-chip counter" title={ct.label}>{ct.label.split(' ')[0]} {ct.max - ct.used}/{ct.max}</span>)}
+                </span>
+              );
+            })()}
+            {dm && c.notes && <span className="po-notes">📝 {c.notes}</span>}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+const lootText = (l: CarriedLoot) => [hasCoins(l.coins) ? coinsText(l.coins!) : '', ...(l.items ?? []).map(itemLine)].filter(Boolean).join(' · ');
+
+/** Lugar que se abre al preparar el combate desde «Encuentros y lugares» */
+let prepFocus = '';
+export const setPrepFocus = (id: string) => { prepFocus = id; };
+
+/** DM: lugares y encuentros guardados para sacar de ellos los enemigos que quiera */
+function PrepLibrary({ view }: { view: RoomView }) {
+  const send = useParty((s) => s.send);
+  const [encId, setEncId] = useState(() => (view.encounters.some((x) => x.id === prepFocus) ? prepFocus : view.encounters[0]?.id ?? ''));
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const enc = view.encounters.find((x) => x.id === encId) ?? view.encounters[0];
+  if (!view.encounters.length) return (
+    <p className="hint">📚 {T('Aún no tienes lugares ni encuentros guardados. Créalos (o impórtalos de Excel) en 📜 Personajes → Encuentros y lugares, y aquí podrás sacar de ellos a los enemigos.', 'No saved places or encounters yet. Create them (or import from Excel) in 📜 Characters → Encounters and places, and you can pick enemies from them here.')}</p>
+  );
+  const inCombat = (name: string) => view.encounter.order.filter((c) => c.name === name || c.name.startsWith(`${name} `)).length;
+  return (
+    <div className="prep-library">
+      <label className="field">📚 {T('Sacar enemigos de…', 'Take enemies from…')}
+        <select value={enc?.id ?? ''} onChange={(ev) => setEncId(ev.target.value)}>
+          {view.encounters.map((x) => <option key={x.id} value={x.id}>{x.name} ({x.entries.reduce((s, y) => s + y.count, 0)})</option>)}
+        </select>
+      </label>
+      {enc?.notes && <p className="small muted">📝 {enc.notes}</p>}
+      <ul className="prep-entries">
+        {enc?.entries.map((x) => {
+          const n = counts[x.id] ?? 1;
+          const there = inCombat(x.name);
+          return (
+            <li key={x.id} style={x.color ? { borderLeft: `5px solid ${x.color}` } : undefined}>
+              <span className="grow">
+                <b>{x.kind === 'npc' ? '🤝' : '👹'} {x.name}</b> {x.hidden && <span className="hidden-tag">🙈</span>}
+                <span className="small muted"> · {x.hpMax ?? '?'} {T('PG', 'HP')} · {T('CA', 'AC')} {x.ac ?? '?'}{x.cr ? ` · ${T('VD', 'CR')} ${x.cr}` : ''}{x.loot ? ` · 💰 ${lootText(x.loot)}` : ''}</span>
+                {there > 0 && <span className="small"> · ⚔️ {there} {T('en el combate', 'in combat')}</span>}
+              </span>
+              <span className="row prep-count">
+                <button className="btn small" aria-label="-" onClick={() => setCounts({ ...counts, [x.id]: Math.max(1, n - 1) })}>−</button>
+                <b>{n}</b>
+                <button className="btn small" aria-label="+" onClick={() => setCounts({ ...counts, [x.id]: Math.min(20, n + 1) })}>+</button>
+                <button className="btn small primary" onClick={() => send({ t: 'entryToCombat', encounterId: enc.id, entryId: x.id, count: n })}>➕</button>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <button className="btn small" onClick={() => enc && send({ t: 'encounterLoad', id: enc.id })}>⤵️ {T('Añadir todos los de la lista', 'Add everyone on the list')}</button>
+    </div>
+  );
+}
+
+/** DM: botín de los combates terminados, para repartirlo entre los jugadores */
+function LootPanel({ view }: { view: RoomView }) {
+  const send = useParty((s) => s.send);
+  const showToast = useStore((s) => s.showToast);
+  const players = view.members.filter((m) => m.role === 'player');
+  const [sel, setSel] = useState<string[]>(() => view.loot.map((x) => x.id));
+  const [to, setTo] = useState<string[]>(() => players.filter((m) => m.online).map((m) => m.id));
+  if (!view.loot.length) return null;
+  const chosen = view.loot.filter((x) => sel.includes(x.id));
+  const total = mergeLoot(chosen);
+  const parts = splitLoot(total, to.length || 1);
+  const empty = !hasCoins(total.coins) && !total.items.length;
+  const give = () => {
+    if (!to.length || !chosen.length) return;
+    to.forEach((id, i) => {
+      const part = parts[i];
+      if (!hasCoins(part.coins) && !part.items.length) return;
+      send({ t: 'give', toId: id, coins: part.coins, items: part.items, note: T(`Botín: ${chosen[0].combat ?? 'combate'}`, `Loot: ${chosen[0].combat ?? 'combat'}`) });
+    });
+    send({ t: 'lootDone', ids: chosen.map((x) => x.id) });
+    showToast(T('🎁 Botín repartido', '🎁 Loot handed out'), to.map((id, i) => `${players.find((m) => m.id === id)?.summary?.name ?? players.find((m) => m.id === id)?.name}: ${lootText(parts[i]) || T('nada', 'nothing')}`));
+  };
+  return (
+    <Section title={T('💰 Botín pendiente de repartir', '💰 Loot waiting to be handed out')}>
+      <p className="small muted">{T('Lo que llevaban encima los enemigos. Elige qué repartir y entre quién: las monedas se dividen a partes iguales y los objetos por turnos.', 'What the enemies were carrying. Pick what to hand out and to whom: coins are split evenly and items in turns.')}</p>
+      <ul className="loot-drops">
+        {view.loot.map((x) => (
+          <li key={x.id}>
+            <label className="check">
+              <input type="checkbox" checked={sel.includes(x.id)} onChange={(ev) => setSel(ev.target.checked ? [...sel, x.id] : sel.filter((y) => y !== x.id))} />
+              <b>{x.defeated ? '💀' : '🏃'} {x.from}</b> <span className="small muted">{x.combat ? `· ${x.combat}` : ''}</span>
+            </label>
+            <span className="small">{lootText(x)}</span>
+          </li>
+        ))}
+      </ul>
+      <span className="p-mini">{T('Repartir entre', 'Split between')}</span>
+      <div className="chips">
+        {players.map((m) => (
+          <button key={m.id} className={`chip ${to.includes(m.id) ? 'on' : ''}`} onClick={() => setTo(to.includes(m.id) ? to.filter((y) => y !== m.id) : [...to, m.id])}>{m.online ? '🟢' : '⚪'} {m.summary?.name ?? m.name}</button>
+        ))}
+      </div>
+      {!empty && to.length > 0 && (
+        <ul className="small loot-preview">
+          {to.map((id, i) => <li key={id}><b>{players.find((m) => m.id === id)?.summary?.name ?? players.find((m) => m.id === id)?.name}</b>: {lootText(parts[i]) || T('nada', 'nothing')}</li>)}
+        </ul>
+      )}
+      <div className="row">
+        <button className="btn" disabled={!chosen.length} onClick={async () => { if (await askOk(T('¿Descartar el botín elegido sin darlo?', 'Discard the chosen loot without giving it?'))) send({ t: 'lootDone', ids: chosen.map((x) => x.id) }); }}>🗑️ {T('Descartar', 'Discard')}</button>
+        <button className="btn primary grow" disabled={empty || !to.length} onClick={give}>🎁 {T('Repartir', 'Hand out')}</button>
+      </div>
+    </Section>
+  );
+}
+
+/** Jugador con el combate lanzado que aún no ha aceptado el aviso */
+export function EncounterInvite({ view, onAccept }: { view: RoomView; onAccept?: () => void }) {
+  const send = useParty((s) => s.send);
+  const e = view.encounter;
+  return (
+    <div className="encounter-invite">
+      <span className="ei-icon" aria-hidden>⚔️</span>
+      <b>{T('¡Comienza un encuentro!', 'An encounter begins!')}</b>
+      {e.title && <span className="ei-title">{e.title}</span>}
+      <span className="small muted">{T('El DM ha lanzado un combate. Acepta para entrar en la antesala.', 'The DM has launched a combat. Accept to enter the antechamber.')}</span>
+      <button className="btn primary big" onClick={() => { send({ t: 'accept' }); onAccept?.(); }}>✅ {T('Aceptar', 'Accept')}</button>
+    </div>
+  );
+}
+
 function SharedCombat({ view }: { view: RoomView }) {
   const send = useParty((s) => s.send);
   const dm = view.you.role === 'dm';
@@ -495,63 +849,69 @@ function SharedCombat({ view }: { view: RoomView }) {
   const myPc = e.order.find((c) => c.kind === 'pc' && c.ownerId === view.you.id);
   const cur = e.order.find((c) => c.id === e.currentId);
   const myTurn = !!cur && !!myPc && cur.id === myPc.id;
+  const accepted = e.accepted.includes(view.you.id) || e.ready.includes(view.you.id);
+  const prepare = async () => {
+    const title = await askText(T('Nombre del encuentro (lo verán los jugadores al lanzarlo; puedes dejarlo vacío)', 'Encounter name (players see it when it’s launched; can be empty)'), '');
+    if (title === null) return;
+    send({ t: 'prepare', title });
+  };
 
+  // ---- Sin combate ----
+  if (!e.active) {
+    if (!dm) return <Section title={T('Combate', 'Combat')}><p className="muted">{T('Cuando el DM lance un combate te llegará un aviso.', 'When the DM launches a combat you’ll get a notice.')}</p></Section>;
+    return (
+      <>
+        <Section title={T('Combate', 'Combat')}>
+          <p className="small">{T('Prepara el combate a solas: añade enemigos (de tus lugares guardados, de Excel o del bestiario), ajústalos y decide qué llevan encima. Los jugadores no ven nada hasta que pulses «Lanzar combate».', 'Prepare the combat on your own: add enemies (from your saved places, Excel or the bestiary), tweak them and decide what they carry. Players see nothing until you press “Launch combat”.')}</p>
+          <button className="btn primary full big" onClick={() => void prepare()}>🛠️ {T('Preparar combate', 'Prepare combat')}</button>
+        </Section>
+        <LootPanel view={view} />
+      </>
+    );
+  }
+
+  // ---- Jugador que aún no ha aceptado ----
+  if (!dm && myPc && !accepted) return <Section title={T('Combate', 'Combat')}><EncounterInvite view={view} /></Section>;
+
+  const prep = e.phase === 'prep';
   return (
     <>
-      {e.active && e.phase === 'setup' && <SetupPanel view={view} />}
-      <Section title={e.active ? (e.phase === 'setup' ? T('Combatientes', 'Combatants') : `${T('Combate', 'Combat')} · ${T('Ronda', 'Round')} ${e.round}`) : T('Combate', 'Combat')}
-        right={dm ? (e.active
-          ? <button className="btn small danger" onClick={async () => { if (await askOk(T('¿Terminar el combate? Los monstruos se quitarán.', 'End combat? Monsters will be removed.'))) send({ t: 'end' }); }}>🏁 {T('Terminar', 'End')}</button>
-          : <button className="btn small primary" onClick={() => send({ t: 'start' })}>⚔️ {T('Empezar combate', 'Start combat')}</button>) : undefined}>
-        {!e.active && !dm && <p className="muted">{T('Cuando el DM empiece un combate aparecerá aquí.', 'When the DM starts a combat it will show up here.')}</p>}
-        {(e.active || (dm && e.order.length > 0)) && (
-          <>
-            <ol className="party-order">
-              {e.order.map((c) => {
-                const active = c.id === e.currentId;
-                return (
-                  <li key={c.id} className={`${c.kind} ${active ? 'active' : ''} ${c.state === 'down' ? 'down' : ''} ${c.hidden ? 'hidden' : ''}`} style={c.color ? { borderLeft: `6px solid ${c.color}` } : undefined} onClick={() => dm && setEdit(c)}>
-                    <span className="po-init">{c.initiative ?? '–'}</span>
-                    <span className="po-name" style={c.color ? { color: c.color } : undefined}>{kindIcon(c)} {c.name}{c.hidden && <span className="hidden-tag">🙈 {T('oculto', 'hidden')}</span>}{active && <span className="bubble-turn">{T('turno', 'turn')}</span>}</span>
-                    <span className="po-hp">
-                      {c.hp != null && <b>❤️ {hpText(c)}</b>}
-                      {c.hp == null && c.kind !== 'pc' && <b>❤️ ?</b>}
-                      {(c.kind !== 'pc' || c.hp == null) && <StateBadge state={c.state} />}
-                      {dm && c.ac != null && <span className="muted small"> · {T('CA', 'AC')} {c.ac}</span>}
-                    </span>
-                    {(() => {
-                      // Condiciones de la criatura, y de los jugadores las de su ficha, concentración y salvaciones de muerte
-                      const sum = c.kind === 'pc' ? view.members.find((m) => m.id === c.ownerId)?.summary : undefined;
-                      const conds = [...(c.conditions ?? []).map((x) => `${x.name}${x.rounds != null ? ` ${x.rounds}r` : ''}`), ...(sum?.conditions ?? [])];
-                      if (!conds.length && !sum?.concentration && !sum?.deathSaves && !(dm && c.counters?.length)) return null;
-                      return (
-                        <span className="po-extra">
-                          {sum?.deathSaves && <span className="cond-chip bad">💀 {sum.hpHidden ? T('salvaciones de muerte', 'death saves') : `${sum.deathSaves.success}✓ ${sum.deathSaves.fail}✗`}</span>}
-                          {sum?.concentration && <span className="cond-chip conc">🧠 {sum.concentration}</span>}
-                          {conds.map((x, i) => <span key={i} className="cond-chip">{x}</span>)}
-                          {dm && c.counters?.map((ct) => <span key={ct.id} className="cond-chip counter" title={ct.label}>{ct.label.split(' ')[0]} {ct.max - ct.used}/{ct.max}</span>)}
-                        </span>
-                      );
-                    })()}
-                    {dm && c.notes && <span className="po-notes">📝 {c.notes}</span>}
-                  </li>
-                );
-              })}
-            </ol>
-            {dm && <DifficultyBar view={view} />}
-            {e.hiddenTurn && <p className="hint">{T('Está actuando algo que aún no veis…', 'Something you can’t see yet is acting…')}</p>}
-            {dm && (
-              <div className="row wrap mt">
-                <button className="btn small" onClick={() => setAdding(true)}>➕ {T('Monstruos / PNJ', 'Monsters / NPCs')}</button>
-                <button className="btn small" onClick={() => send({ t: 'sort' })}>↕️ {T('Ordenar por iniciativa', 'Sort by initiative')}</button>
-                <button className="btn small" onClick={() => e.order.filter((c) => c.kind !== 'pc' && c.initiative == null).forEach((c) => send({ t: 'setInitiative', id: c.id, value: rollExpr('1d20').total + (c.initBonus ?? 0) }))}>🎲 {T('Iniciativa de monstruos', 'Monster initiative')}</button>
-              </div>
-            )}
-          </>
-        )}
-      </Section>
+      {prep && dm && (
+        <Section title={T('🛠️ Preparando el combate', '🛠️ Preparing the combat')} className="prep-panel">
+          <label className="field">{T('Nombre del encuentro (lo ven los jugadores)', 'Encounter name (players see it)')}
+            <input key={e.title ?? ''} defaultValue={e.title ?? ''} placeholder={T('Taberna Malandra', 'Rascal Tavern')} onBlur={(ev) => ev.target.value !== (e.title ?? '') && send({ t: 'encounterTitle', title: ev.target.value })} />
+          </label>
+          <p className="hint">🙈 {T('Los jugadores no ven nada todavía. Los que marques como ocultos seguirán ocultos al lanzarlo hasta que los reveles.', 'Players can’t see anything yet. The ones marked hidden stay hidden after launch until you reveal them.')}</p>
+          <PrepLibrary view={view} />
+        </Section>
+      )}
+      {e.phase === 'setup' && (dm ? <DmLobby view={view} /> : <Lobby view={view} />)}
+      {(dm || e.phase === 'running') && (
+        <Section title={prep ? T(`Enemigos y aliados (${e.order.length})`, `Enemies and allies (${e.order.length})`) : e.phase === 'setup' ? T('Combatientes', 'Combatants') : `${e.title ? `${e.title} · ` : ''}${T('Ronda', 'Round')} ${e.round}`}
+          right={dm ? <button className="btn small danger" onClick={async () => {
+            if (prep) { if (await askOk(T('¿Descartar la preparación? Se quitan los enemigos preparados.', 'Discard the preparation? Prepared enemies are removed.'))) send({ t: 'end' }); return; }
+            if (await askOk(T('¿Terminar el combate? Los jugadores vuelven a su ficha y lo que llevaban los enemigos pasa al botín.', 'End combat? Players go back to their sheet and what the enemies carried goes to the loot.'))) send({ t: 'end' });
+          }}>{prep ? `🗑️ ${T('Descartar', 'Discard')}` : `🏁 ${T('Terminar', 'End')}`}</button> : undefined}>
+          {e.order.length === 0 && prep && <p className="muted small">{T('Aún no hay nadie. Añade enemigos de tu lista o del bestiario.', 'Nobody yet. Add enemies from your list or the bestiary.')}</p>}
+          <OrderList view={view} onEdit={setEdit} />
+          {dm && <DifficultyBar view={view} />}
+          {e.hiddenTurn && <p className="hint">{T('Está actuando algo que aún no veis…', 'Something you can’t see yet is acting…')}</p>}
+          {dm && (
+            <div className="row wrap mt">
+              <button className="btn small" onClick={() => setAdding(true)}>➕ {T('Bestiario / PNJ', 'Bestiary / NPCs')}</button>
+              {!prep && <button className="btn small" onClick={() => send({ t: 'sort' })}>↕️ {T('Ordenar por iniciativa', 'Sort by initiative')}</button>}
+            </div>
+          )}
+          {prep && dm && (
+            <button className="btn primary full big mt launch-btn" disabled={!e.order.length} onClick={async () => {
+              const players = view.members.filter((m) => m.role === 'player' && m.summary);
+              if (await askOk(T(`¿Lanzar el combate? A ${players.length} jugador(es) les llegará el aviso${e.title ? ` «${e.title}»` : ''}.`, `Launch the combat? ${players.length} player(s) will get the notice${e.title ? ` “${e.title}”` : ''}.`))) send({ t: 'launch' });
+            }}>🚀 {T('Lanzar combate', 'Launch combat')}</button>
+          )}
+        </Section>
+      )}
 
-      {e.active && e.phase === 'running' && (
+      {e.phase === 'running' && (
         <Section className="turn-section" title={cur ? (myTurn ? T('⚔️ ¡Tu turno!', '⚔️ Your turn!') : T(`Turno de ${cur.name}`, `${cur.name}’s turn`)) : T('Turno', 'Turn')}>
           {dm && <DmTurn view={view} />}
           {!dm && myPc && myTurn && (
@@ -564,15 +924,16 @@ function SharedCombat({ view }: { view: RoomView }) {
             </>
           )}
           {!dm && myPc && !myTurn && <Spectator view={view} me={myPc} />}
-          {!myPc && !dm && <p className="muted">{T('Tu ficha aún no está en el combate: pide al DM que lo reinicie o espera a que entre.', 'Your sheet isn’t in this combat yet: ask the DM to restart it.')}</p>}
+          {!dm && myPc && myPc.initiative == null && <p className="hint">🎲 {T('No tienes iniciativa: pídesela al DM o díctasela para entrar en el orden.', 'You have no initiative: ask the DM to set it so you join the order.')}</p>}
+          {!myPc && !dm && <p className="muted">{T('Tu ficha aún no está en el combate: pide al DM que te añada.', 'Your sheet isn’t in this combat yet: ask the DM to add you.')}</p>}
           <div className="row wrap mt">
             {view.canEndTurn && <button className="btn primary grow" onClick={() => send({ t: 'nextTurn' })}>⏭️ {dm ? T('Siguiente turno', 'Next turn') : T('Terminar mi turno', 'End my turn')}</button>}
             {dm && view.canUndo && <button className="btn" onClick={async () => { if (await askOk(T('¿Deshacer el último turno? Se revierten sus daños y curaciones.', 'Undo the last turn? Its damage and healing are reverted.'))) send({ t: 'undo' }); }}>↩️ {T('Deshacer último turno', 'Undo last turn')}</button>}
           </div>
         </Section>
       )}
-      {edit && <DmCombatantModal c={edit} onClose={() => setEdit(null)} />}
-      {adding && <MonsterPicker onClose={() => setAdding(false)} />}
+      {edit && <DmCombatantModal c={view.encounter.order.find((x) => x.id === edit.id) ?? edit} onClose={() => setEdit(null)} />}
+      {adding && <MonsterPicker view={view} onClose={() => setAdding(false)} />}
     </>
   );
 }
@@ -583,10 +944,10 @@ function DmCombatCard({ view }: { view: RoomView }) {
   const send = useParty((s) => s.send);
   return (
     <Section title={T('Combate', 'Combat')}>
-      <p className="small">{e.active ? T(`⚔️ En marcha · ronda ${e.round} · ${e.order.length} combatientes`, `⚔️ Running · round ${e.round} · ${e.order.length} combatants`) : T('No hay combate en marcha. Prepáralo y llévalo desde la pestaña ⚔️ Combate.', 'No combat running. Prepare and run it from the ⚔️ Combat tab.')}</p>
+      <p className="small">{!e.active ? T('No hay combate en marcha. Prepáralo y llévalo desde la pestaña ⚔️ Combate.', 'No combat running. Prepare and run it from the ⚔️ Combat tab.') : e.phase === 'prep' ? T(`🛠️ Preparando${e.title ? ` «${e.title}»` : ''} · ${e.order.length} combatientes (los jugadores aún no lo ven)`, `🛠️ Preparing${e.title ? ` “${e.title}”` : ''} · ${e.order.length} combatants (players can’t see it yet)`) : e.phase === 'setup' ? T('🏰 En la antesala: esperando a que los jugadores estén listos', '🏰 In the antechamber: waiting for the players to be ready') : T(`⚔️ En marcha · ronda ${e.round} · ${e.order.length} combatientes`, `⚔️ Running · round ${e.round} · ${e.order.length} combatants`)}</p>
       <div className="row wrap">
         <button className="btn primary" onClick={() => window.dispatchEvent(new CustomEvent('dnd-tab', { detail: 'dmcombat' }))}>⚔️ {T('Ir a la pestaña Combate', 'Go to the Combat tab')}</button>
-        {!e.active && <button className="btn" onClick={() => send({ t: 'start' })}>{T('Empezar combate', 'Start combat')}</button>}
+        {!e.active && <button className="btn" onClick={() => { send({ t: 'prepare' }); window.dispatchEvent(new CustomEvent('dnd-tab', { detail: 'dmcombat' })); }}>🛠️ {T('Preparar combate', 'Prepare combat')}</button>}
       </div>
     </Section>
   );
@@ -627,6 +988,8 @@ export function PartyTab() {
       {error && <p className="error">⚠️ {error}</p>}
       {view && dm && <InvitePanel code={view.code} />}
       {view && dm && <TvLink code={view.code} />}
+      {/* Jugador en combate: el combate (antesala o turnos) va lo primero */}
+      {view && !dm && view.encounter.active && <SharedCombat view={view} />}
       {view && (
         <>
           <Section title={T('Party', 'Party')}>
@@ -653,7 +1016,9 @@ export function PartyTab() {
               {view.members.filter((m) => m.role === 'player').length === 0 && <p className="muted">{T(`Aún no hay jugadores. Código: ${view.code}`, `No players yet. Code: ${view.code}`)}</p>}
             </div>
           </Section>
-          {dm ? <DmCombatCard view={view} /> : <SharedCombat view={view} />}
+          {view.you.role !== 'viewer' && !(!dm && view.encounter.active) && <SheetSync view={view} />}
+          {dm ? <DmCombatCard view={view} /> : !view.encounter.active && <SharedCombat view={view} />}
+          {dm && !view.encounter.active && <LootPanel view={view} />}
           {dm && <DmImages view={view} />}
           <SharedGallery view={view} />
           <MyGifts view={view} />
@@ -661,6 +1026,62 @@ export function PartyTab() {
         </>
       )}
     </div>
+  );
+}
+
+/** Fichas en el servidor: el DM pide a todos que suban su ficha completa (p. ej. al acabar la sesión) y puede
+ *  descargarlas todas; cada jugador puede subir la suya cuando quiera o recuperar la última que se guardó */
+function SheetSync({ view }: { view: RoomView }) {
+  const dm = view.you.role === 'dm';
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const when = (ms?: number) => (ms ? new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null);
+  const players = view.members.filter((m) => m.role === 'player');
+  const me = view.members.find((m) => m.id === view.you.id);
+  const run = async (job: () => Promise<string>) => {
+    setBusy(true);
+    setMsg(null);
+    try { setMsg(await job()); } catch { setMsg(T('⚠️ No se ha podido hablar con el servidor.', '⚠️ Couldn’t reach the server.')); }
+    setBusy(false);
+  };
+  if (dm) {
+    const pending = view.syncRequest ? players.filter((m) => (m.sheetAt ?? 0) < view.syncRequest!) : [];
+    return (
+      <Section title={T('☁️ Fichas en el servidor', '☁️ Sheets on the server')}>
+        <p className="hint">{T('Al acabar la sesión, guarda una copia de la ficha completa de cada jugador conectado. Los que no estén conectados la subirán al volver a entrar.', 'At the end of the session, save a copy of each connected player’s full sheet. Players who are offline upload theirs when they come back.')}</p>
+        <div className="row">
+          <button className="btn primary" onClick={() => useParty.getState().send({ t: 'syncSheets' })}>☁️ {T('Sincronizar todas las fichas', 'Sync all sheets')}</button>
+          <button className="btn" disabled={busy || !players.some((m) => m.sheetAt)} onClick={() => run(async () => {
+            const n = await downloadAllSheets();
+            return n ? T(`💾 ${n} fichas en un archivo de copia (se abre en Ajustes → Copia de seguridad).`, `💾 ${n} sheets in a backup file (open it in Settings → Backup).`) : T('Aún no hay fichas guardadas.', 'No saved sheets yet.');
+          })}>💾 {T('Descargar todas', 'Download all')}</button>
+        </div>
+        <ul className="small sheet-sync">
+          {players.map((m) => (
+            <li key={m.id}>{m.sheetAt && (!view.syncRequest || m.sheetAt >= view.syncRequest) ? '✅' : view.syncRequest ? '⏳' : '▫️'} {m.summary?.name ?? m.name} · <span className="muted">{when(m.sheetAt) ?? T('sin copia', 'no copy')}</span></li>
+          ))}
+        </ul>
+        {view.syncRequest && pending.length > 0 && <p className="hint">{T(`Esperando a: ${pending.map((m) => m.summary?.name ?? m.name).join(', ')}`, `Waiting for: ${pending.map((m) => m.summary?.name ?? m.name).join(', ')}`)}</p>}
+        {msg && <p className="small">{msg}</p>}
+      </Section>
+    );
+  }
+  return (
+    <Section title={T('☁️ Tu ficha en el servidor', '☁️ Your sheet on the server')}>
+      <p className="small muted">{me?.sheetAt ? T(`Última copia: ${when(me.sheetAt)}`, `Last copy: ${when(me.sheetAt)}`) : T('Aún no hay copia de tu ficha.', 'There’s no copy of your sheet yet.')}</p>
+      <div className="row">
+        <button className="btn" disabled={busy} onClick={() => setMsg(useParty.getState().uploadSheet() ? T('☁️ Ficha enviada.', '☁️ Sheet sent.') : T('⚠️ Sin conexión con la partida.', '⚠️ Not connected to the game.'))}>☁️ {T('Guardar mi ficha', 'Save my sheet')}</button>
+        <button className="btn" disabled={busy || !me?.sheetAt} onClick={() => run(async () => {
+          const chars = await fetchSavedSheet();
+          if (!chars) return T('No hay ninguna ficha tuya guardada.', 'There’s no saved sheet of yours.');
+          const names = chars.map((c) => c.name).join(', ');
+          if (!(await askOk(T(`¿Recuperar «${names}» tal como se guardó en el servidor? Sustituye a la ficha que tienes con el mismo personaje.`, `Restore “${names}” as saved on the server? It replaces your sheet of the same character.`)))) return '';
+          useStore.getState().importCharacters(chars, 'merge');
+          return T(`✅ Recuperada: ${names}`, `✅ Restored: ${names}`);
+        })}>⤵️ {T('Recuperar la guardada', 'Restore saved copy')}</button>
+      </div>
+      {msg && <p className="small">{msg}</p>}
+    </Section>
   );
 }
 
@@ -715,7 +1136,7 @@ export function TvView() {
 }
 
 /** Enlace para abrir la vista de la tele en cualquier navegador de la red */
-interface ServerInfo { code: string; lan: string[]; publish?: { mode: string; url: string | null; status: string; message: string } }
+interface ServerInfo { code: string; lan: string[]; publish?: { mode: string; url: string | null; status: string; message: string; direct?: string } }
 
 /** DM: cómo se unen los jugadores — dirección pública (Internet) y de la red local, con el código */
 function InvitePanel({ code }: { code: string }) {
@@ -745,11 +1166,18 @@ function InvitePanel({ code }: { code: string }) {
         <>
           <Row label={T('🌍 Desde cualquier sitio (Internet)', '🌍 From anywhere (Internet)')} url={`${pub.url}/?join=${code}`} />
           <p className="hint">{T(`En la app: Partida → dirección ${pub.url} y código ${code}. Abierto en el navegador, el enlace ya entra solo.`, `In the app: Game → address ${pub.url} and code ${code}. Opened in a browser, the link joins directly.`)}</p>
+          {pub.direct && <Row label={T('🔗 Dirección directa (apps de Android 0.24 o anteriores)', '🔗 Direct address (Android app 0.24 or older)')} url={pub.direct} />}
         </>
       )}
       {pub && pub.status !== 'on' && <p className="hint">{pub.status === 'starting' ? '⏳ ' : pub.status === 'error' ? '⚠️ ' : 'ℹ️ '}{pub.message}</p>}
       {(info?.lan ?? []).map((u) => <Row key={u} label={T('🏠 Misma Wi-Fi', '🏠 Same Wi-Fi')} url={`${u}/?join=${code}`} />)}
       {failed && !info && <p className="hint">{T('No puedo leer las direcciones del servidor. Mira la ventana negra del servidor.', 'Can’t read the server addresses. Check the server’s black window.')}</p>}
+      {conn?.dmKey && (
+        <details className="dm-link">
+          <summary className="small">🔑 {T('Tu enlace de DM (no lo compartas)', 'Your DM link (don’t share it)')}</summary>
+          <Row label={T('Ábrelo en otro dispositivo para llevar la partida desde allí', 'Open it on another device to run the game from there')} url={`${pub?.status === 'on' && pub.url ? pub.url : httpBase(conn.url)}/dm?dm=${conn.dmKey}`} />
+        </details>
+      )}
     </details>
   );
 }

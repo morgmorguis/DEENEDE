@@ -22,6 +22,15 @@ const DATA_FILE = argValue('--data') ?? path.join(HOME, 'di-en-di-partida.json')
 // Imágenes que comparte el DM: un archivo por imagen, junto a la partida
 const IMG_DIR = path.join(path.dirname(DATA_FILE), 'di-en-di-imagenes');
 const MAX_IMAGE = 6 * 1024 * 1024;
+// Fichas completas que suben los jugadores cuando el DM pulsa «Sincronizar fichas»: un archivo por jugador
+const SHEET_DIR = path.join(path.dirname(DATA_FILE), 'di-en-di-fichas');
+const MAX_SHEET = 8 * 1024 * 1024;
+// Mismo «kind» que los archivos de copia de la app (src/backup.ts), sin importarlo: arrastraría Capacitor al servidor
+const BACKUP_KIND = 'di-en-di-backup';
+// En Cloud Run (lo dice K_SERVICE) la dirección pública es la de la petición (https://….run.app) o la de DI_EN_DI_URL
+const CLOUD = !!process.env.K_SERVICE;
+const PUBLIC_URL = (process.env.DI_EN_DI_URL ?? '').replace(/\/+$/, '');
+const publicUrl = (req: http.IncomingMessage) => PUBLIC_URL || (CLOUD && req.headers.host ? `https://${req.headers.host}` : '');
 const DIST = [path.join(__dirname, '..', '..', 'dist'), path.join(__dirname, '..', 'dist'), path.join(process.cwd(), 'dist')].find((p) => fs.existsSync(path.join(p, 'index.html')));
 
 // ---------- Partida guardada ----------
@@ -37,11 +46,19 @@ function load(): Room {
 }
 let room = load();
 let saveTimer: NodeJS.Timeout | null = null;
+// Escritura sin bloquear: en la nube el disco es un depósito de Cloud Storage y cada guardado es una subida
+let writing = false;
+let writeAgain = false;
+const writeRoom = async () => {
+  if (writing) { writeAgain = true; return; }
+  writing = true;
+  try { await fs.promises.writeFile(DATA_FILE, JSON.stringify(room)); } catch (e) { console.error('No se pudo guardar la partida:', e); }
+  writing = false;
+  if (writeAgain) { writeAgain = false; void writeRoom(); }
+};
 const save = () => {
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try { fs.writeFileSync(DATA_FILE, JSON.stringify(room)); } catch (e) { console.error('No se pudo guardar la partida:', e); }
-  }, 400);
+  saveTimer = setTimeout(() => void writeRoom(), 400);
 };
 save();
 
@@ -67,9 +84,31 @@ const server = http.createServer((req, res) => {
     const isDm = url.searchParams.get('dm') === room.dmKey;
     // «probe»: el propio servidor comprueba que es él quien responde en 127.0.0.1:PUERTO
     const probe = url.searchParams.get('probe') === PROBE ? { probe: PROBE } : {};
+    const pub = publicUrl(req);
+    // La dirección real del servicio, para las apps antiguas que no entienden la corta (PROYECTO.web.app)
+    const direct = CLOUD && req.headers.host ? `https://${req.headers.host}` : '';
     res.end(JSON.stringify(isDm
-      ? { app: 'di-en-di', code: room.code, port: PORT, lan: lanIps().map((ip) => `http://${ip}:${PORT}`), publish, ...probe }
+      ? { app: 'di-en-di', code: room.code, port: PORT, lan: lanIps().map((ip) => `http://${ip}:${PORT}`), publish: pub ? { mode: 'cloud', url: pub, status: 'on', message: '', ...(direct && direct !== pub ? { direct } : {}) } : publish, ...probe }
       : { app: 'di-en-di', ...probe }));
+    return;
+  }
+  // Fichas guardadas con «Sincronizar fichas»: cada jugador la suya (con su token); el DM, todas en un archivo de copia
+  if (url.pathname === '/api/sheet' || url.pathname === '/api/sheets') {
+    res.setHeader('Content-Type', 'application/json');
+    const readSheet = (id: string): { characters?: unknown[] } | null => {
+      try { return JSON.parse(fs.readFileSync(path.join(SHEET_DIR, `${id}.json`), 'utf8')); } catch { return null; }
+    };
+    if (url.pathname === '/api/sheet') {
+      const token = url.searchParams.get('token');
+      const m = token ? room.members.find((x) => x.token === token) : undefined;
+      const file = m ? readSheet(m.id) : null;
+      if (!file) { res.statusCode = 404; res.end('{"error":"no-sheet"}'); return; }
+      res.end(JSON.stringify(file));
+      return;
+    }
+    if (url.searchParams.get('dm') !== room.dmKey) { res.statusCode = 403; res.end('{"error":"not-allowed"}'); return; }
+    const characters = room.members.filter((m) => m.role === 'player').flatMap((m) => readSheet(m.id)?.characters ?? []);
+    res.end(JSON.stringify({ kind: BACKUP_KIND, version: 2, exportedAt: new Date().toISOString(), platform: 'servidor', characters }));
     return;
   }
   // Copia de la campaña (solo el DM): todo lo que ha creado, con las imágenes dentro
@@ -124,6 +163,8 @@ const server = http.createServer((req, res) => {
     fs.createReadStream(file).pipe(res);
     return;
   }
+  // Enlace del DM: /dm (sin barra final, para que las rutas relativas de la app sigan valiendo)
+  if (url.pathname === '/dm/') { res.statusCode = 302; res.setHeader('Location', `/dm${url.search}`); res.end(); return; }
   if (!DIST) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -194,6 +235,20 @@ wss.on('connection', (ws) => {
       cmd.id = imgId;
       delete cmd.data;
     }
+    // Ficha completa de un jugador: se guarda en disco y a la partida solo va la hora
+    if (cmd.t === 'sheetUpload') {
+      const data = String(cmd.data ?? '');
+      let ok = room.members.find((m) => m.id === id)?.role === 'player' && data.length > 0 && data.length <= MAX_SHEET;
+      if (ok) {
+        try { const j = JSON.parse(data); ok = j?.kind === BACKUP_KIND && Array.isArray(j.characters) && j.characters.length > 0; } catch { ok = false; }
+      }
+      if (!ok) { send(ws, { t: 'error', message: 'bad-sheet' }); return; }
+      try {
+        fs.mkdirSync(SHEET_DIR, { recursive: true });
+        fs.writeFileSync(path.join(SHEET_DIR, `${id}.json`), data);
+      } catch (e) { console.error('No se pudo guardar la ficha:', e); send(ws, { t: 'error', message: 'bad-sheet' }); return; }
+      delete cmd.data;
+    }
     if (cmd.t === 'imageRemove' && room.members.find((m) => m.id === id)?.role === 'dm') {
       try { fs.rmSync(path.join(IMG_DIR, `${cmd.id.replace(/[^a-z0-9]/g, '')}.jpg`), { force: true }); } catch { /* ya no está */ }
     }
@@ -225,7 +280,7 @@ function lanIpsList() { return Object.values(os.networkInterfaces()).flat().filt
 // En Docker las IP de dentro del contenedor no le sirven a nadie: DI_EN_DI_IP dice la IP del PC (o varias, separadas por comas)
 const IN_DOCKER = fs.existsSync('/.dockerenv');
 const FIXED_IPS = (process.env.DI_EN_DI_IP ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-const lanIps = () => (FIXED_IPS.length ? FIXED_IPS : IN_DOCKER ? [] : lanIpsList());
+const lanIps = () => (FIXED_IPS.length ? FIXED_IPS : IN_DOCKER || CLOUD ? [] : lanIpsList());
 
 // En Windows otro programa puede escuchar solo en 127.0.0.1 en el mismo puerto y «tapar» a este servidor
 // (el túnel de Tailscale va a 127.0.0.1). Antes de publicar comprobamos que quien responde somos nosotros.
@@ -271,15 +326,16 @@ server.on('listening', async () => {
     shadowed = true;
     console.log(`\n  ⚠️  En 127.0.0.1:${PORT} responde otro programa: no publico en Internet para no exponerlo. Abre el servidor con otro puerto (--port ${PORT + 100}).`);
   }
-  const dmUrl = `http://localhost:${PORT}/?dm=${room.dmKey}`;
+  const dmUrl = CLOUD ? `${PUBLIC_URL || 'https://<dirección del servicio>'}/dm?dm=${room.dmKey}` : `http://localhost:${PORT}/dm?dm=${room.dmKey}`;
   const line = '─'.repeat(64);
   console.log(`\n${line}\n  🎲  Servidor de partida de «Di en Di»  (puerto ${PORT})\n${line}`);
   console.log(`  Código de la partida:  ${room.code}`);
-  console.log(`  Pantalla del DM (solo en este PC, no la compartas):\n    ${dmUrl}`);
+  console.log(`  Pantalla del DM (${CLOUD ? 'no la compartas' : 'solo en este PC, no la compartas'}):\n    ${dmUrl}`);
   console.log(`  Clave del DM (para entrar como DM desde el móvil o la tablet): ${room.dmKey}`);
   console.log('\n  Jugadores en tu misma Wi-Fi: en la app, «Partida» → dirección:');
   for (const ip of lanIps()) console.log(`    http://${ip}:${PORT}`);
-  if (!lanIps().length && IN_DOCKER) console.log(`    http://<IP de este PC>:${PORT}   (en Docker: ponla en DI_EN_DI_IP para verla aquí)`);
+  if (CLOUD) console.log('    (en la nube no hay red local: usa la dirección pública del servicio)');
+  else if (!lanIps().length && IN_DOCKER) console.log(`    http://<IP de este PC>:${PORT}   (en Docker: ponla en DI_EN_DI_IP para verla aquí)`);
   console.log(`\n  Partida guardada en: ${DATA_FILE}`);
   console.log(`${line}\n  Deja esta ventana abierta mientras jugáis. Ctrl+C para cerrar.\n`);
   if (process.platform === 'win32' && !args.includes('--no-open')) exec(`start "" "${dmUrl}"`);
@@ -299,8 +355,13 @@ let closing = false;
 const shutdown = () => {
   if (closing) return;
   closing = true;
-  try { fs.writeFileSync(DATA_FILE, JSON.stringify(room)); } catch { /* sin acceso al disco */ }
-  void stopPublishing().finally(() => process.exit(0));
+  if (saveTimer) clearTimeout(saveTimer);
+  // Espera a que acabe la escritura en curso para que no pise a esta última
+  const flush = async () => {
+    while (writing) await new Promise((r) => setTimeout(r, 50));
+    try { fs.writeFileSync(DATA_FILE, JSON.stringify(room)); } catch { /* sin acceso al disco */ }
+  };
+  void flush().then(() => stopPublishing()).finally(() => process.exit(0));
   setTimeout(() => process.exit(0), 9000);
 };
 process.on('SIGINT', shutdown);

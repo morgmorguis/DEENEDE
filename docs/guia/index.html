@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/icono.png" alt="Icono de Di en Di: un d20 carmesí sobre un escudo con dos espadas, bajo la luna roja" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.24.0</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.25.0</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -167,7 +167,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a class="sub" href="#partida-jugar">Jugar como jugador</a></li>
       <li><a class="sub" href="#partida-turnos">Turnos y acciones</a></li>
       <li><a class="sub" href="#partida-dm">Pantalla del DM</a></li>
-      <li><a class="sub" href="#partida-encuentros">Encuentros preparados</a></li>
+      <li><a class="sub" href="#partida-encuentros">Preparar y lanzar el combate</a></li>
       <li><a class="sub" href="#partida-resumen">Registro y resumen narrativo</a></li>
       <li><a class="sub" href="#partida-campana">Copia de la campaña (DM)</a></li>
       <li><a class="sub" href="#partida-internet">Jugar a distancia</a></li>
@@ -437,14 +437,16 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
         <li>Abre <code>Di en Di - Servidor.exe</code> (del artefacto <code>di-en-di-windows</code>). Si Windows avisa: «Más información» → «Ejecutar de todas formas»; si el firewall pregunta, permite las redes privadas.</li>
         <li>Se abre tu pantalla de DM en el navegador. La ventana negra muestra el <b>código de la partida</b>, la <b>clave del DM</b> y la dirección para la Wi-Fi de casa (<code>http://192.168.x.x:3000</code>).</li>
         <li><b>A distancia</b> (sin Cloudflare, que en España se bloquea durante el fútbol): instala <a href="https://tailscale.com/download/windows">Tailscale</a>, ejecuta <code>tailscale funnel 3000</code> y comparte la dirección <code>https://….ts.net</code>. Los jugadores no instalan nada.</li>
-        <li>Para dirigir desde el móvil o la tablet: pestaña <b>Partida</b> → dirección → «Soy el DM» → clave del DM.</li>
+        <li><b>Hay dos enlaces:</b> el de los jugadores (<code>…/?join=CÓDIGO</code>) y el tuyo de DM (<code>…/dm</code>), que solo pide la clave del DM y la recuerda. Para dirigir desde el móvil o la tablet abre tu enlace de DM (está en <b>Partida → 📨 Invitar jugadores → 🔑 Tu enlace de DM</b>) o, en la app, Partida → dirección → «¿Eres el DM?» → clave.</li>
       </ol>
 
       <h3 id="partida-jugar">Jugar como jugador</h3>
       <div class="split">
         <div>
-          <p>En <b>Partida</b> escribe la dirección y el código y pulsa <b>Unirse</b>. Cuando el DM empieza un combate salta «¡COMBATE!» y llega la <b>preparación</b>: pones tu iniciativa y tu vida, ves las de tus aliados y pulsas <b>✅ ¡Listo!</b> (se puede quitar si te equivocas). Cuando todos y el DM están listos, empiezan los turnos con «¡A LUCHAR!».</p>
-          <p>De los monstruos ves «?» y su estado: <span class="badge">Ileso</span> <span class="badge">Herido</span> <span class="badge blood">🩸 Ensangrentado</span> <span class="badge">💀 Derrotado</span>. Si un monstruo te pega, el daño se aplica en tu ficha con tus resistencias y temporales.</p>
+          <p>En <b>Partida</b> escribe la dirección y el código y pulsa <b>Unirse</b> (o abre el enlace que te pase el DM). Puedes seguir usando la app con normalidad: mientras el DM prepara un combate no ves nada.</p>
+          <p>Cuando el DM lo <b>lanza</b> te sale un aviso pequeño, <b>⚔️ ¡Comienza un encuentro!</b> con su nombre («Taberna Malandra»). Al pulsar <b>✅ Aceptar</b> salta «¡COMBATE!» y entras en la <b>antesala</b>: ves cómo llegas (tu vida, CA, velocidad, condiciones, equipo, espacios y recursos; esto solo lo ves tú), pones o tiras tu iniciativa y pulsas <b>✅ ¡Listo!</b> (se puede quitar). De tus compañeros solo ves si están listos. Cuando lo están todos, empiezan los turnos con «¡A LUCHAR!».</p>
+          <p>En el combate todos aparecéis en burbujas con vuestra iniciativa. De tus compañeros ves su estado (herido, ensangrentado…) y no su vida, salvo que el DM la muestre. De los enemigos solo sabes <b>qué son</b> (y si han caído). Cuando te toca, arriba sale el cartel <b>⚔️ ¡Tu turno!</b> (y el móvil vibra). Si un monstruo te pega, el daño se aplica en tu ficha con tus resistencias y temporales.</p>
+          <p>Cuando el DM termina el combate vuelves solo a tu ficha y te sale el <b>informe del combate</b> ordenado por rondas, con el daño y las bajas de cada uno: <b>📜 Guardar en mi diario</b>, <b>⬇️ Descargar</b> o <b>📋 Copiar</b>. Sigues conectado a la partida para el siguiente combate, las imágenes o lo que te dé el DM.</p>
           <p>Si alguien se equivoca, el DM puede <b>Deshacer último turno</b>: revierte sus daños y curaciones, también en las fichas. Todo queda en el <b>registro del combate</b>.</p>
         </div>
         <div class="pair">
@@ -480,8 +482,10 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <figure><img class="shot" src="img/49-dm-combate.jpg" alt="Pestaña Combate del DM: orden con colores, jefe goblin oculto, registro y panel Turno de Jefe goblin" width="1200" height="806" loading="lazy"><figcaption>La pestaña Combate del DM.</figcaption></figure>
       <figure><img class="shot" src="img/21-personajes-dm.jpg" alt="Pestaña Personajes del DM en la tablet con Capitán Vex y Hermana Lira" width="1200" height="1610" loading="lazy" style="width: min(100%, 520px)"><figcaption>Personajes del DM en la tablet.</figcaption></figure>
 
-      <h3 id="partida-encuentros">Encuentros preparados</h3>
-      <p>En <b>Personajes → Encuentros preparados</b> el DM prepara los combates antes de la sesión: <b>＋ Nuevo</b>, un nombre y notas, y la lista de enemigos (del bestiario, de tus personajes o a mano) con cuántos, vida, CA, iniciativa, color y si empiezan <b>🙈 ocultos</b>. Durante la partida, <b>▶ Cargar</b> los mete en el combate con su iniciativa tirada y numerados («Goblin 1», «Goblin 2»…). Los ocultos esperan a que los reveles tocándolos.</p>
+      <h3 id="partida-encuentros">Preparar y lanzar el combate</h3>
+      <p>En <b>Personajes → Encuentros y lugares</b> el DM guarda listas con los enemigos posibles de cada sitio («Taberna Malandra»): <b>＋ Nuevo</b>, o <b>📥 Importar Excel / CSV</b> (un .xlsx con una pestaña por lugar, o una columna «Lugar»), o <b>📋 Pegar desde Excel</b> las celdas copiadas. <b>📄 Plantilla</b> descarga un ejemplo con las columnas: Lugar, Nombre, Tipo (Enemigo o PNJ), Cantidad, PG, CA, Iniciativa, VD, Oculto, Color, Oro, Plata, Cobre, Objetos («Garrote; 2x Daga») y Notas. Si el nombre es de un monstruo del bestiario, lo que falte se rellena solo. <b>📤 Exportar a Excel</b> hace el camino contrario. Cada enemigo puede llevar <b>💰 monedas y objetos</b>.</p>
+      <p>Para jugar, <b>🛠️ Preparar combate</b> (desde el lugar o desde la pestaña ⚔️ Combate): los jugadores aún no ven nada. Pones el nombre que verán, eliges de la lista <b>cuántos de cada uno</b> entran (no hace falta sacarlos todos), añades del bestiario, tocas a cualquiera para ajustarlo (vida, CA, color, oculto, notas y lo que lleva encima) y, cuando está listo, <b>🚀 Lanzar combate</b>. A los jugadores les llega el aviso y la antesala; el DM ve quién ha aceptado (👀) y quién está listo (✅), y puede <b>⏩ Empezar ya</b>. Los ocultos siguen ocultos hasta que los reveles. Durante el combate, <b>⤵️ Refuerzos</b> mete a todos los de un lugar.</p>
+      <p>Al <b>🏁 Terminar</b>, lo que llevaban los enemigos pasa a <b>💰 Botín pendiente de repartir</b>: eliges qué botines y entre quién, ves lo que le toca a cada uno (monedas a partes iguales, objetos por turnos) y <b>🎁 Repartir</b> se lo manda a sus fichas.</p>
       <figure><img class="shot" src="img/50-encuentros.jpg" alt="Encuentros preparados: Emboscada en el puente con 2 goblins y un jefe oculto, y Copia de la campaña" width="1200" height="656" loading="lazy"></figure>
 
       <h3 id="partida-resumen">Registro y resumen narrativo</h3>
@@ -494,6 +498,9 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
       <h3 id="partida-internet">Jugar a distancia (dirección fija)</h3>
       <p>Si tienes <b>Tailscale</b> instalado, el servidor publica la partida <b>solo al abrirse</b> en una dirección fija con HTTPS (<code>https://tu-pc.tuXXXX.ts.net</code>), sin Cloudflare y sin tocar el router. La red local sigue funcionando igual. En la pantalla del DM, <b>Partida → 📨 Invitar jugadores</b> muestra el enlace de Internet y el de la misma Wi-Fi, ya con el código, para copiarlos. Alternativa: <b>ngrok</b> con su dominio fijo gratuito. Todo se configura en <code>di-en-di-servidor.json</code> junto al .exe (detalles en <i>PUBLICAR.txt</i>). Si el puerto 3000 ya lo usa otro programa del PC, el servidor elige solo otro libre y publica ese.</p>
+
+      <h3 id="partida-dar">Dar oro y objetos (DM)</h3>
+      <p>En <b>💰 Tesoro</b> eliges <b>a quién</b>: uno, varios o <b>👥 Todos</b>. Con varios, decides si <b>🎁 Esto a cada uno</b> o <b>⚖️ Repartir entre ellos</b>, y ves antes lo que recibirá cada uno. En la pestaña <b>👥 Grupo</b>, el botón 🎁 de cada jugador abre Tesoro con él ya elegido. Las imágenes se comparten en <b>Partida → Imágenes para la mesa</b>.</p>
 
       <h3 id="partida-grupo">Grupo (DM)</h3>
       <p>La pestaña <b>👥 Grupo</b> del DM muestra siempre, dentro y fuera de combate, a cada jugador: vida (y temporales), CA, percepción pasiva, velocidad, oro, dados de golpe, espacios de conjuro, recursos de clase, condiciones, concentración, inspiración, agotamiento y objetos equipados o mágicos. Arriba, los totales del grupo: vida, oro y cuántos están a 0 PG. El oro y los objetos de cada jugador solo los ve el DM.</p>

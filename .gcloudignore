@@ -1,0 +1,9 @@
+# Lo que NO se sube a Cloud Build al desplegar en la nube (server/nube/desplegar.ps1)
+.gcloudignore
+.git
+#!include:.gitignore
+node_modules/
+android/
+salida-docker/
+scripts/arte/
+docs/arte/

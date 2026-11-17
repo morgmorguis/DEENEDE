@@ -1,0 +1,88 @@
+LA PARTIDA EN LA NUBE (GOOGLE CLOUD RUN, DENTRO DE TU PROYECTO DE FIREBASE)
+=========================================================================
+
+Con esto la partida ya no depende de tu PC: el servidor vive en Google, con una dirección corta fija
+https://ID-DEL-PROYECTO.web.app que funciona en el móvil, la tablet y el navegador.
+
+Dos direcciones:
+- La corta, https://ID-DEL-PROYECTO.web.app (Firebase Hosting). Es una puerta de entrada: el navegador
+  salta solo al servidor real y la app (desde la versión con la nube) lo averigua sola.
+- La del servidor real, https://di-en-di-XXXX-no.a.run.app (Cloud Run). Úsala en la app de
+  Android 0.24 o anterior, escrita entera con https://. El DM la ve en «Invitar jugadores».
+Es el mismo servidor de siempre: todo lo del modo DM funciona igual (combate, encuentros, imágenes,
+crónicas, entregas, copia de campaña…). La partida, las imágenes y las fichas sincronizadas se
+guardan en un depósito de Cloud Storage de tu proyecto.
+
+El servidor en tu PC («Di en Di - Servidor.exe») sigue funcionando igual: puedes usar uno u otro.
+
+
+1. LO QUE NECESITAS (UNA SOLA VEZ)
+----------------------------------
+a) Pasar el proyecto de Firebase al plan Blaze (pago por uso). Hace falta para Cloud Run.
+   En https://console.firebase.google.com → tu proyecto → abajo a la izquierda «Actualizar».
+   Con un grupo de amigos lo normal es no pagar nada (todo cabe en la cuota gratuita o se queda
+   en céntimos). Pon una alerta de presupuesto de 1 €: https://console.cloud.google.com/billing
+   → Presupuestos y alertas.
+b) Instalar Google Cloud CLI: https://cloud.google.com/sdk/docs/install (instalador de Windows).
+c) En una ventana nueva:   gcloud auth login
+d) El ID de tu proyecto: en Firebase → ⚙️ Configuración del proyecto → «ID del proyecto».
+
+
+2. DESPLEGAR (LA PRIMERA VEZ Y CADA VEZ QUE CAMBIE EL CÓDIGO)
+-------------------------------------------------------------
+Desde la carpeta del proyecto (DEENEDE), con los tests pasados (npm test):
+
+    powershell -ExecutionPolicy Bypass -File server\nube\desplegar.ps1 -Proyecto ID-DEL-PROYECTO
+
+La primera vez activa los servicios, crea el depósito «ID-DEL-PROYECTO-di-en-di-partida», compila
+en Google (no hace falta Docker), publica y pone la dirección corta (Firebase Hosting). Tarda unos minutos. Al final enseña:
+  - la dirección pública,
+  - el CÓDIGO de la partida (para los jugadores),
+  - la CLAVE del DM (no la compartas) y los enlaces directos.
+
+Para volver a ver los enlaces sin desplegar:
+
+    powershell -ExecutionPolicy Bypass -File server\nube\desplegar.ps1 -Proyecto ID-DEL-PROYECTO -Enlaces
+
+Región por defecto: Madrid (europe-southwest1). Para otra: -Region europe-west1
+
+
+3. JUGAR
+--------
+- DM: abre https://ID-DEL-PROYECTO.web.app/dm?dm=CLAVE en el navegador (enlace propio del DM; el de los jugadores es /?join=CÓDIGO), o en la app: Partida →
+  dirección ID-DEL-PROYECTO.web.app y la clave del DM.
+- Jugadores: https://ID-DEL-PROYECTO.web.app/?join=CÓDIGO, o en la app: Partida → dirección y código.
+- Para llevar tu campaña actual a la nube: en el servidor del PC, DM → Copia de la campaña →
+  Exportar; luego, conectado como DM a la nube, Importar ese archivo.
+
+
+4. SINCRONIZAR LAS FICHAS
+-------------------------
+En la pantalla Partida hay una tarjeta «☁️ Fichas en el servidor» (funciona igual en la nube y en
+el servidor del PC):
+- DM: «Sincronizar todas las fichas» pide a cada jugador conectado que suba su ficha completa
+  (los que no estén conectados la suben al volver). Se ve quién ya la ha subido (✅) y quién falta (⏳).
+  «Descargar todas» baja un archivo de copia con todas las fichas, que se abre en cualquier
+  dispositivo en Ajustes → Copia de seguridad.
+- Jugador: «Guardar mi ficha» la sube cuando quiera; «Recuperar la guardada» la trae de vuelta
+  (sustituye al mismo personaje en ese dispositivo).
+
+
+5. LO QUE CONVIENE SABER
+------------------------
+- Cuando nadie juega, el servidor se apaga solo (no gasta). La primera conexión después tarda
+  unos segundos en arrancar.
+- Google corta cada conexión al cabo de 1 hora: la app se reconecta sola en un par de segundos.
+- Solo hay UNA copia del servidor a la vez (la partida vive en memoria). No subas el límite
+  de instancias en la consola de Google.
+- Cualquiera con la dirección y el código puede entrar como jugador (como con Tailscale):
+  comparte el código solo con tu grupo.
+
+
+6. QUITARLO TODO
+----------------
+    gcloud run services delete di-en-di --region europe-southwest1
+    gcloud storage rm --recursive gs://ID-DEL-PROYECTO-di-en-di-partida
+    gcloud artifacts repositories delete di-en-di --location europe-southwest1
+    (la dirección corta se quita en la consola de Firebase → Hosting → «Inhabilitar sitio»)
+(Antes, si quieres conservar la campaña: Copia de la campaña → Exportar, y «Descargar todas» las fichas.)

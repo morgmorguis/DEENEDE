@@ -728,6 +728,7 @@ html[data-design='retro'] .nav-dot { border-radius: 0; }
 .party-members { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .member { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--card2); border: 1px solid var(--line); }
 .member.offline { opacity: .6; }
+.sheet-sync { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 2px; }
 .member .warn { color: var(--red); }
 .tiny { font-size: 11px; }
 .party-order { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -1274,3 +1275,44 @@ html[data-design='poster'] :is(.empty-combat h2, .lu-head h2) { font-size: 21px;
 html[data-design='poster'] .kill-total { font-size: 18px; font-weight: 700; }
 html[data-design='poster'] .fx-title b { font-weight: 900; letter-spacing: .06em; }
 .ico { width: 16px; height: 16px; image-rendering: pixelated; vertical-align: -3px; display: inline-block; }
+
+/* ---- Combate compartido: preparar, aviso, antesala, turno e informe ---- */
+.chip.on { background: var(--gold); color: var(--on-accent); border-color: var(--gold); font-weight: 600; }
+.party-order li.mine { box-shadow: inset 0 0 0 1px var(--blue); }
+.party-order li.active.mine { box-shadow: 0 0 0 2px var(--gold), inset 0 0 0 1px var(--blue); }
+.party-order.bubbles li { border-radius: 999px; padding: 6px 14px 6px 6px; }
+.party-order.bubbles .po-init { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); font-weight: 800; }
+.party-order.bubbles .po-extra, .party-order.bubbles .po-notes { grid-column: 2 / -1; }
+.prep-panel { border-color: var(--gold); }
+.prep-library { display: grid; gap: 6px; }
+.prep-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.prep-entries li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 10px; border-radius: 10px; background: var(--card2); border: 1px solid var(--line); border-left: 5px solid var(--red); }
+.prep-count { gap: 6px; align-items: center; }
+.prep-count b { min-width: 1.4em; text-align: center; }
+.prep-count .btn.small { min-height: 34px; padding: 4px 10px; }
+.launch-btn { font-size: 1.1rem; letter-spacing: .02em; }
+.lobby-title, .encounter-invite .ei-title { font-weight: 800; font-size: 1.15rem; color: var(--gold2); margin: 0 0 6px; }
+.lobby-me { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 8px 0; display: grid; gap: 6px; }
+.lobby-hp { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.lobby-big { font-size: 1.35rem; font-weight: 800; }
+.lobby-big small { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.lobby-init { align-items: flex-end; gap: 8px; }
+.lobby-init .btn { margin-bottom: 8px; }
+.invite-backdrop { align-items: center; z-index: 70; }
+.invite-modal { max-width: 360px; border-radius: 18px; margin: 16px; padding: 4px; border-color: var(--gold); }
+.encounter-invite { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 18px 16px; }
+.encounter-invite .ei-icon { font-size: 2.6rem; animation: ei-pulse 1.4s ease-in-out infinite; }
+.encounter-invite .btn { width: 100%; }
+@keyframes ei-pulse { 50% { transform: scale(1.12); } }
+.turn-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 65; display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px;
+  background: var(--gold); color: var(--on-accent); border: 2px solid var(--gold2); box-shadow: 0 6px 24px rgba(0, 0, 0, .5); font-size: 1.05rem; max-width: calc(100vw - 32px); animation: turn-in .35s ease-out; }
+@keyframes turn-in { from { transform: translate(-50%, -30px); opacity: 0; } }
+.combat-report { white-space: pre-wrap; font: .82rem/1.45 ui-monospace, Consolas, monospace; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; max-height: 50vh; overflow: auto; margin: 0 0 10px; }
+.loot-drops { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
+.loot-drops li { display: grid; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--card2); }
+.loot-preview { margin: 6px 0 10px; padding-left: 18px; }
+.carried summary { cursor: pointer; }
+.give-to { margin-bottom: 8px; }
+.dm-login { max-width: 480px; margin: 8vh auto 0; }
+.dm-option { margin: 4px 0 8px; }
+.center { text-align: center; }

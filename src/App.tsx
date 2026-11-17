@@ -11,7 +11,7 @@ import { Toast } from './components/common';
 import { armorClass } from './rules/calc';
 import { classById } from './rules/srd';
 import { InfoBubble } from './components/InfoBubble';
-import { DmCombatTab, PartyTab, TvView } from './components/Party';
+import { CombatReportModal, DmCombatTab, DmLogin, EncounterInvite, PartyTab, TurnBanner, TvView, isDmEntry } from './components/Party';
 import { DmRosterTab } from './components/DmRoster';
 import { TreasureTab } from './components/Treasure';
 import { DmGroupTab } from './components/DmGroup';
@@ -45,8 +45,16 @@ export default function App() {
     return () => window.removeEventListener('dnd-tab', go);
   }, []);
   const partyOnline = useParty((s) => s.status === 'online');
-  const sharedCombat = useParty((s) => !!s.view?.encounter.active);
+  // Combate lanzado (la preparación del DM aún no cuenta: los jugadores no la ven)
+  const sharedCombat = useParty((s) => !!s.view?.encounter.active && s.view.encounter.phase !== 'prep');
+  const preparing = useParty((s) => !!s.view?.encounter.active && s.view.encounter.phase === 'prep');
   const sharedPhase = useParty((s) => s.view?.encounter.phase);
+  const view = useParty((s) => s.view);
+  // Jugador con el combate lanzado que aún no ha aceptado el aviso
+  const needAccept = !!view && view.you.role === 'player' && sharedCombat
+    && view.encounter.order.some((x) => x.kind === 'pc' && x.ownerId === view.you.id)
+    && !view.encounter.accepted.includes(view.you.id) && !view.encounter.ready.includes(view.you.id);
+  const [endReport, setEndReport] = useState(false);
   const partyCode = useParty((s) => s.view?.code);
   const joinedAt = useParty((s) => s.joinedAt);
   const role = useParty((s) => s.role);
@@ -68,22 +76,31 @@ export default function App() {
   const viewerMode = useParty((s) => !!s.conn?.viewer);
   const play = useFx((s) => s.play);
 
-  // Transición «¡COMBATE!» cuando el DM empieza un combate compartido y «¡A LUCHAR!» cuando todos están listos
+  // El DM lanza el combate: a él le lleva a su pestaña; al jugador le llega el aviso (al aceptarlo, «¡COMBATE!»).
+  // «¡A LUCHAR!» cuando todos están listos. Al terminar, el jugador vuelve a su ficha con el informe del combate.
   const prev = useRef<{ active: boolean; phase?: string } | null>(null);
   useEffect(() => {
     const before = prev.current;
     prev.current = { active: sharedCombat, phase: sharedPhase };
     if (!before) return;
     if (sharedCombat && !before.active) {
-      play('combat', undefined, dmMode ? T('Prepara a los combatientes', 'Get the combatants ready') : T('Introduce tus datos y pulsa «Listo»', 'Enter your data and tap “Ready”'));
-      setTab(dmMode ? 'dmcombat' : 'party');
+      setEndReport(false);
+      if (dmMode) { play('combat', undefined, T('Esperando a que los jugadores acepten', 'Waiting for the players to accept')); setTab('dmcombat'); }
     } else if (!sharedCombat && before.active && !dmMode) {
       // Fin del combate compartido: recuperar munición y recoger armas arrojadizas
       useStore.getState().recoverConsumables();
-    } else if (sharedCombat && before.phase === 'setup' && sharedPhase === 'running') {
+      setTab('sheet');
+      setEndReport(true);
+    } else if (sharedCombat && before.phase === 'setup' && sharedPhase === 'running' && !needAccept) {
       play('combat', T('¡A LUCHAR!', 'FIGHT!'));
+      if (!dmMode) setTab('party');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedCombat, sharedPhase, play, dmMode]);
+  const accepted = () => {
+    play('combat', undefined, T('Revisa tu estado y pulsa «Listo»', 'Check your status and tap “Ready”'));
+    setTab('party');
+  };
   useEffect(() => {
     if (!avatarOn && tab === 'avatar') setTab('sheet');
     if (dmMode && (tab === 'sheet' || tab === 'avatar' || tab === 'combat' || tab === 'assistant')) setTab('party');
@@ -107,7 +124,7 @@ export default function App() {
   const live = sharedCombat ? 'combat' : partyOnline ? 'online' : undefined;
   const tabs: { id: Tab; icon: string; label: string; short?: string; dot?: string }[] = dmMode ? [
     { id: 'party', icon: 'party', label: T('Partida', 'Game') },
-    { id: 'dmcombat', icon: 'combat', label: T('Combate', 'Combat'), dot: sharedCombat ? 'combat' : undefined },
+    { id: 'dmcombat', icon: 'combat', label: T('Combate', 'Combat'), dot: sharedCombat ? 'combat' : preparing ? 'online' : undefined },
     { id: 'group', icon: 'group', label: T('Grupo', 'Party') },
     { id: 'roster', icon: 'roster', label: T('Personajes', 'Characters') },
     { id: 'treasure', icon: 'treasure', label: T('Tesoro', 'Treasure') },
@@ -124,6 +141,8 @@ export default function App() {
   ];
 
   if (viewerMode) return <div className="app" key={lang}><TvView /><TransitionFx /></div>;
+  // Enlace del DM (…/dm): entrada propia, sin ficha de jugador
+  if (isDmEntry() && !dmMode) return <div className="app" key={lang}><DmLogin /><ConfirmHost /><Toast /></div>;
 
   return (
     <div className={`app ${inCombat ? 'in-combat' : ''}`} key={lang}>
@@ -132,7 +151,7 @@ export default function App() {
           <div className="topbar-row dm-top">
             <b><img className="ico" src="iconos/party.png" alt="" /> DM</b>
             <span className="muted small grow">{T('Partida', 'Game')} {partyCode ?? '…'} · {partyOnline ? T('conectado', 'connected') : T('reconectando…', 'reconnecting…')}</span>
-            {sharedCombat && <button className="combat-badge" onClick={() => setTab('party')}><img className="ico" src="iconos/combat.png" alt="" /> {sharedPhase === 'setup' ? T('Preparando', 'Getting ready') : T('En combate', 'In combat')}</button>}
+            {(sharedCombat || preparing) && <button className="combat-badge" onClick={() => setTab('dmcombat')}><img className="ico" src="iconos/combat.png" alt="" /> {preparing ? T('Preparando', 'Preparing') : sharedPhase === 'setup' ? T('Antesala', 'Antechamber') : T('En combate', 'In combat')}</button>}
           </div>
         ) : (<>
         <div className="topbar-row">
@@ -180,6 +199,15 @@ export default function App() {
       <InfoBubble />
       <TransitionFx />
       <ImageNotifier />
+      <TurnBanner />
+      {needAccept && view && (
+        <div className="modal-backdrop invite-backdrop">
+          <div className="modal invite-modal" role="dialog" aria-label={T('¡Comienza un encuentro!', 'An encounter begins!')}>
+            <EncounterInvite view={view} onAccept={accepted} />
+          </div>
+        </div>
+      )}
+      {endReport && view && !dmMode && <CombatReportModal view={view} ended onClose={() => setEndReport(false)} />}
       <ConfirmHost />
 
       <nav className="bottomnav" style={{ ['--nav-cols' as string]: tabs.length }}>

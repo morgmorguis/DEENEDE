@@ -77,8 +77,15 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 
 ## Estado y notas que no se ven en el código
 
-- Versión **0.24.0** (16 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
+- Versión **0.25.0** (17 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
 - Turnos: el servidor solo acepta `act` en tu turno o como reacción (una por ronda); `nextTurn`, solo el DM o el dueño del turno.
+- Fases del combate compartido (`Encounter.phase`): `prep` (el DM prepara a solas; `viewFor` se lo oculta a los demás y no se anotan
+  las entradas en el registro), `setup` (lanzado con `launch`: aviso que el jugador acepta con `accept` y antesala con «Listo»; empieza
+  cuando están listos todos los jugadores conectados, el DM no cuenta) y `running`. `start` (apps antiguas) = preparar + lanzar.
+  Lo que llevan los enemigos (`Combatant.loot`, solo el DM) pasa a `room.loot` al terminar; el DM lo reparte con `give` y lo quita con `lootDone`.
+  Los jugadores solo ven de un monstruo su nombre y si ha caído (`state` 'unknown' o 'down'), salvo `showHp`.
+- Enlaces: jugadores `/?join=CÓDIGO`, DM `/dm?dm=CLAVE` (la app detecta la ruta `/dm` y muestra `DmLogin`; el servidor redirige `/dm/` a `/dm`).
+- Encuentros desde Excel/CSV: `src/party/encounterImport.ts` (lector de .xlsx propio con `DecompressionStream`, sin dependencias).
 - Puerto del servidor: busca uno libre desde el 3000 y comprueba con `/api/info?probe=` que responde él en 127.0.0.1
   (en el PC del DM una IA local escucha en 127.0.0.1:3000 y Windows no da error al compartir puerto). En Docker, `DI_EN_DI_IP`.
 - Imágenes del DM: en disco junto a la partida (`di-en-di-imagenes/`). Copia de campaña: `/api/export` y `/api/import` con `?dm=`.
@@ -87,4 +94,11 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
   Todo se genera con la IA local: `scripts/arte/` (guía en `docs/arte/LEEME.md`). Los pósteres SVG de `public/posters` ya solo son el fondo del retrato.
 - Iconos: barra inferior en `public/iconos` (32×32), icono de la app en `public/icon-*.png`, mipmaps de Android y `build/icons/*.ico`
   (todos con `scripts/arte/iconos_procesar.py`), aplicados a los `.exe` con resedit en la CI.
+- Servidor en la nube (rama `nube`, en prueba): el mismo `server/index.ts` en Google Cloud Run (etapa `nube` del Dockerfile),
+  con `/datos` montado desde un depósito de Cloud Storage. Despliegue con `server/nube/desplegar.ps1`; guía en `server/NUBE.txt`.
+  En Cloud Run (`K_SERVICE`) la dirección pública sale de la petición (o de `DI_EN_DI_URL`) y no hay red local. Una sola instancia.
+  Dirección corta `PROYECTO.web.app`: Firebase Hosting (`server/nube/hosting.mjs`, API REST con el token de gcloud) sirve `/servidor.json`
+  con la URL real y un `index.html` que redirige; Hosting no pasa WebSocket, por eso la app lo resuelve (`resolveServer` en `client.ts`).
+- Sincronizar fichas: el DM manda `syncSheets`; cada jugador sube su ficha completa (`sheetUpload`, archivo de copia) y el servidor
+  la guarda en `di-en-di-fichas/<id>.json` junto a la partida. `/api/sheet?token=` (la tuya) y `/api/sheets?dm=` (todas).
 - Ideas o tareas pendientes: apúntalas aquí.

@@ -3,6 +3,25 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.25.0 · 17 nov 2026 — Preparar y lanzar el combate, antesala y botín de los enemigos
+
+**Enlaces**
+- **Enlace propio del DM** (`…/dm`): solo pide la clave del DM y la recuerda. El de los jugadores sigue siendo `…/?join=CÓDIGO` y no da acceso a la pantalla del DM. El tuyo está en Partida → Invitar jugadores → 🔑 Tu enlace de DM.
+
+**El DM prepara el combate**
+- **🛠️ Preparar combate** a solas: los jugadores no ven nada hasta que pulsas **🚀 Lanzar combate**. Le pones nombre («Taberna Malandra»), eliges de tus listas cuántos de cada enemigo entran, añades del bestiario y ajustas a cualquiera.
+- **Encuentros y lugares**: listas con los enemigos posibles de cada sitio, **importadas de Excel** (.xlsx, una pestaña por lugar), de CSV o **pegadas** desde la hoja de cálculo, con plantilla de ejemplo y exportación a Excel.
+- Cada enemigo puede **llevar monedas y objetos**. Al terminar el combate pasan al **💰 botín pendiente**, que repartes entre los jugadores que elijas con vista previa.
+
+**Los jugadores**
+- Al lanzar el combate llega un **aviso pequeño, «¡Comienza un encuentro!»**, que hay que aceptar. Después, la **antesala**: tu estado (vida, CA, equipo, espacios, recursos; solo lo ves tú), tu iniciativa y **✅ ¡Listo!**. El combate empieza cuando están listos todos los jugadores (el DM ya no tiene que marcar «Listo»).
+- En el combate, **de los enemigos solo sabes qué son** y si han caído (el DM puede mostrar la vida de uno). De tus compañeros, su estado.
+- **Cartel «¡Tu turno!»** arriba (y vibración) cuando te toca, estés en la pestaña que estés.
+- Al terminar, **vuelves solo a tu ficha** con el **informe del combate** ordenado por rondas, con el daño y las bajas de cada uno: guardarlo en el diario, descargarlo o copiarlo. Sigues conectado a la partida.
+
+**Dar oro y objetos (DM)**
+- En Tesoro puedes elegir **varios jugadores o todos**, y dar **lo mismo a cada uno** o **repartirlo entre ellos**, viendo antes lo que recibe cada uno. Botón 🎁 en cada jugador de la pestaña Grupo.
+
 ## 0.24.0 · 16 nov 2026 — Fondos nuevos, ocho paletas, fondos de batalla e iconos
 
 **Aspecto**

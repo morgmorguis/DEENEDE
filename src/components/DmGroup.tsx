@@ -4,6 +4,7 @@ import { useParty } from '../party/client';
 import type { Member } from '../party/protocol';
 import { Section } from './common';
 import { T, locale } from '../i18n';
+import { setGiveFocus } from './Treasure';
 
 const gp = (n: number) => `${n.toLocaleString(locale(), { maximumFractionDigits: 1 })} ${T('po', 'gp')}`;
 
@@ -29,6 +30,7 @@ function PlayerCard({ m }: { m: Member }) {
       <div className="row">
         <b className="grow">{m.online ? '🟢' : '⚪'} {s.name}</b>
         <span className="small muted">{s.species} {s.className} {s.level}</span>
+        <button className="btn small" title={T('Dar monedas u objetos', 'Give coins or items')} onClick={() => { setGiveFocus(m.id); window.dispatchEvent(new CustomEvent('dnd-tab', { detail: 'treasure' })); }}>🎁</button>
       </div>
       {s.name !== m.name && <span className="tiny muted">{m.name}</span>}
       <div className="group-hp">

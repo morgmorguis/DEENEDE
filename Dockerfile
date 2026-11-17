@@ -10,6 +10,8 @@
 #
 #   3) Solo una de las dos plataformas: --target apk  o  --target windows (con --output).
 #
+#   4) Servidor en Google Cloud Run (etapa «nube»): lo compila Cloud Build con server/nube/desplegar.ps1.
+#
 # Para saltar los tests al compilar: --build-arg TESTS=0
 
 ARG NODE_IMAGE=node:22-bookworm-slim
@@ -79,3 +81,9 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/info').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 # Sin publicar en Internet desde el contenedor (no hay Tailscale ni ngrok dentro): usa el puerto publicado por Docker
 CMD ["node", "server/build/server.cjs", "--no-open", "--no-publish", "--data", "/datos/partida.json"]
+
+# ---------- Servidor en Google Cloud Run (server/nube/desplegar.ps1) ----------
+# Igual que «servidor», pero como root: /datos es un depósito de Cloud Storage montado por Cloud Run
+# y sus archivos son de root. docker compose usa la etapa «servidor» (target en docker-compose.yml).
+FROM servidor AS nube
+USER root

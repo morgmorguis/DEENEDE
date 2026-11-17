@@ -3,7 +3,7 @@
 // monstruos ocultos, vida exacta de monstruos ni notas del DM).
 import type { ItemMods } from '../rules/itemTypes';
 import type {
-  Combatant, CombatantView, Command, Encounter, Chronicle, Gift, HpState, PreparedEncounter, RoomSettings, SharedImage, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
+  CarriedLoot, Combatant, CombatantView, Command, Encounter, EncounterEntry, Chronicle, Gift, HpState, LootDrop, PreparedEncounter, RoomSettings, SharedImage, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
 import { COMBAT_SCENES, pickCombatScene } from './protocol';
 
@@ -31,6 +31,10 @@ export interface Room {
   chronicles: Chronicle[];
   /** Encuentros preparados del DM */
   encounters: PreparedEncounter[];
+  /** Cuándo pidió el DM sincronizar las fichas */
+  syncRequest?: number;
+  /** Botín de los combates terminados que el DM aún no ha repartido */
+  loot: LootDrop[];
 }
 
 export interface Effect { to: string; ops: SheetOp[] }
@@ -75,9 +79,18 @@ export function cleanMods(m: unknown): ItemMods | undefined {
 
 /** Limpia lo que manda el DM: monedas enteras y positivas, objetos con nombre y campos acotados */
 export function cleanGift(cmd: Extract<Command, { t: 'give' }>): Pick<Gift, 'coins' | 'items' | 'note'> | null {
+  const clean = cleanLoot(cmd);
+  if (!clean) return null;
+  const note = String(cmd.note ?? '').trim().slice(0, 500);
+  return { ...clean, ...(note ? { note } : {}) };
+}
+
+/** Monedas y objetos limpios (null si no hay nada) */
+export function cleanLoot(x: CarriedLoot | undefined | null): CarriedLoot | null {
+  if (!x || typeof x !== 'object') return null;
   const coins: Gift['coins'] = {};
-  for (const k of COIN_KEYS) { const v = num(cmd.coins?.[k], 10_000_000); if (v) coins[k] = v; }
-  const items = (cmd.items ?? []).slice(0, 50).map((i) => ({
+  for (const k of COIN_KEYS) { const v = num(x.coins?.[k], 10_000_000); if (v) coins[k] = v; }
+  const items = (Array.isArray(x.items) ? x.items : []).slice(0, 50).map((i) => ({
     name: String(i.name ?? '').trim().slice(0, 120),
     rarity: RARITIES.includes(i.rarity) ? i.rarity : 'common',
     type: TYPES.includes(i.type) ? i.type : 'other',
@@ -90,15 +103,14 @@ export function cleanGift(cmd: Extract<Command, { t: 'give' }>): Pick<Gift, 'coi
     ...(cleanMods(i.mods) ? { mods: cleanMods(i.mods) } : {}),
   })).filter((i) => i.name);
   if (!Object.keys(coins).length && !items.length) return null;
-  const note = String(cmd.note ?? '').trim().slice(0, 500);
-  return { ...(Object.keys(coins).length ? { coins } : {}), ...(items.length ? { items } : {}), ...(note ? { note } : {}) };
+  return { ...(Object.keys(coins).length ? { coins } : {}), ...(items.length ? { items } : {}) };
 }
 
 export const rid = (n = 8) => Array.from({ length: n }, () => 'abcdefghijkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 32)]).join('');
 const code6 = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 
 export function createRoom(): Room {
-  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [], settings: { showPartyHp: false }, images: [], chronicles: [], encounters: [] };
+  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [], settings: { showPartyHp: false }, images: [], chronicles: [], encounters: [], loot: [] };
 }
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -112,17 +124,19 @@ export function normalizeRoom(room: Room): Room {
   r.images ??= [];
   r.chronicles ??= [];
   r.encounters ??= [];
+  r.loot ??= [];
   r.settings = { ...{ showPartyHp: false }, ...(r.settings ?? {}) };
   r.encounter.phase ??= 'running';
   r.encounter.ready ??= [];
+  r.encounter.accepted ??= [];
   return r;
 }
 const phaseOf = (e: Encounter): Phase => e.phase ?? 'running';
 
-/** Quién tiene que pulsar «Listo»: el DM y los jugadores conectados con personaje en el combate */
+/** Quién tiene que pulsar «Listo»: los jugadores conectados con personaje en el combate (el DM ya lo lanzó) */
 export function neededReady(r: Room): string[] {
   const pcs = new Set(r.encounter.order.filter((c) => c.kind === 'pc' && c.ownerId).map((c) => c.ownerId!));
-  return r.members.filter((m) => m.online && (m.role === 'dm' || pcs.has(m.id))).map((m) => m.id);
+  return r.members.filter((m) => m.online && m.role === 'player' && pcs.has(m.id)).map((m) => m.id);
 }
 
 /** Empieza los turnos: orden por iniciativa y primer turno */
@@ -131,6 +145,8 @@ function begin(r: Room) {
   e.phase = 'running';
   e.ready = [];
   e.begun = false;
+  // Los monstruos sin iniciativa la tiran ahora
+  for (const c of e.order) if (c.kind !== 'pc' && c.initiative == null) c.initiative = d20() + (c.initBonus ?? 0);
   e.turn = 0;
   e.round = 1;
   sortOrder(e);
@@ -145,7 +161,7 @@ function checkBegin(r: Room) {
   if (!e.active || phaseOf(e) !== 'setup') return;
   const need = neededReady(r);
   const ready = e.ready ?? [];
-  if (need.some((id) => r.members.find((m) => m.id === id)?.role === 'player') && need.every((id) => ready.includes(id))) begin(r);
+  if (need.length && need.every((id) => ready.includes(id))) begin(r);
 }
 
 export function hpState(c: Pick<Combatant, 'hp' | 'hpMax'>): HpState {
@@ -191,6 +207,12 @@ function pushLog(r: Room, ev: Omit<LogEvent, 'id' | 'at' | 'round'>) {
   if (r.log.length > MAX_LOG) r.log.splice(0, r.log.length - MAX_LOG);
 }
 
+/** «Entra en el combate» (durante la preparación no se anota: se anota al lanzarlo) */
+function logAdd(r: Room, c: Combatant) {
+  if (r.encounter.active && phaseOf(r.encounter) === 'prep') return;
+  pushLog(r, { kind: 'add', targetId: c.id, target: c.name, ...(c.hidden ? { secret: true } : {}) });
+}
+
 const describeHp = (c: Combatant) => (c.hpMax != null && c.hp != null ? `${c.hp}/${c.hpMax}${c.temp ? ` +${c.temp}` : ''}` : c.hp != null ? `${c.hp}` : '?');
 
 function applyHp(c: Combatant, kind: 'hit' | 'heal' | 'hurt', amount: number) {
@@ -231,7 +253,40 @@ function newCombatant(p: Partial<Combatant>): Combatant {
     conditions: p.conditions ?? [],
     counters: p.counters ?? [],
     ...(p.color ? { color: p.color } : {}),
+    ...(cleanLoot(p.loot) ? { loot: cleanLoot(p.loot)! } : {}),
   };
+}
+
+/** Nombres numerados que siguen a los que ya hay («Matón 3», «Matón 4»…) */
+function numberedNames(order: Combatant[], name: string, n: number): string[] {
+  const same = (c: Combatant) => c.name === name || (c.name.startsWith(`${name} `) && /^\d+$/.test(c.name.slice(name.length + 1)));
+  const taken = order.filter(same).map((c) => (c.name === name ? 1 : Number(c.name.slice(name.length + 1))));
+  if (n === 1 && !taken.length) return [name];
+  // Si ya había uno sin número, pasa a ser el 1
+  for (const c of order) if (c.name === name) c.name = `${name} 1`;
+  const start = taken.length ? Math.max(...taken) + 1 : 1;
+  return Array.from({ length: n }, (_, i) => `${name} ${start + i}`);
+}
+
+/** Criaturas de una entrada de encuentro */
+function fromEntry(order: Combatant[], x: EncounterEntry, count: number, hidden: boolean): Combatant[] {
+  return numberedNames(order, x.name, count).map((name) => newCombatant({
+    name, kind: x.kind, hpMax: x.hpMax, hp: x.hpMax, ac: x.ac, initBonus: x.initBonus,
+    initiative: d20() + x.initBonus, hidden, showHp: x.kind === 'npc', notes: x.notes ?? '', monster: x.monster, cr: x.cr, color: x.color, loot: x.loot,
+  }));
+}
+
+/** Lanza el combate: entran los personajes de los jugadores y les llega el aviso */
+function launch(r: Room) {
+  const e = r.encounter;
+  const keep = e.order.filter((c) => c.kind !== 'pc');
+  const pcs = r.members.filter((m) => m.role === 'player' && m.summary).map((m) => ({ ...pcFrom(m, e.order.find((c) => c.ownerId === m.id)), initiative: null }));
+  r.encounter = { active: true, phase: 'setup', ready: [], accepted: [], round: 1, turn: 0, begun: false, scene: pickCombatScene(e.scene), ...(e.title ? { title: e.title } : {}), order: [...pcs, ...keep] };
+  pushLog(r, { kind: 'start', ...(e.title ? { text: e.title } : {}) });
+  // Los enemigos preparados entran ahora en el registro (los ocultos, en secreto)
+  for (const c of keep) pushLog(r, { kind: 'add', targetId: c.id, target: c.name, ...(c.hidden ? { secret: true } : {}) });
+  r.snapshots = [snap(r)];
+  r.acted = false;
 }
 
 /** Personaje jugador a partir del resumen de su ficha */
@@ -269,8 +324,8 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       if (!me.name || me.name === 'Jugador') me.name = cmd.summary.name;
       const i = e.order.findIndex((c) => c.kind === 'pc' && c.ownerId === me.id);
       if (i >= 0) e.order[i] = pcFrom(me, e.order[i]);
-      // Quien llega durante la preparación entra en el combate
-      else if (e.active && phaseOf(e) === 'setup' && me.role === 'player') e.order.push(pcFrom(me));
+      // Quien llega con el combate lanzado (antesala o en marcha) entra en él
+      else if (e.active && phaseOf(e) !== 'prep' && me.role === 'player') e.order.push({ ...pcFrom(me), initiative: null });
       return { room: r, effects };
     }
 
@@ -291,7 +346,15 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const set = new Set(e.ready ?? []);
       if (cmd.value) set.add(me.id); else set.delete(me.id);
       e.ready = [...set];
+      if (cmd.value && !dm && !(e.accepted ?? []).includes(me.id)) e.accepted = [...(e.accepted ?? []), me.id];
       checkBegin(r);
+      return { room: r, effects };
+    }
+
+    case 'accept': {
+      if (!e.active || phaseOf(e) === 'prep') return { room, effects: [], error: 'no-combat' };
+      if (me.role !== 'player') return deny();
+      if (!(e.accepted ?? []).includes(me.id)) e.accepted = [...(e.accepted ?? []), me.id];
       return { room: r, effects };
     }
 
@@ -412,17 +475,55 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
     }
   }
 
+  if (cmd.t === 'sheetUpload') {
+    // El archivo lo guarda el servidor; aquí solo se apunta cuándo
+    if (me.role !== 'player') return deny();
+    me.sheetAt = Date.now();
+    return { room: r, effects };
+  }
+
   // ---- Comandos del DM ----
   if (!dm) return deny();
   switch (cmd.t) {
+    case 'syncSheets': {
+      r.syncRequest = Date.now();
+      return { room: r, effects };
+    }
     case 'start': {
-      // Entran los personajes de los jugadores; el resto lo añade el DM
-      const keep = e.order.filter((c) => c.kind !== 'pc');
-      const pcs = r.members.filter((m) => m.role === 'player' && m.summary).map((m) => pcFrom(m, e.order.find((c) => c.ownerId === m.id)));
-      r.encounter = { active: true, phase: 'setup', ready: [], round: 1, turn: 0, begun: false, scene: pickCombatScene(e.scene), order: [...pcs.map((c) => ({ ...c, initiative: null })), ...keep] };
-      pushLog(r, { kind: 'start' });
-      r.snapshots = [snap(r)];
-      r.acted = false;
+      // Apps antiguas: lanza directamente (entran los jugadores; el resto lo añade el DM)
+      if (e.active && phaseOf(e) !== 'prep') return { room, effects: [], error: 'combat-active' };
+      launch(r);
+      return { room: r, effects };
+    }
+    case 'prepare': {
+      if (e.active) return { room, effects: [], error: 'combat-active' };
+      const title = String(cmd.title ?? '').trim().slice(0, 80);
+      // Los aliados que ya estaban preparados se quedan
+      r.encounter = { active: true, phase: 'prep', ready: [], accepted: [], round: 1, turn: 0, begun: false, scene: e.scene, ...(title ? { title } : {}), order: e.order.filter((c) => c.kind !== 'pc') };
+      return { room: r, effects };
+    }
+    case 'encounterTitle': {
+      const title = String(cmd.title ?? '').trim().slice(0, 80);
+      if (title) e.title = title; else delete e.title;
+      return { room: r, effects };
+    }
+    case 'launch': {
+      if (!e.active || phaseOf(e) !== 'prep') return { room, effects: [], error: 'not-prep' };
+      launch(r);
+      return { room: r, effects };
+    }
+    case 'entryToCombat': {
+      const enc = r.encounters.find((x) => x.id === cmd.encounterId);
+      const x = enc?.entries.find((y) => y.id === cmd.entryId);
+      if (!x) return deny();
+      const n = Math.max(1, Math.min(20, Math.round(cmd.count) || 1));
+      for (const c of fromEntry(e.order, x, n, cmd.hidden ?? x.hidden)) { e.order.push(c); logAdd(r, c); }
+      if (!e.begun) { sortOrder(e); r.snapshots = [snap(r)]; }
+      return { room: r, effects };
+    }
+    case 'lootDone': {
+      const ids = new Set(cmd.ids);
+      r.loot = r.loot.filter((x) => !ids.has(x.id));
       return { room: r, effects };
     }
     case 'begin': {
@@ -496,7 +597,12 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const enc = cmd.encounter;
       const clean: PreparedEncounter = {
         id: enc.id || rid(), name: String(enc.name ?? '').trim().slice(0, 80) || 'Encuentro', notes: String(enc.notes ?? '').slice(0, 2000),
-        entries: (enc.entries ?? []).slice(0, 40).map((x) => ({ ...x, id: x.id || rid(), name: String(x.name ?? '').trim().slice(0, 60) || 'Enemigo', count: Math.max(1, Math.min(20, Math.round(x.count) || 1)), hidden: !!x.hidden, initBonus: Math.round(Number(x.initBonus) || 0) })),
+        entries: (enc.entries ?? []).slice(0, 80).map((x) => {
+          const loot = cleanLoot(x.loot);
+          const { loot: _l, ...rest } = x;
+          void _l;
+          return { ...rest, id: x.id || rid(), name: String(x.name ?? '').trim().slice(0, 60) || 'Enemigo', count: Math.max(1, Math.min(20, Math.round(x.count) || 1)), hidden: !!x.hidden, initBonus: Math.round(Number(x.initBonus) || 0), ...(loot ? { loot } : {}) };
+        }),
       };
       const i = r.encounters.findIndex((x) => x.id === clean.id);
       if (i >= 0) r.encounters[i] = clean; else r.encounters.push(clean);
@@ -510,14 +616,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const enc = r.encounters.find((x) => x.id === cmd.id);
       if (!enc) return deny();
       for (const x of enc.entries) {
-        for (let i = 1; i <= x.count; i++) {
-          const c = newCombatant({
-            name: x.count > 1 ? `${x.name} ${i}` : x.name, kind: x.kind, hpMax: x.hpMax, hp: x.hpMax, ac: x.ac, initBonus: x.initBonus,
-            initiative: d20() + x.initBonus, hidden: x.hidden, showHp: x.kind === 'npc', notes: x.notes ?? '', monster: x.monster, cr: x.cr, color: x.color,
-          });
-          e.order.push(c);
-          pushLog(r, { kind: 'add', targetId: c.id, target: c.name, ...(c.hidden ? { secret: true } : {}) });
-        }
+        for (const c of fromEntry(e.order, x, x.count, x.hidden)) { e.order.push(c); logAdd(r, c); }
       }
       if (!e.begun) { sortOrder(e); r.snapshots = [snap(r)]; }
       return { room: r, effects };
@@ -526,24 +625,37 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const entry = r.roster.find((x) => x.id === cmd.id);
       if (!entry) return deny();
       const n = Math.max(1, Math.min(20, cmd.count));
+      const names = numberedNames(e.order, entry.name, n);
       for (let i = 1; i <= n; i++) {
         const c = newCombatant({
-          name: n > 1 ? `${entry.name} ${i}` : entry.name, kind: entry.kind, hpMax: entry.hpMax, hp: entry.hpMax, ac: entry.ac,
+          name: names[i - 1], kind: entry.kind, hpMax: entry.hpMax, hp: entry.hpMax, ac: entry.ac,
           initBonus: entry.initBonus, initiative: d20() + entry.initBonus, hidden: cmd.hidden, showHp: entry.kind === 'npc', monster: entry.monster, color: entry.color,
           notes: [entry.notes, entry.attacks && `⚔️ ${entry.attacks}`, entry.equipment && `🎒 ${entry.equipment}`].filter(Boolean).join('\n'),
           cr: entry.level.match(/(?:VD|CR)\s*([\d/]+)/i)?.[1],
         });
         e.order.push(c);
-        pushLog(r, { kind: 'add', targetId: c.id, target: c.name, ...(c.hidden ? { secret: true } : {}) });
+        logAdd(r, c);
       }
       if (!e.begun) r.snapshots = [snap(r)];
       return { room: r, effects };
     }
     case 'end': {
+      const wasPrep = e.active && phaseOf(e) === 'prep';
+      const wasActive = e.active;
       e.active = false;
       e.phase = 'running';
       e.ready = [];
-      pushLog(r, { kind: 'end' });
+      e.accepted = [];
+      if (wasActive && !wasPrep) {
+        pushLog(r, { kind: 'end' });
+        // Lo que llevaban los enemigos queda como botín para que el DM lo reparta
+        for (const c of e.order) {
+          if (c.kind !== 'monster' || !c.loot) continue;
+          r.loot.push({ id: rid(10), at: Date.now(), from: c.name, defeated: c.hp === 0, ...(e.title ? { combat: e.title } : {}), ...c.loot });
+        }
+        if (r.loot.length > 300) r.loot.splice(0, r.loot.length - 300);
+      }
+      delete e.title;
       // Los monstruos se quitan; los PNJ aliados se quedan para el próximo combate
       e.order = e.order.filter((c) => c.kind !== 'monster');
       e.turn = 0;
@@ -556,7 +668,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       for (const p of cmd.combatants) {
         const c = newCombatant(p);
         e.order.push(c);
-        pushLog(r, { kind: 'add', targetId: c.id, target: c.name, ...(c.hidden ? { secret: true } : {}) });
+        logAdd(r, c);
       }
       if (!e.begun) r.snapshots = [snap(r)];
       return { room: r, effects };
@@ -566,7 +678,8 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       if (!c) return deny();
       const wasHidden = c.hidden;
       Object.assign(c, cmd.patch, { id: c.id });
-      if (wasHidden && !c.hidden) pushLog(r, { kind: 'reveal', targetId: c.id, target: c.name });
+      if ('loot' in cmd.patch) { const l = cleanLoot(cmd.patch.loot); if (l) c.loot = l; else delete c.loot; }
+      if (wasHidden && !c.hidden && phaseOf(e) !== 'prep') pushLog(r, { kind: 'reveal', targetId: c.id, target: c.name });
       if (c.kind === 'pc' && c.ownerId && ('hp' in cmd.patch || 'temp' in cmd.patch) && c.hp != null) effects.push({ to: c.ownerId, ops: [{ op: 'setHp', hp: c.hp, temp: c.temp }] });
       if (!e.begun) r.snapshots = [snap(r)];
       return { room: r, effects };
@@ -637,18 +750,22 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
   if (!me) return null;
   const dm = me.role === 'dm';
   const e = room.encounter;
-  const cur = current(e);
+  // Mientras el DM prepara el combate, para los demás no hay combate
+  const prep = e.active && phaseOf(e) === 'prep';
+  const cur = prep ? undefined : current(e);
   const hiddenIds = secretIds(room.log, e.order);
   const order: CombatantView[] = e.order
-    .filter((c) => dm || !c.hidden)
+    .filter((c) => dm || (!c.hidden && !prep))
     .map((c) => {
       const state = hpState(c);
       if (dm) return { ...c, state };
-      const { notes: _notes, ...rest } = c;
-      void _notes;
+      const { notes: _notes, loot: _loot, ...rest } = c;
+      void _notes; void _loot;
       // Personajes de otros jugadores: su vida solo si el DM lo permite (si no, su estado: herido, ensangrentado…)
       const secret = (c.kind !== 'pc' && !c.showHp) || (c.kind === 'pc' && c.ownerId !== me.id && !room.settings.showPartyHp);
-      return { ...rest, hp: secret ? null : c.hp, hpMax: secret ? null : c.hpMax, temp: secret ? 0 : c.temp, ac: c.kind === 'pc' ? c.ac : null, initBonus: undefined, monster: undefined, cr: undefined, counters: undefined, state };
+      // De los enemigos solo se sabe qué son (y si han caído), salvo que el DM muestre su vida
+      const enemyState: HpState = c.kind === 'monster' && !c.showHp ? (state === 'down' ? 'down' : 'unknown') : state;
+      return { ...rest, hp: secret ? null : c.hp, hpMax: secret ? null : c.hpMax, temp: secret ? 0 : c.temp, ac: c.kind === 'pc' ? c.ac : null, initBonus: undefined, monster: undefined, cr: undefined, counters: undefined, state: enemyState };
     });
   const log = room.log
     .filter((ev) => dm || ((!ev.actorId || !hiddenIds.has(ev.actorId)) && (!ev.targetId || !hiddenIds.has(ev.targetId))))
@@ -678,19 +795,24 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
     roster: dm ? room.roster : [],
     encounters: dm ? room.encounters : [],
     encounter: {
-      active: e.active,
-      phase: phaseOf(e),
+      active: e.active && (dm || !prep),
+      phase: !dm && prep ? 'running' : phaseOf(e),
       ready: e.ready ?? [],
+      accepted: e.accepted ?? [],
+      title: e.active && (dm || !prep) ? e.title ?? null : null,
       needed: neededReady(room),
       round: e.round,
       begun: e.begun,
       order,
-      currentId: cur && (dm || !cur.hidden) ? cur.id : null,
-      hiddenTurn: !!cur && cur.hidden && !dm,
-      scene: e.active ? (e.scene ?? 0) % COMBAT_SCENES : null,
+      // En la antesala aún no es el turno de nadie
+      currentId: cur && phaseOf(e) === 'running' && (dm || !cur.hidden) ? cur.id : null,
+      hiddenTurn: !!cur && phaseOf(e) === 'running' && cur.hidden && !dm,
+      scene: e.active && !prep ? (e.scene ?? 0) % COMBAT_SCENES : null,
     },
+    loot: dm ? room.loot : [],
     log,
     gifts: dm ? room.gifts : me.role === 'player' ? room.gifts.filter((g) => g.toId === me.id || g.fromId === me.id) : [],
+    syncRequest: room.syncRequest ?? null,
     canUndo: !!target && (dm || owner === me.id),
     canEndTurn: e.active && phaseOf(e) === 'running' && !!cur && (dm || cur.ownerId === me.id),
   };

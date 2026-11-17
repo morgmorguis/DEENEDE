@@ -49,11 +49,12 @@ describe('partida compartida', () => {
     }
   });
 
-  it('los jugadores no ven monstruos ocultos ni la vida exacta, pero sí su estado', () => {
+  it('los jugadores no ven monstruos ocultos ni su vida ni su estado (solo si caen)', () => {
     const s = setup();
     s.run(s.dm, { t: 'start' });
-    s.run(s.dm, { t: 'add', combatants: [{ name: 'Goblin', kind: 'monster', hpMax: 10, ac: 15, notes: 'huye a 3 PG' }, { name: 'Asesino', kind: 'monster', hpMax: 40, hidden: true }] });
+    s.run(s.dm, { t: 'add', combatants: [{ name: 'Goblin', kind: 'monster', hpMax: 10, ac: 15, notes: 'huye a 3 PG', initiative: 1 }, { name: 'Asesino', kind: 'monster', hpMax: 40, hidden: true, initiative: 1 }] });
     const gob = s.room.encounter.order.find((c) => c.name === 'Goblin')!;
+    for (const c of s.room.encounter.order) if (c.kind === 'pc') s.run(s.dm, { t: 'setInitiative', id: c.id, value: c.name === 'Thalia' ? 20 : 10 });
     s.run(s.dm, { t: 'begin' });
     const pv = viewFor(s.room, s.p1)!;
     expect(pv.encounter.order.map((c) => c.name).sort()).toEqual(['Brakka', 'Goblin', 'Thalia']);
@@ -67,18 +68,22 @@ describe('partida compartida', () => {
     const thalia = s.room.encounter.order.find((c) => c.name === 'Thalia')!;
     s.run(s.p1, { t: 'act', actorId: thalia.id, kind: 'hit', targetId: gob.id, amount: 6 });
     const pv2 = viewFor(s.room, s.p1)!;
-    expect(pv2.encounter.order.find((c) => c.id === gob.id)!.state).toBe('bloodied');
+    expect(pv2.encounter.order.find((c) => c.id === gob.id)!.state).toBe('unknown');
+    expect(viewFor(s.room, s.dm)!.encounter.order.find((c) => c.id === gob.id)!.state).toBe('bloodied');
     expect(pv2.log[pv2.log.length - 1]!.after).toBeUndefined();
     const dv = viewFor(s.room, s.dm)!;
     expect(dv.encounter.order.find((c) => c.id === gob.id)!.hp).toBe(4);
     expect(dv.log[dv.log.length - 1]!.after).toBe('4/10');
     expect(hpState({ hp: 0, hpMax: 10 })).toBe('down');
+    s.run(s.p1, { t: 'act', actorId: thalia.id, kind: 'hit', targetId: gob.id, amount: 4 });
+    expect(viewFor(s.room, s.p1)!.encounter.order.find((c) => c.id === gob.id)!.state).toBe('down');
   });
 
   it('un jugador no puede actuar por otro ni tocar monstruos ocultos', () => {
     const s = setup();
     s.run(s.dm, { t: 'start' });
-    s.run(s.dm, { t: 'add', combatants: [{ name: 'Sombra', kind: 'monster', hpMax: 20, hidden: true }] });
+    s.run(s.dm, { t: 'add', combatants: [{ name: 'Sombra', kind: 'monster', hpMax: 20, hidden: true, initiative: 1 }] });
+    for (const c of s.room.encounter.order) if (c.kind === 'pc') s.run(s.dm, { t: 'setInitiative', id: c.id, value: c.name === 'Thalia' ? 20 : 10 });
     s.run(s.dm, { t: 'begin' });
     const brakka = s.room.encounter.order.find((c) => c.name === 'Brakka')!;
     const sombra = s.room.encounter.order.find((c) => c.name === 'Sombra')!;
@@ -156,12 +161,13 @@ describe('partida compartida', () => {
     s.run(s.p1, { t: 'ready', value: true });
     s.run(s.p1, { t: 'ready', value: false });
     s.run(s.p1, { t: 'ready', value: true });
+    expect(viewFor(s.room, s.dm)!.encounter.needed.sort()).toEqual([s.p1, s.p2].sort());
     s.run(s.p2, { t: 'setInitiative', id: ids.Brakka, value: 17 });
-    s.run(s.p2, { t: 'ready', value: true });
     expect(s.room.encounter.phase).toBe('setup');
-    expect(viewFor(s.room, s.dm)!.encounter.needed.sort()).toEqual([s.dm, s.p1, s.p2].sort());
-    s.run(s.dm, { t: 'ready', value: true });
+    // El DM no tiene que marcar «Listo»: al estar listos todos los jugadores, empieza
+    s.run(s.p2, { t: 'ready', value: true });
     expect(s.room.encounter.phase).toBe('running');
+    expect(s.room.encounter.accepted!.sort()).toEqual([s.p1, s.p2].sort());
     expect(s.room.encounter.order.map((c) => c.name)).toEqual(['Brakka', 'Thalia']);
     expect(s.room.log.some((e) => e.kind === 'begin')).toBe(true);
   });
@@ -296,5 +302,95 @@ describe('copia de la campaña del DM', () => {
     expect(b.encounters[0].entries[0].hidden).toBe(true);
     expect(b.chronicles).toHaveLength(1);
     expect(b.log.filter((e) => e.kind === 'narrative')).toHaveLength(1);
+  });
+});
+
+describe('sincronizar fichas', () => {
+  it('el DM pide sincronizar y cada jugador apunta cuándo subió su ficha', () => {
+    const s = setup();
+    expect(viewFor(s.room, s.p1)!.syncRequest).toBeNull();
+    expect(apply(s.room, s.p1, { t: 'syncSheets' }).error).toBe('not-allowed');
+    s.run(s.dm, { t: 'syncSheets' });
+    const asked = viewFor(s.room, s.p1)!.syncRequest!;
+    expect(asked).toBeGreaterThan(0);
+    s.run(s.p1, { t: 'sheetUpload' });
+    const me = viewFor(s.room, s.dm)!.members.find((m) => m.id === s.p1)!;
+    expect(me.sheetAt).toBeGreaterThanOrEqual(asked);
+    expect(viewFor(s.room, s.dm)!.members.find((m) => m.id === s.p2)!.sheetAt).toBeUndefined();
+    // El DM no tiene ficha que subir
+    expect(apply(s.room, s.dm, { t: 'sheetUpload' }).error).toBe('not-allowed');
+  });
+});
+
+describe('preparar y lanzar el combate', () => {
+  const loot = { coins: { gp: 5, sp: 12 }, items: [{ name: 'Daga oxidada', rarity: 'mundane' as const, type: 'weapon' as const, description: '', value: 1, qty: 1 }] };
+
+  it('el DM prepara a solas, añade de una lista de encuentro y los jugadores no ven nada hasta lanzarlo', () => {
+    const s = setup();
+    for (const m of s.room.members) m.online = true;
+    s.run(s.dm, { t: 'encounterSave', encounter: { id: 'tm', name: 'Taberna Malandra', notes: '', entries: [
+      { id: 'mat', name: 'Matón', kind: 'monster', count: 4, hidden: false, hpMax: 11, ac: 12, initBonus: 1, loot },
+      { id: 'jefe', name: 'Tabernero', kind: 'npc', count: 1, hidden: true, hpMax: 30, ac: 13, initBonus: 2 },
+    ] } });
+    s.run(s.dm, { t: 'prepare', title: 'Pelea en la taberna' });
+    s.run(s.dm, { t: 'entryToCombat', encounterId: 'tm', entryId: 'mat', count: 2 });
+    s.run(s.dm, { t: 'entryToCombat', encounterId: 'tm', entryId: 'mat', count: 1 });
+    expect(s.room.encounter.order.map((c) => c.name).sort()).toEqual(['Matón 1', 'Matón 2', 'Matón 3']);
+    expect(s.room.encounter.order[0].loot!.coins!.gp).toBe(5);
+    // Los jugadores no saben nada: ni combate, ni nombres, ni registro
+    const pv = viewFor(s.room, s.p1)!;
+    expect(pv.encounter.active).toBe(false);
+    expect(pv.encounter.title).toBeNull();
+    expect(JSON.stringify(pv)).not.toContain('Matón');
+    expect(JSON.stringify(pv)).not.toContain('taberna');
+    expect(viewFor(s.room, s.dm)!.encounter.phase).toBe('prep');
+    expect(apply(s.room, s.p1, { t: 'accept' }).error).toBe('no-combat');
+    // Lanzar: entran los jugadores, les llega el aviso con el título y nadie ve lo que lleva cada enemigo
+    s.run(s.dm, { t: 'launch' });
+    const pv2 = viewFor(s.room, s.p1)!;
+    expect(pv2.encounter.active).toBe(true);
+    expect(pv2.encounter.phase).toBe('setup');
+    expect(pv2.encounter.title).toBe('Pelea en la taberna');
+    expect(pv2.encounter.order.filter((c) => c.kind === 'pc')).toHaveLength(2);
+    expect(JSON.stringify(pv2)).not.toContain('Daga');
+    expect(pv2.log.filter((e) => e.kind === 'add')).toHaveLength(3);
+    s.run(s.p1, { t: 'accept' });
+    expect(viewFor(s.room, s.dm)!.encounter.accepted).toEqual([s.p1]);
+  });
+
+  it('al terminar, lo que llevaban los enemigos queda como botín para el DM; descartar la preparación no deja rastro', () => {
+    const s = setup();
+    s.run(s.dm, { t: 'prepare' });
+    s.run(s.dm, { t: 'add', combatants: [{ name: 'Bandido', kind: 'monster', hpMax: 11, loot }, { name: 'Lobo', kind: 'monster', hpMax: 11 }] });
+    const logBefore = s.room.log.length;
+    s.run(s.dm, { t: 'end' });
+    expect(s.room.log.length).toBe(logBefore);
+    expect(s.room.loot).toHaveLength(0);
+    expect(s.room.encounter.active).toBe(false);
+    s.run(s.dm, { t: 'prepare', title: 'Camino' });
+    s.run(s.dm, { t: 'add', combatants: [{ name: 'Bandido', kind: 'monster', hpMax: 11, loot }] });
+    s.run(s.dm, { t: 'launch' });
+    s.run(s.dm, { t: 'begin' });
+    const b = s.room.encounter.order.find((c) => c.name === 'Bandido')!;
+    s.run(s.dm, { t: 'update', id: b.id, patch: { hp: 0 } });
+    s.run(s.dm, { t: 'end' });
+    expect(s.room.loot).toHaveLength(1);
+    expect(s.room.loot[0]).toMatchObject({ from: 'Bandido', defeated: true, combat: 'Camino', coins: { gp: 5, sp: 12 } });
+    expect(viewFor(s.room, s.p1)!.loot).toEqual([]);
+    expect(viewFor(s.room, s.dm)!.loot).toHaveLength(1);
+    s.run(s.dm, { t: 'lootDone', ids: [s.room.loot[0].id] });
+    expect(s.room.loot).toHaveLength(0);
+  });
+
+  it('quien entra tarde se suma al combate y queda pendiente de aceptar', () => {
+    const s = setup();
+    for (const m of s.room.members) m.online = true;
+    s.run(s.dm, { t: 'prepare' });
+    s.run(s.dm, { t: 'launch' });
+    s.run(s.dm, { t: 'begin' });
+    const late = join(s.room, 'Eva');
+    const r = apply(late.room, late.member.id, { t: 'summary', summary: summary('Nyx') });
+    expect(r.room.encounter.order.some((c) => c.name === 'Nyx')).toBe(true);
+    expect(viewFor(r.room, s.dm)!.encounter.accepted).toEqual([]);
   });
 });

@@ -90,7 +90,7 @@ export const backupFileName = (label: string) => {
  * para enviarlo a Drive, al correo, a WhatsApp…; en el navegador se descarga.
  * Devuelve dónde se ha guardado (si se sabe).
  */
-export async function saveBackupFile(json: string, fileName: string): Promise<string | null> {
+export async function saveBackupFile(json: string, fileName: string, mime = 'application/json'): Promise<string | null> {
   if (Capacitor.isNativePlatform()) {
     const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
     const { Share } = await import('@capacitor/share');
@@ -109,7 +109,7 @@ export async function saveBackupFile(json: string, fileName: string): Promise<st
     }
     return savedTo;
   }
-  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const url = URL.createObjectURL(new Blob([json], { type: mime }));
   const a = document.createElement('a');
   a.href = url;
   a.download = fileName;

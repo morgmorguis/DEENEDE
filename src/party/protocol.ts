@@ -75,6 +75,8 @@ export interface Member {
   role: Role;
   online: boolean;
   summary?: PcSummary;
+  /** Cuándo guardó el servidor la ficha completa de este jugador (botón «Sincronizar fichas») */
+  sheetAt?: number;
 }
 
 export interface Combatant {
@@ -106,10 +108,30 @@ export interface Combatant {
   color?: string;
   /** Ronda en la que ya usó su reacción */
   reactionRound?: number;
+  /** Lo que lleva encima (monedas y objetos): solo lo ve el DM; al terminar el combate pasa al botín */
+  loot?: CarriedLoot;
 }
 
-/** setup: cada uno introduce sus datos y marca «Listo»; running: turnos en marcha */
-export type Phase = 'setup' | 'running';
+/** Monedas y objetos que lleva un enemigo */
+export interface CarriedLoot { coins?: Partial<Coins5>; items?: ItemData[] }
+
+/** Botín que quedó de un combate terminado (lo que llevaban los enemigos), para que el DM lo reparta */
+export interface LootDrop extends CarriedLoot {
+  id: string;
+  at: number;
+  /** Quién lo llevaba */
+  from: string;
+  /** Cayó en el combate (si no, huyó o se quedó sin derrotar) */
+  defeated: boolean;
+  /** Título del combate */
+  combat?: string;
+}
+
+/**
+ * prep: el DM prepara el combate a solas (los jugadores aún no ven nada) ·
+ * setup: lanzado; antesala donde cada jugador acepta, revisa su estado y marca «Listo» · running: turnos en marcha
+ */
+export type Phase = 'prep' | 'setup' | 'running';
 
 /** Fondos de combate que hay (public/fondos/<estilo>/combate-01…15) */
 export const COMBAT_SCENES = 15;
@@ -127,6 +149,10 @@ export interface Encounter {
   scene?: number;
   /** Miembros que han pulsado «Listo» durante la preparación */
   ready?: string[];
+  /** Jugadores que han aceptado el aviso de «¡Comienza un encuentro!» */
+  accepted?: string[];
+  /** Nombre del encuentro que ven todos en el aviso («Taberna Malandra») */
+  title?: string;
   round: number;
   turn: number;
   begun: boolean;
@@ -165,9 +191,11 @@ export interface EncounterEntry {
   monster?: string;
   color?: string;
   notes?: string;
+  /** Lo que lleva cada uno de ellos */
+  loot?: CarriedLoot;
 }
 
-/** Combate que el DM prepara antes de jugarlo */
+/** Combate que el DM prepara antes de jugarlo, o lista de enemigos posibles de un lugar («Taberna Malandra») */
 export interface PreparedEncounter { id: string; name: string; notes: string; entries: EncounterEntry[] }
 
 export type LogKind = 'hit' | 'miss' | 'heal' | 'hurt' | 'other' | 'narrative' | 'turn' | 'round' | 'start' | 'begin' | 'end' | 'down' | 'undo' | 'add' | 'reveal';
@@ -237,7 +265,13 @@ export interface RoomView {
     /** Ids de miembros listos y de quienes hace falta que lo estén */
     ready: string[];
     needed: string[];
+    /** Jugadores que han aceptado el aviso del encuentro */
+    accepted: string[];
+    /** Nombre del encuentro (o null) */
+    title: string | null;
   };
+  /** Botín de los combates terminados, pendiente de repartir (solo el DM) */
+  loot: LootDrop[];
   /** Lista de personajes del DM (vacía para los jugadores) */
   roster: RosterEntry[];
   /** Encuentros preparados del DM (vacío para los jugadores) */
@@ -250,6 +284,8 @@ export interface RoomView {
   images: SharedImage[];
   /** Crónicas compartidas por el DM (todos las ven) */
   chronicles: Chronicle[];
+  /** Cuándo pidió el DM sincronizar las fichas (cada jugador sube la suya si aún no lo ha hecho desde entonces) */
+  syncRequest: number | null;
   canUndo: boolean;
   /** Puedes pasar turno (DM o el dueño del turno actual) */
   canEndTurn: boolean;
@@ -277,13 +313,31 @@ export type Command =
   | { t: 'nextTurn' }
   | { t: 'undo' }
   | { t: 'ready'; value: boolean }
+  /** El jugador acepta el aviso de «¡Comienza un encuentro!» y pasa a la antesala */
+  | { t: 'accept' }
   /** El jugador confirma que las entregas ya están en su ficha */
   | { t: 'giftAck'; ids: string[] }
   /** El DM da a un jugador; un jugador da de lo suyo a un compañero */
   | { t: 'give'; toId: string; coins?: Partial<Coins5>; items?: ItemData[]; note?: string }
+  /** El jugador sube su ficha completa (copia de seguridad en JSON); el servidor la guarda en disco y quita `data` */
+  | { t: 'sheetUpload'; data?: string }
   // Solo el DM
+  /** Pide a todos los jugadores que suban su ficha completa al servidor */
+  | { t: 'syncSheets' }
+  /** Lanza el combate de golpe (apps antiguas): preparar + lanzar */
   | { t: 'start' }
+  /** Empieza a preparar un combate (los jugadores no lo ven hasta lanzarlo) */
+  | { t: 'prepare'; title?: string }
+  /** Cambia el nombre del encuentro en preparación */
+  | { t: 'encounterTitle'; title: string }
+  /** Lanza el combate preparado: a los jugadores les llega el aviso y pasan a la antesala */
+  | { t: 'launch' }
+  /** Termina el combate (o descarta la preparación) */
   | { t: 'end' }
+  /** Mete en el combate unos cuantos de un enemigo de una lista de encuentro */
+  | { t: 'entryToCombat'; encounterId: string; entryId: string; count: number; hidden?: boolean }
+  /** Quita del botín pendiente (ya repartido o descartado) */
+  | { t: 'lootDone'; ids: string[] }
   | { t: 'add'; combatants: Partial<Combatant>[] }
   | { t: 'update'; id: string; patch: Partial<Combatant> }
   | { t: 'remove'; id: string }

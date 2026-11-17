@@ -1,0 +1,10 @@
+# Compila en Cloud Build la imagen del servidor para Cloud Run (etapa «nube» del Dockerfile) y la sube a
+# Artifact Registry. La lanza server/nube/desplegar.ps1: no hace falta Docker en el PC.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    # Los tests se pasan en el PC antes de desplegar (npm test); aquí se saltan para tardar menos
+    args: ['build', '--target', 'nube', '--build-arg', 'TESTS=0', '-t', '$_IMAGEN', '.']
+images: ['$_IMAGEN']
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -4,7 +4,9 @@
 # Con la IP del PC en la Wi-Fi:  IP_PC=192.168.1.40 docker compose up -d   (o ponlas en un archivo .env junto a este)
 services:
   servidor:
-    build: .
+    build:
+      context: .
+      target: servidor
     image: di-en-di-servidor
     restart: unless-stopped
     environment:
