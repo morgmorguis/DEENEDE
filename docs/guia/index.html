@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/icono.png" alt="Icono de Di en Di: un d20 carmesí sobre un escudo con dos espadas, bajo la luna roja" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.26.0</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.26.1</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -498,6 +498,9 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
       <h3 id="partida-internet">Jugar a distancia (dirección fija)</h3>
       <p>Si tienes <b>Tailscale</b> instalado, el servidor publica la partida <b>solo al abrirse</b> en una dirección fija con HTTPS (<code>https://tu-pc.tuXXXX.ts.net</code>), sin Cloudflare y sin tocar el router. La red local sigue funcionando igual. En la pantalla del DM, <b>Partida → 📨 Invitar jugadores</b> muestra el enlace de Internet y el de la misma Wi-Fi, ya con el código, para copiarlos. Alternativa: <b>ngrok</b> con su dominio fijo gratuito. Todo se configura en <code>di-en-di-servidor.json</code> junto al .exe (detalles en <i>PUBLICAR.txt</i>). Si el puerto 3000 ya lo usa otro programa del PC, el servidor elige solo otro libre y publica ese.</p>
+
+      <h3 id="partida-sesion">Sesión nueva y código de la partida (DM)</h3>
+      <p>En <b>Partida → 🔁 Sesión y código de la partida</b>, para la siguiente sesión: <b>🔁 Cambiar el código</b> (quien ya está dentro sigue conectado y se reconecta solo; para entrar de nuevo hace falta el código nuevo) o <b>🧹 Empezar una sesión nueva</b>: código nuevo y sin combate, y si quieres <b>sacar a los jugadores</b> (les llega un aviso y vuelven a unirse con el código nuevo; sus fichas no cambian) y <b>borrar el registro de combates</b>. Tus lugares y encuentros, personajes preparados, imágenes, crónicas, entregas y el botín pendiente se conservan siempre. La clave del DM no cambia.</p>
 
       <h3 id="partida-dar">Dar oro y objetos (DM)</h3>
       <p>En <b>💰 Tesoro</b> eliges <b>a quién</b>: uno, varios o <b>👥 Todos</b>. Con varios, decides si <b>🎁 Esto a cada uno</b> o <b>⚖️ Repartir entre ellos</b>, y ves antes lo que recibirá cada uno. En la pestaña <b>👥 Grupo</b>, el botón 🎁 de cada jugador abre Tesoro con él ya elegido. Las imágenes se comparten en <b>Partida → Imágenes para la mesa</b>.</p>

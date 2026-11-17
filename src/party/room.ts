@@ -108,6 +108,13 @@ export function cleanLoot(x: CarriedLoot | undefined | null): CarriedLoot | null
 
 export const rid = (n = 8) => Array.from({ length: n }, () => 'abcdefghijkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 32)]).join('');
 const code6 = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+/** Código distinto del anterior */
+const newCode = (prev: string) => { let c = code6(); while (c === prev) c = code6(); return c; };
+
+/** ¿Puede entrar? Con el código, con la clave del DM o con el token de alguien que ya está en la partida (aunque el código haya cambiado) */
+export function canEnter(room: Pick<Room, 'code' | 'dmKey' | 'members'>, code: string, token?: string, dmKey?: string): boolean {
+  return code.trim().toUpperCase() === room.code || (!!dmKey && dmKey === room.dmKey) || (!!token && room.members.some((m) => m.token === token));
+}
 
 export function createRoom(): Room {
   return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [], settings: { showPartyHp: false }, images: [], chronicles: [], encounters: [], loot: [] };
@@ -519,6 +526,21 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const n = Math.max(1, Math.min(20, Math.round(cmd.count) || 1));
       for (const c of fromEntry(e.order, x, n, cmd.hidden ?? x.hidden)) { e.order.push(c); logAdd(r, c); }
       if (!e.begun) { sortOrder(e); r.snapshots = [snap(r)]; }
+      return { room: r, effects };
+    }
+    case 'newCode': {
+      r.code = newCode(r.code);
+      return { room: r, effects };
+    }
+    case 'newSession': {
+      r.code = newCode(r.code);
+      // Sin combate (sin pasar al botín: era una sesión anterior); los aliados preparados se quedan
+      r.encounter = { active: false, phase: 'running', ready: [], accepted: [], round: 1, turn: 0, begun: false, scene: e.scene, order: e.order.filter((c) => c.kind === 'npc') };
+      r.snapshots = [];
+      r.acted = false;
+      delete r.syncRequest;
+      if (cmd.removePlayers) r.members = r.members.filter((m) => m.role === 'dm');
+      if (cmd.clearLog) r.log = [];
       return { room: r, effects };
     }
     case 'lootDone': {

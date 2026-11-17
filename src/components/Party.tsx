@@ -993,6 +993,7 @@ export function PartyTab() {
       {error && <p className="error">⚠️ {error}</p>}
       {view && dm && <InvitePanel code={view.code} />}
       {view && dm && <TvLink code={view.code} />}
+      {view && dm && <SessionPanel view={view} />}
       {/* Jugador en combate: el combate (antesala o turnos) va lo primero */}
       {view && !dm && view.encounter.active && <SharedCombat view={view} />}
       {view && (
@@ -1182,6 +1183,37 @@ function InvitePanel({ code }: { code: string }) {
           <summary className="small">🔑 {T('Tu enlace de DM (no lo compartas)', 'Your DM link (don’t share it)')}</summary>
           <Row label={T('Ábrelo en otro dispositivo para llevar la partida desde allí', 'Open it on another device to run the game from there')} url={`${pub?.status === 'on' && pub.url ? pub.url : httpBase(conn.url)}/dm?dm=${conn.dmKey}`} />
         </details>
+      )}
+    </details>
+  );
+}
+
+/** DM: cambiar el código de la partida o empezar una sesión nueva */
+function SessionPanel({ view }: { view: RoomView }) {
+  const send = useParty((s) => s.send);
+  const [open, setOpen] = useState(false);
+  const [removePlayers, setRemovePlayers] = useState(true);
+  const [clearLog, setClearLog] = useState(false);
+  const players = view.members.filter((m) => m.role === 'player').length;
+  const toast = (title: string) => useStore.getState().showToast(title, [T('Pasa el código nuevo a los jugadores desde «Invitar jugadores».', 'Give the new code to the players from “Invite players”.')]);
+  return (
+    <details className="tv-link session-panel">
+      <summary>🔁 {T('Sesión y código de la partida', 'Session and game code')} · <b>{view.code}</b></summary>
+      <p className="small">{T('Para la siguiente sesión puedes cambiar solo el código o empezar de cero. Tus lugares, personajes preparados, imágenes, crónicas y entregas se conservan siempre.', 'For the next session you can change just the code or start fresh. Your places, prepared characters, images, chronicles and gifts are always kept.')}</p>
+      <div className="row wrap">
+        <button className="btn small" onClick={async () => {
+          if (await askOk(T('¿Cambiar el código de la partida?', 'Change the game code?'), { text: T('Quien ya está dentro sigue conectado; para entrar de nuevo hará falta el código nuevo.', 'Anyone already in stays connected; joining again will need the new code.') })) { send({ t: 'newCode' }); toast(T('🔁 Código nuevo', '🔁 New code')); }
+        }}>🔁 {T('Cambiar el código', 'Change the code')}</button>
+        <button className="btn small primary" onClick={() => setOpen(true)}>🧹 {T('Empezar una sesión nueva', 'Start a new session')}</button>
+      </div>
+      {open && (
+        <Modal title={T('🧹 Sesión nueva', '🧹 New session')} onClose={() => setOpen(false)}>
+          <p className="small">{T('Código nuevo y sin combate en marcha. Se conservan tus lugares y encuentros, personajes preparados, imágenes, crónicas, entregas y el botín pendiente.', 'New code and no combat running. Your places and encounters, prepared characters, images, chronicles, gifts and pending loot are kept.')}</p>
+          <label className="check"><input type="checkbox" checked={removePlayers} onChange={(e) => setRemovePlayers(e.target.checked)} /> 👋 {T(`Sacar a los jugadores (${players}): volverán a unirse con el código nuevo`, `Remove the players (${players}): they’ll join again with the new code`)}</label>
+          <label className="check"><input type="checkbox" checked={clearLog} onChange={(e) => setClearLog(e.target.checked)} /> 🗑️ {T('Borrar el registro de los combates anteriores', 'Clear the log of previous combats')}</label>
+          {clearLog && <p className="hint">💾 {T('Si quieres conservarlo, antes haz una copia en Personajes → Copia de la campaña.', 'To keep it, first make a copy in Characters → Campaign backup.')}</p>}
+          <button className="btn primary full" onClick={() => { send({ t: 'newSession', removePlayers, clearLog }); setOpen(false); toast(T('🧹 Sesión nueva', '🧹 New session')); }}>🧹 {T('Empezar la sesión nueva', 'Start the new session')}</button>
+        </Modal>
       )}
     </details>
   );

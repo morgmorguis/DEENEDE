@@ -338,6 +338,13 @@ export type Command =
   | { t: 'entryToCombat'; encounterId: string; entryId: string; count: number; hidden?: boolean }
   /** Quita del botín pendiente (ya repartido o descartado) */
   | { t: 'lootDone'; ids: string[] }
+  /** Código de partida nuevo: los que ya están dentro siguen; los nuevos necesitan el código nuevo */
+  | { t: 'newCode' }
+  /**
+   * Sesión nueva: código nuevo y sin combate. Se conservan lugares, personajes preparados, imágenes, crónicas y entregas;
+   * opcionalmente se echa a los jugadores (vuelven a unirse con el código nuevo) y se borra el registro de combates.
+   */
+  | { t: 'newSession'; removePlayers: boolean; clearLog: boolean }
   | { t: 'add'; combatants: Partial<Combatant>[] }
   | { t: 'update'; id: string; patch: Partial<Combatant> }
   | { t: 'remove'; id: string }

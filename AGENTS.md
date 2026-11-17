@@ -77,13 +77,16 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 
 ## Estado y notas que no se ven en el código
 
-- Versión **0.26.0** (17 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
+- Versión **0.26.1** (17 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
 - Turnos: el servidor solo acepta `act` en tu turno o como reacción (una por ronda); `nextTurn`, solo el DM o el dueño del turno.
 - Fases del combate compartido (`Encounter.phase`): `prep` (el DM prepara a solas; `viewFor` se lo oculta a los demás y no se anotan
   las entradas en el registro), `setup` (lanzado con `launch`: aviso que el jugador acepta con `accept` y antesala con «Listo»; empieza
   cuando están listos todos los jugadores conectados, el DM no cuenta) y `running`. `start` (apps antiguas) = preparar + lanzar.
   Lo que llevan los enemigos (`Combatant.loot`, solo el DM) pasa a `room.loot` al terminar; el DM lo reparte con `give` y lo quita con `lootDone`.
   Los jugadores solo ven de un monstruo su nombre y si ha caído (`state` 'unknown' o 'down'), salvo `showHp`.
+- Sesiones: `newCode` (código nuevo, los miembros siguen) y `newSession` (código nuevo, sin combate, opcionalmente sin jugadores
+  y sin registro). Se entra con el código, la clave del DM o el token de un miembro (`canEnter`): así se reconecta quien ya
+  estaba aunque cambie el código. A los sockets de miembros quitados el servidor les manda `session-reset` y los cierra.
 - Enlaces: jugadores `/?join=CÓDIGO`, DM `/dm?dm=CLAVE` (la app detecta la ruta `/dm` y muestra `DmLogin`; el servidor redirige `/dm/` a `/dm`).
 - Encuentros desde Excel/CSV: `src/party/encounterImport.ts` (lector de .xlsx propio con `DecompressionStream`, sin dependencias).
 - Ficha en PDF: `src/export/sheetPdf.ts` escribe con pdf-lib encima de la hoja oficial de 2024 en español (603×774 pt, sin campos):

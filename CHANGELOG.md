@@ -3,6 +3,12 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.26.1 · 17 nov 2026 — Sesión nueva y cambiar el código de la partida
+
+- **🔁 Sesión y código de la partida** (DM, pestaña Partida): **cambiar el código** (quien ya está dentro sigue conectado; los nuevos necesitan el código nuevo) o **empezar una sesión nueva**: código nuevo, sin combate y, si quieres, sin jugadores (vuelven a unirse con el código nuevo) y sin el registro de combates. Se conservan los lugares y encuentros, personajes preparados, imágenes, crónicas, entregas y el botín pendiente.
+- Al jugador que sale por una sesión nueva le llega un aviso para que pida el código nuevo; su ficha no cambia.
+- Quien ya estaba en la partida se reconecta aunque el DM haya cambiado el código.
+
 ## 0.26.0 · 17 nov 2026 — Ficha en PDF oficial, notas en Markdown o PDF e iconos de goblin
 
 **Exportar**

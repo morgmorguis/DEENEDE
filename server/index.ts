@@ -7,7 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { apply, CAMPAIGN_KIND, canSeeImage, createRoom, exportCampaign, importCampaign, join, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
+import { apply, CAMPAIGN_KIND, canEnter, canSeeImage, createRoom, exportCampaign, importCampaign, join, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
 import type { ClientMessage, ServerMessage } from '../src/party/protocol';
 import { startPublishing, stopPublishing, type PublishState } from './publish';
 
@@ -206,7 +206,7 @@ wss.on('connection', (ws) => {
     let msg: ClientMessage;
     try { msg = JSON.parse(String(data)); } catch { return; }
     if (msg.t === 'hello') {
-      if (msg.code.trim().toUpperCase() !== room.code && msg.dmKey !== room.dmKey) {
+      if (!canEnter(room, msg.code ?? '', msg.token, msg.dmKey)) {
         send(ws, { t: 'error', message: 'bad-code' });
         return;
       }
@@ -256,6 +256,16 @@ wss.on('connection', (ws) => {
     if (r.error) { send(ws, { t: 'error', message: r.error }); return; }
     room = r.room;
     for (const eff of r.effects) for (const [w, mid] of clients) if (mid === eff.to) send(w, { t: 'sheet', ops: eff.ops });
+    // Sesión nueva: a quien ya no está en la partida se le avisa y se le desconecta
+    if (cmd.t === 'newSession') {
+      for (const [w, mid] of clients) {
+        if (room.members.some((m) => m.id === mid)) continue;
+        send(w, { t: 'error', message: 'session-reset' });
+        clients.delete(w);
+        w.close();
+      }
+      console.log(`→ Sesión nueva. Código de la partida: ${room.code}`);
+    } else if (cmd.t === 'newCode') console.log(`→ Código nuevo de la partida: ${room.code}`);
     save();
     broadcast();
   });

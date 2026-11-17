@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apply, createRoom, exportCampaign, hpState, importCampaign, join, viewFor, type Room } from '../room';
+import { apply, canEnter, createRoom, exportCampaign, hpState, importCampaign, join, viewFor, type Room } from '../room';
 import { COMBAT_SCENES, type Command, type PcSummary } from '../protocol';
 
 const summary = (name: string, hp = 20): PcSummary => ({ name, species: 'Humano', className: 'Guerrero', level: 3, hp, hpMax: hp, temp: 0, ac: 16, speed: 30, passive: 12, conditions: [] });
@@ -392,5 +392,51 @@ describe('preparar y lanzar el combate', () => {
     const r = apply(late.room, late.member.id, { t: 'summary', summary: summary('Nyx') });
     expect(r.room.encounter.order.some((c) => c.name === 'Nyx')).toBe(true);
     expect(viewFor(r.room, s.dm)!.encounter.accepted).toEqual([]);
+  });
+});
+
+describe('sesiones y código de la partida', () => {
+  it('cambiar el código: los de dentro siguen y pueden reconectarse con su token; los nuevos necesitan el código nuevo', () => {
+    const s = setup();
+    const old = s.room.code;
+    const ana = s.room.members.find((m) => m.id === s.p1)!;
+    expect(apply(s.room, s.p1, { t: 'newCode' }).error).toBe('not-allowed');
+    s.run(s.dm, { t: 'newCode' });
+    expect(s.room.code).not.toBe(old);
+    expect(s.room.members).toHaveLength(3);
+    expect(canEnter(s.room, old, ana.token)).toBe(true);
+    expect(canEnter(s.room, old)).toBe(false);
+    expect(canEnter(s.room, s.room.code.toLowerCase())).toBe(true);
+    expect(canEnter(s.room, 'XXXXXX', undefined, s.room.dmKey)).toBe(true);
+  });
+
+  it('sesión nueva: código nuevo, sin combate, sin jugadores si se pide, y se conserva lo del DM', () => {
+    const s = setup();
+    const old = s.room.code;
+    const ana = s.room.members.find((m) => m.id === s.p1)!;
+    s.run(s.dm, { t: 'encounterSave', encounter: { id: 'tm', name: 'Taberna', notes: '', entries: [{ id: 'm', name: 'Matón', kind: 'monster', count: 2, hidden: false, hpMax: 11, ac: 12, initBonus: 0 }] } });
+    s.run(s.dm, { t: 'give', toId: s.p1, coins: { gp: 5 } });
+    s.run(s.dm, { t: 'prepare' });
+    s.run(s.dm, { t: 'add', combatants: [{ name: 'Lobo', kind: 'monster', hpMax: 11 }, { name: 'Guardia', kind: 'npc', hpMax: 11 }] });
+    s.run(s.dm, { t: 'launch' });
+    s.run(s.dm, { t: 'newSession', removePlayers: true, clearLog: true });
+    expect(s.room.code).not.toBe(old);
+    expect(s.room.encounter.active).toBe(false);
+    expect(s.room.encounter.order.map((c) => c.name)).toEqual(['Guardia']);
+    expect(s.room.members.map((m) => m.role)).toEqual(['dm']);
+    expect(s.room.log).toEqual([]);
+    expect(s.room.encounters).toHaveLength(1);
+    expect(s.room.gifts).toHaveLength(1);
+    expect(canEnter(s.room, old, ana.token)).toBe(false);
+    expect(viewFor(s.room, s.dm)!.you.role).toBe('dm');
+  });
+
+  it('sesión nueva sin sacar a nadie ni borrar el registro', () => {
+    const s = setup();
+    s.run(s.dm, { t: 'start' });
+    s.run(s.dm, { t: 'newSession', removePlayers: false, clearLog: false });
+    expect(s.room.members).toHaveLength(3);
+    expect(s.room.log.some((e) => e.kind === 'start')).toBe(true);
+    expect(s.room.encounter.active).toBe(false);
   });
 });

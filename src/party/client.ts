@@ -74,7 +74,8 @@ export function httpBase(input?: string): string {
 }
 
 export const ERRORS: Record<string, [string, string]> = {
-  'bad-code': ['El código de la partida no es correcto.', 'The game code is wrong.'],
+  'bad-code': ['El código de la partida no es correcto (el DM puede haberlo cambiado: pídele el nuevo).', 'The game code is wrong (the DM may have changed it: ask for the new one).'],
+  'session-reset': ['El DM ha empezado una sesión nueva. Pídele el código nuevo para volver a unirte.', 'The DM started a new session. Ask for the new code to join again.'],
   'not-allowed': ['No puedes hacer eso (no es tu turno o no es tu personaje).', 'You can’t do that (not your turn or not your character).'],
   'no-combat': ['No hay ningún combate en marcha.', 'There’s no combat running.'],
   'no-target': ['Elige a quién.', 'Choose a target.'],
@@ -325,7 +326,8 @@ export const useParty = create<PartyState>((set, get) => {
         applySheet(msg);
       } else if (msg.t === 'error') {
         set({ error: errorText(msg.message) });
-        if (msg.message === 'bad-code') { get().leave(); set({ error: errorText('bad-code') }); }
+        if (msg.message === 'bad-code' || msg.message === 'session-reset') { get().leave(); set({ error: errorText(msg.message) }); }
+        if (msg.message === 'session-reset') useStore.getState().showToast(T('🔁 Sesión nueva', '🔁 New session'), [errorText('session-reset'), T('Tu ficha sigue igual en tu dispositivo.', 'Your sheet stays the same on your device.')]);
       }
     };
     sock.onclose = () => {
