@@ -88,6 +88,12 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
   y abierta (conserva un combate en `prep`; opcionalmente saca jugadores y borra el registro), `closeGame` = nadie nuevo entra con el código
   (opcionalmente saca a los jugadores). Con la partida cerrada `hello` con código da `game-closed` (`enterError`). Tras cualquier comando,
   el servidor cierra (`session-reset`) los sockets de miembros que ya no están.
+- Partida del PC por la nube (`server/relay.ts`): con la clave del DM de la nube guardada en el PC (`di-en-di-nube.json` junto a la
+  partida, comando `cloudLink` que atiende `server/index.ts`, no `apply`), el servidor del PC abre un WebSocket a `/relay` de la nube
+  (`RelayHost`) mientras la partida está abierta (y 10 min después de cerrarla si queda alguien). La nube (`RelayHub`) manda a ese PC a
+  quien dice «hola» con su código, su token o su clave de DM (le envía `{code, open, keys}`), contesta `/api/info?check=` por él y le pide
+  `/img/…` y `/api/sheet`. En el PC cada jugador de la nube es un `Peer` más (igual que un WebSocket). El DM ve `RoomView.cloud`.
+  Prueba de punta a punta: dos servidores (uno con `K_SERVICE`) y jugadores con `ws`; el túnel se reenlaza solo si la nube se reinicia.
 - Unirse solo con el código: `findServer` (client.ts) prueba la página actual, el último servidor (`di-en-di-last-server`) y
   `DEFAULT_SERVER` (https://di-en-di.web.app) con `/api/info?check=CÓDIGO` → `{match, closed}`; los servidores antiguos no traen `match`.
 - Compartido conmigo (jugador): `addSharedNotes` (client.ts) guarda en la carpeta `shared` del diario imágenes (`img:`), crónicas

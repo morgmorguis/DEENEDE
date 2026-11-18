@@ -566,6 +566,9 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       if (cmd.removePlayers) r.members = r.members.filter((m) => m.role === 'dm');
       return { room: r, effects };
     }
+    // Lo atiende el servidor del PC (server/index.ts), no la partida
+    case 'cloudLink':
+      return { room, effects: [], error: 'not-allowed' };
     case 'lootDone': {
       const ids = new Set(cmd.ids);
       r.loot = r.loot.filter((x) => !ids.has(x.id));

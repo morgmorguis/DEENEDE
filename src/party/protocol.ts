@@ -291,6 +291,19 @@ export interface RoomView {
   canUndo: boolean;
   /** Puedes pasar turno (DM o el dueño del turno actual) */
   canEndTurn: boolean;
+  /** Solo el DM en un servidor de PC: el enlace con la nube para que el código sirva desde cualquier sitio */
+  cloud?: CloudLinkView;
+}
+
+/** Servidor de partida de la nube: con él basta el código para unirse */
+export const CLOUD_SERVER = 'https://di-en-di.web.app';
+
+export interface CloudLinkView {
+  /** Hay clave de la nube guardada en el PC */
+  linked: boolean;
+  url: string;
+  /** off: sin enlazar ahora (partida cerrada) · on: los jugadores entran con el código desde la nube */
+  status: 'off' | 'connecting' | 'on' | 'bad-key' | 'unreachable';
 }
 
 // ---------- Mensajes ----------
@@ -354,6 +367,8 @@ export type Command =
   | { t: 'openGame'; removePlayers?: boolean; clearLog?: boolean }
   /** Cerrar la partida: nadie nuevo puede unirse con el código (los de dentro siguen, salvo que se les saque) */
   | { t: 'closeGame'; removePlayers?: boolean }
+  /** Servidor del PC: guarda la clave del DM de la nube (url vacía = la de siempre) o la quita (key vacía) */
+  | { t: 'cloudLink'; url: string; key: string }
   | { t: 'add'; combatants: Partial<Combatant>[] }
   | { t: 'update'; id: string; patch: Partial<Combatant> }
   | { t: 'remove'; id: string }

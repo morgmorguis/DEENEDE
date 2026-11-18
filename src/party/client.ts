@@ -5,7 +5,7 @@ import { useStore } from '../store';
 import type { Character, Note } from '../types';
 import { compressImage } from '../imageUtil';
 import { storeSharedImage } from '../sharedImages';
-import type { ClientMessage, Command, Gift, PcSummary, Role, RoomView, ServerMessage } from './protocol';
+import { CLOUD_SERVER, type ClientMessage, type Command, type Gift, type PcSummary, type Role, type RoomView, type ServerMessage } from './protocol';
 import { COIN_KEYS, coinsInGold, coinsText, itemLine } from '../rules/items';
 import { hitDiceText } from '../rules/multiclass';
 import { uid } from '../rules/factory';
@@ -434,7 +434,7 @@ export async function resolveServer(input: string): Promise<string | null> {
 }
 
 /** Servidor de partida por defecto (el de la nube): con él basta el código para unirse */
-export const DEFAULT_SERVER = 'https://di-en-di.web.app';
+export const DEFAULT_SERVER = CLOUD_SERVER;
 const LAST_SERVER = 'di-en-di-last-server';
 export const lastServer = (): string | null => { try { return localStorage.getItem(LAST_SERVER); } catch { return null; } };
 export const rememberServer = (url: string) => { try { localStorage.setItem(LAST_SERVER, url); } catch { /* sin almacenamiento */ } };

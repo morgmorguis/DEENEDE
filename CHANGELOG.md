@@ -3,6 +3,15 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.28.0 · 18 nov 2026 — La partida del PC del DM, con el código desde cualquier sitio
+
+- **El código del servidor de tu PC ya sirve en la nube.** Si llevas la partida con «Di en Di - Servidor.exe», en la pestaña Partida pones **una vez** la clave del DM de tu servidor de la nube (🌐 Partida en la nube). Desde entonces, al pulsar **🎲 Crear partida** el PC se enlaza con la nube y los jugadores entran **solo con el código**, desde cualquier sitio (otra casa, datos del móvil), sin escribir ninguna dirección.
+- La partida sigue entera en tu PC (lugares, personajes, imágenes, registro, fichas sincronizadas): la nube solo hace de puerta. Los mapas compartidos llegan a los jugadores igual que antes.
+- La tarjeta dice si está **🌐 enlazada**, enlazándose, si la clave no es buena o si no llega a la nube (entonces el código sirve en tu Wi-Fi, como antes). En «📨 Invitar jugadores» aparece el enlace de la nube.
+- Si la nube corta la conexión (lo hace cada hora) el PC se vuelve a enlazar solo y los jugadores vuelven a entrar sin hacer nada.
+- La pantalla Partida del jugador ya no muestra los apartados del DM («Prepara el botín» y «Monta el servidor»). Los botines se preparan sin conexión en la pantalla del DM (su enlace /dm), antes de entrar; ya dentro, en Tesoro → Botines preparados.
+- Al cerrar la partida, el enlace se mantiene mientras quede algún jugador conectado por la nube y 10 minutos más; luego se corta (la nube no gasta).
+
 ## 0.27.0 · 18 nov 2026 — Crear la partida con un código y listas del DM en Excel
 
 **Partida**

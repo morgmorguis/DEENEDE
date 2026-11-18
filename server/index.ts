@@ -6,10 +6,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
-import { WebSocketServer, type WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
 import { apply, CAMPAIGN_KIND, canEnter, canSeeImage, createRoom, enterError, exportCampaign, importCampaign, join, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
-import type { ClientMessage, ServerMessage } from '../src/party/protocol';
+import { CLOUD_SERVER, type ClientMessage, type CloudLinkView, type ServerMessage } from '../src/party/protocol';
 import { startPublishing, stopPublishing, type PublishState } from './publish';
+import { RelayHost, RelayHub, type CloudConfig } from './relay';
 
 const args = process.argv.slice(2);
 const argValue = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -45,6 +46,60 @@ function load(): Room {
   }
 }
 let room = load();
+
+// ---------- Enlace con la nube ----------
+// En la nube: hace de puente hacia las partidas de los PC enlazados (quien entra con su código va a ese PC).
+const hub = new RelayHub();
+// En el PC: con la clave del DM de la nube guardada, al crear la partida se enlaza con ella y el código sirve desde cualquier sitio.
+const CLOUD_FILE = path.join(path.dirname(DATA_FILE), 'di-en-di-nube.json');
+function loadCloud(): CloudConfig | null {
+  try {
+    const j = JSON.parse(fs.readFileSync(CLOUD_FILE, 'utf8')) as Partial<CloudConfig>;
+    return typeof j.key === 'string' && j.key ? { url: String(j.url || CLOUD_SERVER), key: j.key } : null;
+  } catch { return null; }
+}
+let cloudCfg = CLOUD ? null : loadCloud();
+/** Una petición GET a este mismo servidor (la nube la reenvía: imágenes y fichas guardadas de los jugadores) */
+function localGet(p: string): Promise<{ status: number; type: string; body: Buffer }> {
+  return new Promise((resolve) => {
+    const req = http.get({ host: '127.0.0.1', port: PORT, path: p, timeout: 20000 }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode ?? 500, type: String(res.headers['content-type'] ?? 'application/octet-stream'), body: Buffer.concat(chunks) }));
+    });
+    req.on('timeout', () => req.destroy());
+    req.on('error', () => resolve({ status: 502, type: 'text/plain', body: Buffer.from('') }));
+  });
+}
+const relay = new RelayHost({
+  onPeer: (out) => {
+    const peer: Peer = { send: out.send, close: out.close };
+    return { message: (d) => handleMessage(peer, d), close: () => handleClose(peer) };
+  },
+  get: localGet,
+  onStatus: (st) => {
+    if (st === 'on') console.log(`\n  🌐 Enlazada con la nube: los jugadores entran con el código ${room.code} desde cualquier sitio (${cloudCfg?.url}).`);
+    else if (st === 'bad-key') console.log('\n  ⚠️  La nube no acepta la clave del DM guardada: revísala en la pantalla del DM (Partida).');
+    else if (st === 'unreachable') console.log('\n  ⚠️  No puedo conectar con la nube; lo sigo intentando. La red local sigue funcionando.');
+    // Después: al arrancar (partida abierta y clave guardada) el enlace empieza antes de que exista la lista de conexiones
+    setImmediate(broadcast);
+  },
+});
+const cloudView = (): CloudLinkView => ({ linked: !!cloudCfg, url: cloudCfg?.url ?? CLOUD_SERVER, status: relay.status });
+// El enlace se mantiene con la partida abierta, mientras haya jugadores conectados por la nube y 10 minutos más
+let lingerUntil = 0;
+let lingerTimer: NodeJS.Timeout | null = null;
+function syncRelay() {
+  if (CLOUD) return;
+  const open = room.open !== false;
+  if (open || relay.peerCount > 0) lingerUntil = Date.now() + 10 * 60000;
+  const wanted = open || Date.now() < lingerUntil;
+  relay.update({ code: room.code, open, keys: [room.dmKey, ...room.members.map((m) => m.token)] }, wanted);
+  if (lingerTimer) { clearTimeout(lingerTimer); lingerTimer = null; }
+  if (!open && wanted) lingerTimer = setTimeout(syncRelay, lingerUntil - Date.now() + 1000);
+}
+relay.setConfig(cloudCfg);
+
 let saveTimer: NodeJS.Timeout | null = null;
 // Escritura sin bloquear: en la nube el disco es un depósito de Cloud Storage y cada guardado es una subida
 let writing = false;
@@ -59,6 +114,7 @@ const writeRoom = async () => {
 const save = () => {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => void writeRoom(), 400);
+  syncRelay();
 };
 save();
 
@@ -78,6 +134,20 @@ const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.statusCode = 204; res.end(); return;
   }
+  // Imágenes y ficha guardada de un jugador de una partida de PC enlazada: la nube se las pide a ese PC
+  if (req.method === 'GET' && (url.pathname === '/api/sheet' || url.pathname.startsWith('/img/'))) {
+    const tok = url.searchParams.get('token') ?? url.searchParams.get('t') ?? '';
+    const host = tok && !room.members.some((m) => m.token === tok) ? hub.hostByToken(tok) : undefined;
+    if (host) {
+      void hub.get(host, `${url.pathname}${url.search}`).then((r) => {
+        res.statusCode = r.status;
+        res.setHeader('Content-Type', r.type);
+        if (r.status === 200 && url.pathname.startsWith('/img/')) res.setHeader('Cache-Control', 'private, max-age=86400');
+        res.end(r.body);
+      });
+      return;
+    }
+  }
   if (url.pathname === '/api/info') {
     res.setHeader('Content-Type', 'application/json');
     // El código y las direcciones solo para el DM (el servidor puede estar publicado en Internet)
@@ -91,7 +161,7 @@ const server = http.createServer((req, res) => {
     const direct = CLOUD && req.headers.host ? `https://${req.headers.host}` : '';
     res.end(JSON.stringify(isDm
       ? { app: 'di-en-di', code: room.code, port: PORT, lan: lanIps().map((ip) => `http://${ip}:${PORT}`), publish: pub ? { mode: 'cloud', url: pub, status: 'on', message: '', ...(direct && direct !== pub ? { direct } : {}) } : publish, ...probe }
-      : { app: 'di-en-di', ...probe, ...(check ? { match: canEnter(room, check), closed: !canEnter(room, check) && enterError(room, check) === 'game-closed' } : {}) }));
+      : { app: 'di-en-di', ...probe, ...(check ? checkCode(check) : {}) }));
     return;
   }
   // Fichas guardadas con «Sincronizar fichas»: cada jugador la suya (con su token); el DM, todas en un archivo de copia
@@ -180,18 +250,34 @@ const server = http.createServer((req, res) => {
   fs.createReadStream(file).pipe(res);
 });
 
+/** ¿El código es de esta partida o de una de PC enlazada? (para unirse solo con el código) */
+function checkCode(check: string) {
+  const linked = hub.check(check);
+  const match = canEnter(room, check) || linked === 'open';
+  return { match, closed: !match && (enterError(room, check) === 'game-closed' || linked === 'closed') };
+}
+
 // ---------- WebSocket ----------
 
-const wss = new WebSocketServer({ server, path: '/ws' });
-// ws reenvía los errores del servidor HTTP (p. ej. puerto ocupado): se tratan abajo
-wss.on('error', () => { /* lo gestiona server.on('error') */ });
-const clients = new Map<WebSocket, string>();
-const send = (ws: WebSocket, msg: ServerMessage) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg)); };
+/** Un jugador conectado: un WebSocket de verdad o uno que llega por la nube (server/relay.ts) */
+interface Peer { send: (data: string) => void; close: () => void }
+const wss = new WebSocketServer({ noServer: true });
+// /relay: los servidores de PC que se enlazan con este (con la clave del DM de aquí)
+const relayWss = new WebSocketServer({ noServer: true });
+server.on('upgrade', (req, socket, head) => {
+  const p = new URL(req.url ?? '/', 'http://x').pathname;
+  const target = p === '/ws' ? wss : p === '/relay' ? relayWss : null;
+  if (!target) { socket.destroy(); return; }
+  target.handleUpgrade(req, socket, head, (ws) => target.emit('connection', ws, req));
+});
+relayWss.on('connection', (ws) => hub.attach(ws, (k) => !!k && k === room.dmKey));
+const clients = new Map<Peer, string>();
+const send = (p: Peer, msg: ServerMessage) => p.send(JSON.stringify(msg));
 
 function broadcast() {
-  for (const [ws, id] of clients) {
+  for (const [p, id] of clients) {
     const view = viewFor(room, id);
-    if (view) send(ws, { t: 'state', view });
+    if (view) send(p, { t: 'state', view: view.you.role === 'dm' && !CLOUD ? { ...view, cloud: cloudView() } : view });
   }
 }
 
@@ -203,10 +289,56 @@ wss.on('connection', (ws) => {
     alive = false;
     ws.ping();
   }, 20000);
+  const peer: Peer = { send: (d) => { if (ws.readyState === ws.OPEN) ws.send(d); }, close: () => ws.close() };
+  // Quien entra con el código (o el token) de una partida de PC enlazada va a ese PC: aquí solo se hace de puente
+  let bridge: { forward: (data: string) => void; gone: () => void } | null = null;
+  let waiting: string[] | null = null;
 
-  ws.on('message', (data) => {
+  ws.on('message', (raw) => {
+    const data = String(raw);
+    if (bridge) { bridge.forward(data); return; }
+    if (waiting) { waiting.push(data); return; }
+    if (!clients.has(peer)) {
+      let msg: ClientMessage | null = null;
+      try { msg = JSON.parse(data); } catch { /* lo descarta handleMessage */ }
+      if (msg?.t === 'hello' && !canEnter(room, msg.code ?? '', msg.token, msg.dmKey)) {
+        const queue = [data];
+        waiting = queue;
+        void hub.route(msg.code ?? '', msg.token, msg.dmKey, CLOUD ? 8000 : 0).then((host) => {
+          waiting = null;
+          if (host && ws.readyState === ws.OPEN) {
+            const b = hub.bridge(host, ws);
+            bridge = b;
+            queue.forEach((d) => b.forward(d));
+          } else if (hub.check(msg.code ?? '') === 'closed') send(peer, { t: 'error', message: 'game-closed' });
+          else queue.forEach((d) => handleMessage(peer, d));
+        });
+        return;
+      }
+    }
+    handleMessage(peer, data);
+  });
+
+  ws.on('close', () => {
+    clearInterval(ping);
+    bridge?.gone();
+    handleClose(peer);
+  });
+});
+
+function handleClose(peer: Peer) {
+  const id = clients.get(peer);
+  clients.delete(peer);
+  if (id && ![...clients.values()].includes(id)) {
+    room = setOnline(room, id, false);
+    save();
+    broadcast();
+  }
+}
+
+function handleMessage(ws: Peer, data: string) {
     let msg: ClientMessage;
-    try { msg = JSON.parse(String(data)); } catch { return; }
+    try { msg = JSON.parse(data); } catch { return; }
     if (msg.t === 'hello') {
       if (!canEnter(room, msg.code ?? '', msg.token, msg.dmKey)) {
         send(ws, { t: 'error', message: enterError(room, msg.code ?? '') });
@@ -224,6 +356,21 @@ wss.on('connection', (ws) => {
     const id = clients.get(ws);
     if (!id || msg.t !== 'cmd') return;
     const cmd = msg.cmd;
+    // Enlace con la nube (solo el DM, en un servidor de PC): se guarda junto a la partida
+    if (cmd.t === 'cloudLink') {
+      if (CLOUD || room.members.find((m) => m.id === id)?.role !== 'dm') { send(ws, { t: 'error', message: 'not-allowed' }); return; }
+      const key = String(cmd.key ?? '').trim();
+      cloudCfg = key ? { url: String(cmd.url ?? '').trim() || CLOUD_SERVER, key } : null;
+      try {
+        if (cloudCfg) fs.writeFileSync(CLOUD_FILE, JSON.stringify(cloudCfg));
+        else fs.rmSync(CLOUD_FILE, { force: true });
+      } catch (e) { console.error('No se pudo guardar el enlace con la nube:', e); }
+      console.log(cloudCfg ? `→ 🌐 Clave de la nube guardada (${cloudCfg.url}).` : '→ Enlace con la nube quitado.');
+      relay.setConfig(cloudCfg);
+      save();
+      broadcast();
+      return;
+    }
     // Imagen nueva del DM: se guarda en disco y a la partida solo van sus datos
     if (cmd.t === 'imageAdd') {
       const me = room.members.find((m) => m.id === id);
@@ -271,19 +418,7 @@ wss.on('connection', (ws) => {
     else if (cmd.t === 'newCode') console.log(`→ Código nuevo de la partida: ${room.code}`);
     save();
     broadcast();
-  });
-
-  ws.on('close', () => {
-    clearInterval(ping);
-    const id = clients.get(ws);
-    clients.delete(ws);
-    if (id && ![...clients.values()].includes(id)) {
-      room = setOnline(room, id, false);
-      save();
-      broadcast();
-    }
-  });
-});
+}
 
 // ---------- Arranque ----------
 
@@ -345,6 +480,9 @@ server.on('listening', async () => {
   console.log(room.open === false
     ? '  Partida sin abrir: prepárala en la pantalla del DM y pulsa «🎲 Crear partida» para tener el código.'
     : `  Código de la partida:  ${room.code}`);
+  if (!CLOUD) console.log(cloudCfg
+    ? `  🌐 Enlazada con la nube (${cloudCfg.url}): al crear la partida, el código sirve desde cualquier sitio.`
+    : '  🌐 Sin enlace con la nube: el código solo sirve en tu red. Pon la clave de la nube en la pantalla del DM (Partida).');
   console.log(`  Pantalla del DM (${CLOUD ? 'no la compartas' : 'solo en este PC, no la compartas'}):\n    ${dmUrl}`);
   console.log(`  Clave del DM (para entrar como DM desde el móvil o la tablet): ${room.dmKey}`);
   console.log('\n  Jugadores en tu misma Wi-Fi: en la app, «Partida» → dirección:');

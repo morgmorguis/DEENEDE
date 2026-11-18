@@ -49,6 +49,10 @@ Región por defecto: Madrid (europe-southwest1). Para otra: -Region europe-west1
 
 3. JUGAR
 --------
+- Si llevas la partida en tu PC («Di en Di - Servidor.exe»): en la pantalla del DM, pestaña Partida →
+  «🌐 Partida en la nube», pon UNA VEZ la clave del DM de la nube (la que enseña este despliegue).
+  Al pulsar «🎲 Crear partida» el PC se enlaza con la nube y los jugadores entran solo con el código,
+  desde cualquier sitio. La partida sigue en tu PC; la nube solo les hace de puerta.
 - DM: abre https://ID-DEL-PROYECTO.web.app/dm?dm=CLAVE en el navegador (enlace propio del DM; el de los jugadores es /?join=CÓDIGO), o en la app: Partida →
   dirección ID-DEL-PROYECTO.web.app y la clave del DM.
 - Jugadores: https://ID-DEL-PROYECTO.web.app/?join=CÓDIGO, o en la app: Partida → dirección y código.

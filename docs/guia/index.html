@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/icono.png" alt="Icono de Di en Di: un d20 carmesí sobre un escudo con dos espadas, bajo la luna roja" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.27.0</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.28.0</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -436,7 +436,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <ol class="steps">
         <li>Abre <code>Di en Di - Servidor.exe</code> (del artefacto <code>di-en-di-windows</code>). Si Windows avisa: «Más información» → «Ejecutar de todas formas»; si el firewall pregunta, permite las redes privadas.</li>
         <li>Se abre tu pantalla de DM en el navegador. La ventana negra muestra la <b>clave del DM</b> y la dirección para la Wi-Fi de casa (<code>http://192.168.x.x:3000</code>).</li>
-        <li><b>Prepara la sesión a solas</b>: la partida empieza <b>cerrada</b> (nadie puede unirse). Monta tus lugares y encuentros, personajes, tesoro e imágenes, o carga la copia de la campaña. Cuando lo tengas listo, pulsa <b>🎲 Crear partida</b> en la pestaña Partida: sale el <b>código</b> en grande para dárselo a los jugadores. Puedes <b>🔁 cambiar el código</b> o <b>🔒 cerrar la partida</b> al terminar; la próxima sesión vuelves a crearla con un código nuevo y todo lo preparado sigue ahí.</li>
+        <li><b>Prepara la sesión a solas</b>: la partida empieza <b>cerrada</b> (nadie puede unirse). Monta tus lugares y encuentros, personajes, tesoro e imágenes, o carga la copia de la campaña. Cuando lo tengas listo, pulsa <b>🎲 Crear partida</b> en la pestaña Partida: sale el <b>código</b> en grande para dárselo a los jugadores. Puedes <b>🔁 cambiar el código</b> o <b>🔒 cerrar la partida</b> al terminar; la próxima sesión vuelves a crearla con un código nuevo y todo lo preparado sigue ahí. Si llevas la partida en el <b>servidor de tu PC</b>, pon una vez en <b>🌐 Partida en la nube</b> la clave del DM de tu servidor de la nube: al crear la partida el PC se enlaza con ella y el código sirve <b>desde cualquier sitio</b>, no solo en tu Wi-Fi (la partida sigue en tu PC; la nube solo es la puerta).</li>
         <li><b>A distancia</b> (sin Cloudflare, que en España se bloquea durante el fútbol): instala <a href="https://tailscale.com/download/windows">Tailscale</a>, ejecuta <code>tailscale funnel 3000</code> y comparte la dirección <code>https://….ts.net</code>. Los jugadores no instalan nada.</li>
         <li><b>Hay dos enlaces:</b> el de los jugadores (<code>…/?join=CÓDIGO</code>) y el tuyo de DM (<code>…/dm</code>), que solo pide la clave del DM y la recuerda. Para dirigir desde el móvil o la tablet abre tu enlace de DM (está en <b>Partida → 📨 Invitar jugadores → 🔑 Tu enlace de DM</b>) o, en la app, Partida → dirección → «¿Eres el DM?» → clave.</li>
       </ol>
@@ -535,7 +535,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
         <li>Añade una nota si quieres («Botín de la cripta») y pulsa <b>🎁 Dar</b>.</li>
       </ol>
       <p>Al jugador le salta el aviso <b>«🎁 El DM te da algo»</b>: las monedas <b>se suman</b> a las de su hoja y los objetos aparecen en <b>Objetos</b>, dentro del recuadro Equipo (si ya tenía uno igual, sube la cantidad). Si estaba desconectado, le llega al volver a entrar, y nunca se suma dos veces.</p>
-      <p><b>Botines preparados:</b> antes de la partida, sin conexión, en <b>Partida → ¿Eres el DM? Prepara el botín</b> creas lotes (monedas, objetos y nota). Ya conectado, en Tesoro → <b>Botines preparados</b> pulsas <b>Usar</b> y los das a quien quieras; con <b>💾 Guardar para luego</b> guardas lo que tengas en el formulario.</p>
+      <p><b>Botines preparados:</b> antes de la partida, sin conexión, en tu pantalla de DM (tu enlace <code>…/dm</code>), en <b>🎒 Prepara el botín</b> antes de entrar, creas lotes (monedas, objetos y nota). Ya conectado, en Tesoro → <b>Botines preparados</b> pulsas <b>Usar</b> y los das a quien quieras; con <b>💾 Guardar para luego</b> guardas lo que tengas en el formulario.</p>
       <p><b>Intercambio entre jugadores:</b> dentro o fuera de combate, en <b>Partida → 🤝 Dar a un compañero</b> (o desde un objeto de la hoja) cada jugador da monedas u objetos de su ficha a otro: se restan de la suya y se suman a la del compañero, aunque esté desconectado. El DM lo ve en su registro.</p>
       <p>Debajo, el <b>Registro de entregas</b> guarda en el servidor todo lo que has dado, con la fecha y el estado (<b>✅ En su ficha</b> o <b>⏳ Pendiente</b>; lo pendiente se puede anular). Cada jugador tiene su tarjeta con el total de monedas, objetos y el valor aproximado en oro; tócala para ver solo lo suyo. Los jugadores ven lo que les has dado a ellos en <b>Partida → Lo que te ha dado el DM</b>.</p>
       <div class="pair">
