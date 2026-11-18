@@ -6,6 +6,8 @@ import { httpBase, useParty } from '../party/client';
 import { CAMPAIGN_KIND, type CampaignData } from '../party/room';
 import { useStore, type LootBundle } from '../store';
 import type { ItemData } from '../rules/itemTypes';
+import type { Character } from '../types';
+import { logLine } from './Party';
 import { backupFileName, platformName, saveBackupFile } from '../backup';
 import { Section, pickFiles } from './common';
 import { T } from '../i18n';
@@ -16,7 +18,7 @@ export interface CampaignFile {
   exportedAt: string;
   platform?: string;
   room?: CampaignData;
-  local?: { customItems?: ItemData[]; lootBundles?: LootBundle[] };
+  local?: { customItems?: ItemData[]; lootBundles?: LootBundle[]; /** Fichas completas de esta app (p. ej. los PNJ del DM) */ characters?: Character[] };
 }
 
 /** Lee un archivo de campaña (o lanza un error explicado) */
@@ -30,8 +32,8 @@ export function parseCampaign(text: string): CampaignFile {
 const count = (f: CampaignFile) => {
   const r = f.room;
   return T(
-    `${r?.roster.length ?? 0} personaje(s) preparado(s), ${r?.encounters.length ?? 0} encuentro(s), ${r?.images.length ?? 0} imagen(es), ${r?.chronicles.length ?? 0} crónica(s), ${r?.log.length ?? 0} línea(s) de registro, ${f.local?.lootBundles?.length ?? 0} botín(es) y ${f.local?.customItems?.length ?? 0} plantilla(s) de objeto`,
-    `${r?.roster.length ?? 0} prepared character(s), ${r?.encounters.length ?? 0} encounter(s), ${r?.images.length ?? 0} image(s), ${r?.chronicles.length ?? 0} chronicle(s), ${r?.log.length ?? 0} log line(s), ${f.local?.lootBundles?.length ?? 0} loot bundle(s) and ${f.local?.customItems?.length ?? 0} item template(s)`,
+    `${r?.roster.length ?? 0} personaje(s) preparado(s), ${r?.encounters.length ?? 0} encuentro(s), ${r?.images.length ?? 0} imagen(es), ${r?.chronicles.length ?? 0} crónica(s), ${r?.log.length ?? 0} línea(s) de registro, ${f.local?.lootBundles?.length ?? 0} botín(es), ${f.local?.customItems?.length ?? 0} plantilla(s) de objeto y ${f.local?.characters?.length ?? 0} ficha(s) de personaje`,
+    `${r?.roster.length ?? 0} prepared character(s), ${r?.encounters.length ?? 0} encounter(s), ${r?.images.length ?? 0} image(s), ${r?.chronicles.length ?? 0} chronicle(s), ${r?.log.length ?? 0} log line(s), ${f.local?.lootBundles?.length ?? 0} loot bundle(s), ${f.local?.customItems?.length ?? 0} item template(s) and ${f.local?.characters?.length ?? 0} character sheet(s)`,
   );
 };
 
@@ -43,6 +45,9 @@ export function DmBackupSection() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const view = useParty((s) => s.view);
+  const chars = useStore((s) => s.characters);
+  const [withSheets, setWithSheets] = useState(true);
 
   const run = async (fn: () => Promise<string>) => {
     setBusy(true); setError(null); setStatus(null);
@@ -57,7 +62,7 @@ export function DmBackupSection() {
       if (!res.ok) throw new Error(T(`El servidor no ha dado la copia (${res.status}). ¿Es un servidor antiguo? Actualízalo.`, `The server didn’t return the backup (${res.status}). Is it an old server? Update it.`));
       room = (await res.json()).room;
     }
-    const file: CampaignFile = { kind: CAMPAIGN_KIND, version: 1, exportedAt: new Date().toISOString(), platform: platformName(), room, local: { customItems: st.settings.customItems ?? [], lootBundles: st.settings.lootBundles ?? [] } };
+    const file: CampaignFile = { kind: CAMPAIGN_KIND, version: 1, exportedAt: new Date().toISOString(), platform: platformName(), room, local: { customItems: st.settings.customItems ?? [], lootBundles: st.settings.lootBundles ?? [], ...(withSheets ? { characters: st.characters } : {}) } };
     const where = await saveBackupFile(JSON.stringify(file), backupFileName(T('campaña', 'campaign')).replace('_guardado_', '_dm_'));
     const what = count(file);
     return where ? T(`Guardado en ${where}: ${what}.`, `Saved to ${where}: ${what}.`) : T(`Copia creada: ${what}.`, `Backup created: ${what}.`);
@@ -75,6 +80,8 @@ export function DmBackupSection() {
       lootBundles: [...(st.settings.lootBundles ?? []).filter((b) => !bundles.some((x) => x.id === b.id)), ...bundles],
       customItems: [...(st.settings.customItems ?? []).filter((i) => !items.some((x) => x.name === i.name)), ...items],
     });
+    // Fichas (PNJ): se añaden o sustituyen a la del mismo personaje
+    if (f.local?.characters?.length) st.importCharacters(f.local.characters, 'merge');
     let serverPart = '';
     if (f.room) {
       if (!dm || !online) serverPart = T(' La parte del servidor (personajes preparados, encuentros, imágenes…) necesita que te conectes como DM: vuelve a restaurar el archivo cuando lo estés.', ' The server part (prepared characters, encounters, images…) needs you to be connected as DM: restore the file again once you are.');
@@ -87,6 +94,20 @@ export function DmBackupSection() {
     return T(`Restaurado: ${count(f)}.`, `Restored: ${count(f)}.`) + serverPart;
   });
 
+  // Listas del DM en Excel o Markdown (lo que hay ahora en el servidor)
+  const exportLists = (kind: 'xlsx' | 'md') => run(async () => {
+    if (!view || view.you.role !== 'dm') throw new Error(T('Conéctate como DM para exportar las listas.', 'Connect as DM to export the lists.'));
+    const { dmWorkbook, dmMarkdown } = await import('../export/dmExport');
+    const { XLSX_MIME } = await import('../export/xlsx');
+    const lists = { roster: view.roster, encounters: view.encounters, loot: view.loot, gifts: view.gifts, log: view.log };
+    const line = (ev: Parameters<typeof logLine>[0]) => logLine(ev, true);
+    const day = new Date().toISOString().slice(0, 10);
+    const where = kind === 'xlsx'
+      ? await saveBackupFile(dmWorkbook(lists, line), `${T('listas-del-dm', 'dm-lists')}-${day}.xlsx`, XLSX_MIME)
+      : await saveBackupFile(dmMarkdown(lists, line), `${T('listas-del-dm', 'dm-lists')}-${day}.md`, 'text/markdown');
+    return where ? T(`Guardado en ${where}.`, `Saved to ${where}.`) : T('Archivo creado.', 'File created.');
+  });
+
   return (
     <Section title={T('Copia de la campaña (DM)', 'Campaign backup (DM)')}>
       <p className="small">{T(
@@ -95,9 +116,15 @@ export function DmBackupSection() {
       <p className="hint">{dm && online
         ? T('✅ Conectado como DM: la copia incluye lo que guarda el servidor.', '✅ Connected as DM: the backup includes what the server stores.')
         : T('Sin conexión como DM solo se guardan los botines y plantillas de esta app. El servidor, además, guarda la partida solo en «di-en-di-partida.json» junto al programa.', 'Without a DM connection only this app’s loot and templates are saved. The server also keeps the game in “di-en-di-partida.json” next to the program.')}</p>
+      {chars.length > 0 && <label className="check"><input type="checkbox" checked={withSheets} onChange={(e) => setWithSheets(e.target.checked)} /> 🧙 {T(`Incluir las fichas de personaje de esta app (${chars.length}: tus PNJ)`, `Include this app’s character sheets (${chars.length}: your NPCs)`)}</label>}
       <div className="row">
         <button className="btn primary grow" disabled={busy} onClick={() => void exportAll()}>💾 {T('Exportar campaña', 'Export campaign')}</button>
         <button className="btn grow" disabled={busy} onClick={() => void restore()}>📂 {T('Restaurar campaña', 'Restore campaign')}</button>
+      </div>
+      <p className="small muted">{T('Para leer o imprimir: tus listas (personajes, encuentros, tesoro de cada enemigo y de cada grupo, botín pendiente, entregas y registro). La pestaña «Encuentros» del Excel se puede volver a importar.', 'To read or print: your lists (characters, encounters, loot per enemy and per group, pending loot, gifts and log). The Excel “Encounters” tab can be imported again.')}</p>
+      <div className="row">
+        <button className="btn grow" disabled={busy || view?.you.role !== 'dm'} onClick={() => void exportLists('xlsx')}>📊 {T('Listas en Excel', 'Lists to Excel')}</button>
+        <button className="btn grow" disabled={busy || view?.you.role !== 'dm'} onClick={() => void exportLists('md')}>📝 {T('Listas en Markdown', 'Lists to Markdown')}</button>
       </div>
       {status && <p className="hint">✅ {status}</p>}
       {error && <p className="error">⚠️ {error}</p>}

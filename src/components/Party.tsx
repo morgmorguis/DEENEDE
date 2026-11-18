@@ -2,7 +2,7 @@
 // consultar el registro y (si eres el DM) organizarlo todo, incluidos monstruos ocultos.
 import { useEffect, useMemo, useState } from 'react';
 import { useChar, useStore } from '../store';
-import { downloadAllSheets, fetchSavedSheet, httpBase, summaryOf, useParty } from '../party/client';
+import { DEFAULT_SERVER, ERRORS, addSharedNotes, downloadAllSheets, fetchSavedSheet, findServer, httpBase, lastServer, summaryOf, useParty } from '../party/client';
 import type { CarriedLoot, CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
 import { mergeLoot, splitLoot } from '../party/encounterImport';
 import { NO_COINS, coinsText, hasCoins, itemLine } from '../rules/items';
@@ -21,6 +21,8 @@ import { DmImages, SharedGallery, useImageUrl } from './Images';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
 import { randomCombatPhrase } from '../party/phrases';
+import { uid } from '../rules/factory';
+import { openNotesAt } from './Notes';
 
 const STATE_LABEL: Record<HpState, [string, string, string]> = {
   unhurt: ['Ileso', 'Unhurt', 'ok'],
@@ -85,30 +87,75 @@ export function DmLogin() {
   );
 }
 
+/** Jugador: lo que te han compartido (mapas e imágenes, crónicas, informes de combate y entregas) queda en el
+ *  diario de tu ficha, en este dispositivo, aunque ya no haya partida en marcha */
+function SharedWithMe() {
+  const c = useChar();
+  const folder = c.noteFolders.find((f) => f.key === 'shared');
+  const notes = folder ? c.notes.filter((n) => n.folderId === folder.id) : [];
+  const imgs = notes.filter((n) => n.image);
+  const count = (re: RegExp) => notes.filter((n) => re.test(n.ref ?? '')).length;
+  return (
+    <Section title={T('🤝 Compartido conmigo', '🤝 Shared with me')}>
+      {notes.length ? (
+        <>
+          <p className="small">{T(
+            `${imgs.length} imagen(es) y mapa(s), ${count(/^chr:/)} crónica(s), ${count(/^cmb:/)} informe(s) de combate y ${count(/^gift:/)} entrega(s). Se guardan en el diario de ${c.name} en este dispositivo: siguen aquí aunque la partida haya terminado.`,
+            `${imgs.length} image(s) and map(s), ${count(/^chr:/)} chronicle(s), ${count(/^cmb:/)} combat report(s) and ${count(/^gift:/)} gift(s). They’re stored in ${c.name}’s journal on this device: they stay here after the game is over.`)}</p>
+          {imgs.length > 0 && <div className="shared-thumbs">{imgs.slice(0, 8).map((n) => <img key={n.id} src={n.image} alt={n.title} title={n.title} onClick={() => openNotesAt('shared')} />)}</div>}
+          <button className="btn full" onClick={() => openNotesAt('shared')}>📜 {T('Abrir en el diario', 'Open in the journal')}</button>
+        </>
+      ) : (
+        <p className="small muted">{T('Aquí quedarán los mapas e imágenes que te enseñe el DM, sus crónicas, los informes de tus combates y lo que te den, aunque la partida ya no esté en marcha.', 'The maps and images the DM shows you, their chronicles, your combat reports and what you’re given will stay here, even when the game is no longer running.')}</p>
+      )}
+    </Section>
+  );
+}
+
 function JoinForm() {
   const c = useChar();
   const connect = useParty((s) => s.connect);
   const error = useParty((s) => s.error);
-  const [url, setUrl] = useState('');
+  const prev = lastServer();
+  const [url, setUrl] = useState(prev && prev !== DEFAULT_SERVER ? prev : '');
   const [code, setCode] = useState('');
   const [name, setName] = useState(c.name);
   const [dmKey, setDmKey] = useState('');
   const [asDm, setAsDm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const clean = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const go = async () => {
+    setErr(null);
+    // El DM entra con su clave en el servidor que diga (o en el de la nube)
+    if (asDm) { connect({ url: url.trim() || DEFAULT_SERVER, code: '', name: 'DM', dmKey }); return; }
+    setBusy(true);
+    const found = await findServer(clean, url.trim() || undefined);
+    setBusy(false);
+    if ('error' in found) { setErr(T(...ERRORS[found.error])); return; }
+    connect({ url: found.url, code: clean, name: name.trim() || c.name, characterId: c.id });
+  };
   return (
     <div className="tab">
-      <Section title={T('Unirse a una partida', 'Join a game')}>
-        <p className="small">{T('El DM abre el servidor de «Di en Di» en su PC y os pasa la dirección y el código. Vuestras fichas siguen en vuestro móvil; a la partida solo se envía un resumen (vida, CA, condiciones…).', 'The DM runs the «Di en Di» server on their PC and gives you the address and code. Your sheets stay on your phone; only a summary (HP, AC, conditions…) is shared.')}</p>
-        <label className="field">{T('Dirección del servidor', 'Server address')}
-          <input value={url} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="192.168.1.20:3000 · https://mi-pc.tail1234.ts.net" onChange={(e) => setUrl(e.target.value)} />
-        </label>
-        <div className="grid2">
-          <label className="field">{T('Código de la partida', 'Game code')}
-            <input value={code} autoCapitalize="characters" placeholder="ABC123" onChange={(e) => setCode(e.target.value.toUpperCase())} />
+      <Section title={T('🎲 Unirse a una partida', '🎲 Join a game')}>
+        <p className="small">{T('Pide al DM el código de la partida y escríbelo aquí. No hace falta ninguna dirección: la app busca la partida y te quedas en ella (no se abre el navegador). Tu ficha sigue en tu dispositivo; a la partida solo va un resumen (vida, CA, condiciones…).', 'Ask the DM for the game code and type it here. No address needed: the app finds the game and you stay in it (no browser opens). Your sheet stays on your device; only a summary (HP, AC, conditions…) is shared.')}</p>
+        {!asDm && (
+          <div className="grid2">
+            <label className="field">{T('Código de la partida', 'Game code')}
+              <input className="join-code" value={code} autoCapitalize="characters" autoCorrect="off" autoComplete="off" maxLength={8} placeholder="ABC123" onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === 'Enter' && clean.length >= 4 && void go()} />
+            </label>
+            <label className="field">{T('Tu nombre', 'Your name')}
+              <input value={name} onChange={(e) => setName(e.target.value)} />
+            </label>
+          </div>
+        )}
+        <details className="dm-option" open={!!url}>
+          <summary className="small muted">{T('Otro servidor (solo si el DM usa el suyo en casa)', 'Other server (only if the DM runs their own at home)')}</summary>
+          <p className="small muted">{T('Si el DM abre «Di en Di - Servidor» en su PC, escribe una vez la dirección que te diga (p. ej. 192.168.1.20:3000). La app la recuerda.', 'If the DM runs «Di en Di - Server» on their PC, type once the address they give you (e.g. 192.168.1.20:3000). The app remembers it.')}</p>
+          <label className="field">{T('Dirección del servidor', 'Server address')}
+            <input value={url} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="192.168.1.20:3000 · https://mi-pc.tail1234.ts.net" onChange={(e) => setUrl(e.target.value)} />
           </label>
-          <label className="field">{T('Tu nombre', 'Your name')}
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-        </div>
+        </details>
         <details className="dm-option" open={asDm}>
           <summary className="small muted">{T('¿Eres el DM?', 'Are you the DM?')}</summary>
           <p className="small muted">{T('Lo más cómodo es tu enlace de DM (termina en /dm). Desde aquí también puedes entrar con la clave:', 'The easiest way is your DM link (it ends in /dm). You can also enter with the key here:')}</p>
@@ -120,11 +167,12 @@ function JoinForm() {
           </label>
         )}
         {!asDm && <p className="hint">{T(`Compartirás la ficha de ${c.name}. Cambia de personaje en Ajustes antes de unirte si quieres usar otro.`, `You’ll share ${c.name}’s sheet. Switch characters in Settings before joining to use another one.`)}</p>}
-        {error && <p className="error">⚠️ {error}</p>}
-        <button className="btn primary full" disabled={!url.trim() || (!asDm && !code.trim()) || (asDm && !dmKey)} onClick={() => connect({ url, code, name: name.trim() || c.name, dmKey: asDm ? dmKey : undefined, characterId: c.id })}>
-          🎲 {T('Unirse', 'Join')}
+        {(err || error) && <p className="error">⚠️ {err ?? error}</p>}
+        <button className="btn primary full big" disabled={busy || (!asDm && clean.length < 4) || (asDm && !dmKey)} onClick={() => void go()}>
+          {busy ? `⏳ ${T('Buscando la partida…', 'Looking for the game…')}` : `🎲 ${T('Unirse', 'Join')}`}
         </button>
       </Section>
+      <SharedWithMe />
       <Section title={T('🎒 ¿Eres el DM? Prepara el botín', '🎒 Are you the DM? Prepare the loot')}>
         <p className="small">{T('Prepara antes de la partida, sin conexión, lo que vas a repartir: monedas, objetos del catálogo o creados por ti. Al conectarte como DM los tendrás en la pestaña 💰 Tesoro → Botines preparados.', 'Prepare what you’ll hand out before the session, offline: coins and items from the catalog or your own. Once you connect as the DM you’ll find them in 💰 Treasure → Prepared loot.')}</p>
         <BundleList />
@@ -132,8 +180,8 @@ function JoinForm() {
       <Section title={T('¿Eres el DM? Monta el servidor', 'Are you the DM? Set up the server')}>
         <ol className="small steps">
           <li>{T('Descarga «Di en Di - Servidor.exe» (GitHub → Actions → artefacto di-en-di-servidor-windows) y ábrelo en tu PC con Windows.', 'Download «Di en Di - Servidor.exe» (GitHub → Actions → artifact di-en-di-servidor-windows) and open it on your Windows PC.')}</li>
-          <li>{T('Se abre tu pantalla de DM en el navegador. La ventana negra muestra el código y las direcciones.', 'Your DM screen opens in the browser. The black window shows the code and addresses.')}</li>
-          <li>{T('En la misma Wi-Fi: los jugadores usan la dirección http://192.168…:3000.', 'Same Wi-Fi: players use the http://192.168…:3000 address.')}</li>
+          <li>{T('Se abre tu pantalla de DM en el navegador. Prepara la sesión a solas y pulsa «🎲 Crear partida»: te da el código para los jugadores.', 'Your DM screen opens in the browser. Prepare the session on your own and press “🎲 Create game”: it gives you the code for the players.')}</li>
+          <li>{T('En la misma Wi-Fi: los jugadores escriben el código y, solo la primera vez, la dirección http://192.168…:3000 en «Otro servidor».', 'Same Wi-Fi: players type the code and, only the first time, the http://192.168…:3000 address under “Other server”.')}</li>
           <li>{T('A distancia: instala Tailscale en el PC y ejecuta «tailscale funnel 3000»; comparte la dirección https://….ts.net (los jugadores no instalan nada).', 'Remote: install Tailscale on the PC and run “tailscale funnel 3000”; share the https://….ts.net address (players install nothing).')}</li>
         </ol>
       </Section>
@@ -259,13 +307,15 @@ export function combatReport(view: RoomView): { title: string; text: string } {
   if (others.length) lines.push(`${T('Enemigos y aliados', 'Enemies and allies')}: ${others.join(', ')}`);
   if (rounds) lines.push(T(`Duración: ${rounds} ronda(s)`, `Length: ${rounds} round(s)`));
   let started = false;
+  let lastTurn = -1;
   for (const e of events) {
     if (e.kind === 'begin') started = true;
     // Quién entra ya está en la cabecera; dentro de las rondas solo los refuerzos
     if (e.kind === 'start' || (e.kind === 'add' && !started)) continue;
     if (e.kind === 'begin' || e.kind === 'round') { lines.push('', T(`— RONDA ${e.kind === 'begin' ? 1 : e.round} —`, `— ROUND ${e.kind === 'begin' ? 1 : e.round} —`)); continue; }
-    if (e.kind === 'turn') { lines.push(logLine(e, dm)); continue; }
-    if (e.kind === 'end') { lines.push('', logLine(e, dm)); continue; }
+    if (e.kind === 'turn') { lines.push(logLine(e, dm)); lastTurn = lines.length - 1; continue; }
+    // El turno que empezó justo antes de terminar el combate no llegó a jugarse
+    if (e.kind === 'end') { if (lastTurn === lines.length - 1) lines.pop(); lines.push('', logLine(e, dm)); continue; }
     lines.push(`   ${logLine(e, dm)}`);
   }
   // Daño hecho y bajas de cada uno
@@ -285,13 +335,23 @@ export function combatReport(view: RoomView): { title: string; text: string } {
   return { title: `${name} · ${date}`, text: lines.join('\n').trim() };
 }
 
+/** Jugador: al terminar un combate su informe se guarda solo en el diario, en «🤝 Compartido conmigo» */
+export function saveCombatReport(view: RoomView) {
+  if (view.you.role !== 'player') return;
+  const start = [...view.log].reverse().find((e) => e.kind === 'start');
+  if (!start) return;
+  const { title, text } = combatReport(view);
+  addSharedNotes(useParty.getState().conn?.characterId, [{ id: uid(), createdAt: start.at, title: `⚔️ ${title}`, body: text, kind: 'story', ref: `cmb:${start.id}` }]);
+}
+
 /** Informe del combate: leerlo, guardarlo en el diario, descargarlo o copiarlo */
 export function CombatReportModal({ view, onClose, ended }: { view: RoomView; onClose: () => void; ended?: boolean }) {
   const addNote = useStore((s) => s.addNote);
   const c = useChar();
   const dm = view.you.role === 'dm';
   const { title, text } = useMemo(() => combatReport(view), [view]);
-  const [saved, setSaved] = useState(false);
+  // Al terminar ya se ha guardado solo en «Compartido conmigo»
+  const [saved, setSaved] = useState(!!ended);
   const save = () => {
     addNote({ title: `⚔️ ${title}`, body: text, kind: 'note', folderId: c.noteFolders.find((f) => f.key === 'chronicles')?.id ?? null });
     setSaved(true);
@@ -303,7 +363,7 @@ export function CombatReportModal({ view, onClose, ended }: { view: RoomView; on
       {ended && <p className="small">{T('El combate ha terminado. Sigues conectado a la partida: vuelves a tu ficha y aquí tienes el registro completo.', 'The combat is over. You’re still connected to the game: you’re back on your sheet and here is the full log.')}</p>}
       <pre className="combat-report">{text}</pre>
       <div className="row wrap">
-        {!dm && <button className="btn primary grow" disabled={saved} onClick={save}>📜 {saved ? T('Guardado', 'Saved') : T('Guardar en mi diario', 'Save to my journal')}</button>}
+        {!dm && <button className="btn primary grow" disabled={saved} onClick={save}>📜 {saved ? (ended ? T('En tu diario → 🤝 Compartido conmigo', 'In your journal → 🤝 Shared with me') : T('Guardado', 'Saved')) : T('Guardar en mi diario', 'Save to my journal')}</button>}
         <button className="btn" onClick={download}>⬇️ {T('Descargar', 'Download')}</button>
         <button className="btn" onClick={() => void navigator.clipboard?.writeText(text)}>📋 {T('Copiar', 'Copy')}</button>
       </div>
@@ -987,13 +1047,13 @@ export function PartyTab() {
     <div className="tab">
       <div className="party-head">
         <span className={`party-status ${status}`}>{status === 'online' ? '🟢' : status === 'off' ? '⚪' : '🟡'} {status === 'online' ? T('Conectado', 'Connected') : status === 'retrying' ? T('Reconectando…', 'Reconnecting…') : T('Conectando…', 'Connecting…')}</span>
-        {view && <span className="small muted">{T('Partida', 'Game')} <b>{view.code}</b> · {dm ? T('eres el DM', 'you’re the DM') : T('jugador', 'player')}</span>}
+        {view && <span className="small muted">{T('Partida', 'Game')} <b>{view.open ? view.code : T('sin abrir', 'not open')}</b> · {dm ? T('eres el DM', 'you’re the DM') : T('jugador', 'player')}</span>}
         <button className="btn small" onClick={async () => { if (await askOk(T('¿Salir de la partida?', 'Leave the game?'))) leave(); }}>{T('Salir', 'Leave')}</button>
       </div>
       {error && <p className="error">⚠️ {error}</p>}
-      {view && dm && <InvitePanel code={view.code} />}
-      {view && dm && <TvLink code={view.code} />}
-      {view && dm && <SessionPanel view={view} />}
+      {view && dm && <GamePanel view={view} />}
+      {view && dm && view.open && <InvitePanel code={view.code} />}
+      {view && dm && view.open && <TvLink code={view.code} />}
       {/* Jugador en combate: el combate (antesala o turnos) va lo primero */}
       {view && !dm && view.encounter.active && <SharedCombat view={view} />}
       {view && (
@@ -1019,7 +1079,7 @@ export function PartyTab() {
                   {m.summary && m.summary.name !== m.name && <span className="tiny muted">{m.name}</span>}
                 </div>
               ))}
-              {view.members.filter((m) => m.role === 'player').length === 0 && <p className="muted">{T(`Aún no hay jugadores. Código: ${view.code}`, `No players yet. Code: ${view.code}`)}</p>}
+              {view.members.filter((m) => m.role === 'player').length === 0 && <p className="muted">{view.open ? T(`Aún no hay jugadores. Código: ${view.code}`, `No players yet. Code: ${view.code}`) : T('Aún no hay jugadores: crea la partida para tener el código.', 'No players yet: create the game to get the code.')}</p>}
             </div>
           </Section>
           {view.you.role !== 'viewer' && !(!dm && view.encounter.active) && <SheetSync view={view} />}
@@ -1028,6 +1088,7 @@ export function PartyTab() {
           {dm && <DmImages view={view} />}
           <SharedGallery view={view} />
           <MyGifts view={view} />
+          {view.you.role === 'player' && <SharedWithMe />}
           {!dm && <CombatLog view={view} />}
         </>
       )}
@@ -1171,7 +1232,7 @@ function InvitePanel({ code }: { code: string }) {
       {pub?.status === 'on' && pub.url && (
         <>
           <Row label={T('🌍 Desde cualquier sitio (Internet)', '🌍 From anywhere (Internet)')} url={`${pub.url}/?join=${code}`} />
-          <p className="hint">{T(`En la app: Partida → dirección ${pub.url} y código ${code}. Abierto en el navegador, el enlace ya entra solo.`, `In the app: Game → address ${pub.url} and code ${code}. Opened in a browser, the link joins directly.`)}</p>
+          <p className="hint">{T(`En la app basta el código ${code} (Partida → código). El enlace es para quien juega desde el navegador: entra solo, en esa misma pestaña.`, `In the app the code ${code} is enough (Game → code). The link is for browser players: it joins directly, in that same tab.`)}</p>
           {pub.direct && <Row label={T('🔗 Dirección directa (apps de Android 0.24 o anteriores)', '🔗 Direct address (Android app 0.24 or older)')} url={pub.direct} />}
         </>
       )}
@@ -1188,34 +1249,54 @@ function InvitePanel({ code }: { code: string }) {
   );
 }
 
-/** DM: cambiar el código de la partida o empezar una sesión nueva */
-function SessionPanel({ view }: { view: RoomView }) {
+/**
+ * DM: la partida empieza cerrada mientras la preparas (lugares, personajes, tesoro, imágenes…). Al pulsar
+ * «Crear partida» se genera el código que das a los jugadores; con él se unen desde su app. Luego puedes
+ * cambiar el código o cerrarla (para la próxima sesión se vuelve a crear con un código nuevo).
+ */
+function GamePanel({ view }: { view: RoomView }) {
   const send = useParty((s) => s.send);
-  const [open, setOpen] = useState(false);
   const [removePlayers, setRemovePlayers] = useState(true);
   const [clearLog, setClearLog] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [kick, setKick] = useState(false);
+  const [copied, setCopied] = useState(false);
   const players = view.members.filter((m) => m.role === 'player').length;
-  const toast = (title: string) => useStore.getState().showToast(title, [T('Pasa el código nuevo a los jugadores desde «Invitar jugadores».', 'Give the new code to the players from “Invite players”.')]);
+  const toast = (title: string, line: string) => useStore.getState().showToast(title, [line]);
+  if (!view.open) {
+    return (
+      <Section title={`🛠️ ${T('Preparando la sesión', 'Preparing the session')}`} className="game-panel closed">
+        <p className="small">{T('La partida aún no está abierta: nadie puede unirse. Prepara con calma tus lugares y encuentros, personajes, tesoro e imágenes (también puedes cargar una copia de la campaña en Personajes). Cuando lo tengas listo, crea la partida y da el código a los jugadores.', 'The game isn’t open yet: nobody can join. Prepare your places and encounters, characters, treasure and images (you can also load a campaign backup in Characters). When you’re ready, create the game and give the code to the players.')}</p>
+        {players > 0 && <label className="check"><input type="checkbox" checked={removePlayers} onChange={(e) => setRemovePlayers(e.target.checked)} /> 👋 {T(`Empezar sin los jugadores de la sesión anterior (${players}): se unen con el código nuevo`, `Start without the previous session’s players (${players}): they join with the new code`)}</label>}
+        {view.log.length > 0 && <label className="check"><input type="checkbox" checked={clearLog} onChange={(e) => setClearLog(e.target.checked)} /> 🗑️ {T('Borrar el registro de los combates anteriores', 'Clear the log of previous combats')}</label>}
+        {clearLog && <p className="hint">💾 {T('Si quieres conservarlo, antes haz una copia en Personajes → Copia de la campaña.', 'To keep it, first make a copy in Characters → Campaign backup.')}</p>}
+        <button className="btn primary full big" onClick={() => { send({ t: 'openGame', removePlayers: players > 0 && removePlayers, clearLog }); toast(T('🎲 Partida creada', '🎲 Game created'), T('Da el código a los jugadores: en su app, Partida → código.', 'Give the code to the players: in their app, Game → code.')); }}>🎲 {T('Crear partida', 'Create game')}</button>
+      </Section>
+    );
+  }
+  const copy = () => { void navigator.clipboard?.writeText(view.code); setCopied(true); window.setTimeout(() => setCopied(false), 1500); };
   return (
-    <details className="tv-link session-panel">
-      <summary>🔁 {T('Sesión y código de la partida', 'Session and game code')} · <b>{view.code}</b></summary>
-      <p className="small">{T('Para la siguiente sesión puedes cambiar solo el código o empezar de cero. Tus lugares, personajes preparados, imágenes, crónicas y entregas se conservan siempre.', 'For the next session you can change just the code or start fresh. Your places, prepared characters, images, chronicles and gifts are always kept.')}</p>
+    <Section title={`🟢 ${T('Partida abierta', 'Game open')}`} className="game-panel open">
+      <div className="game-code-row">
+        <span className="small muted">{T('Código para los jugadores', 'Code for the players')}</span>
+        <button className="game-code" title={T('Copiar', 'Copy')} onClick={copy}>{view.code}</button>
+        <span className="tiny muted">{copied ? T('✅ Copiado', '✅ Copied') : T('Toca para copiar', 'Tap to copy')}</span>
+      </div>
+      <p className="small">{T('En su app: pestaña Partida → escriben el código → Unirse. Se quedan en la app (o en su pestaña del navegador) y desde ese momento estáis enlazados.', 'In their app: Game tab → type the code → Join. They stay in the app (or in their browser tab) and from then on you’re linked.')}</p>
       <div className="row wrap">
         <button className="btn small" onClick={async () => {
-          if (await askOk(T('¿Cambiar el código de la partida?', 'Change the game code?'), { text: T('Quien ya está dentro sigue conectado; para entrar de nuevo hará falta el código nuevo.', 'Anyone already in stays connected; joining again will need the new code.') })) { send({ t: 'newCode' }); toast(T('🔁 Código nuevo', '🔁 New code')); }
+          if (await askOk(T('¿Cambiar el código de la partida?', 'Change the game code?'), { text: T('Quien ya está dentro sigue conectado; para entrar de nuevo hará falta el código nuevo.', 'Anyone already in stays connected; joining again will need the new code.') })) { send({ t: 'newCode' }); toast(T('🔁 Código nuevo', '🔁 New code'), T('Pasa el código nuevo a los jugadores.', 'Give the new code to the players.')); }
         }}>🔁 {T('Cambiar el código', 'Change the code')}</button>
-        <button className="btn small primary" onClick={() => setOpen(true)}>🧹 {T('Empezar una sesión nueva', 'Start a new session')}</button>
+        <button className="btn small" onClick={() => setClosing(true)}>🔒 {T('Cerrar la partida', 'Close the game')}</button>
       </div>
-      {open && (
-        <Modal title={T('🧹 Sesión nueva', '🧹 New session')} onClose={() => setOpen(false)}>
-          <p className="small">{T('Código nuevo y sin combate en marcha. Se conservan tus lugares y encuentros, personajes preparados, imágenes, crónicas, entregas y el botín pendiente.', 'New code and no combat running. Your places and encounters, prepared characters, images, chronicles, gifts and pending loot are kept.')}</p>
-          <label className="check"><input type="checkbox" checked={removePlayers} onChange={(e) => setRemovePlayers(e.target.checked)} /> 👋 {T(`Sacar a los jugadores (${players}): volverán a unirse con el código nuevo`, `Remove the players (${players}): they’ll join again with the new code`)}</label>
-          <label className="check"><input type="checkbox" checked={clearLog} onChange={(e) => setClearLog(e.target.checked)} /> 🗑️ {T('Borrar el registro de los combates anteriores', 'Clear the log of previous combats')}</label>
-          {clearLog && <p className="hint">💾 {T('Si quieres conservarlo, antes haz una copia en Personajes → Copia de la campaña.', 'To keep it, first make a copy in Characters → Campaign backup.')}</p>}
-          <button className="btn primary full" onClick={() => { send({ t: 'newSession', removePlayers, clearLog }); setOpen(false); toast(T('🧹 Sesión nueva', '🧹 New session')); }}>🧹 {T('Empezar la sesión nueva', 'Start the new session')}</button>
+      {closing && (
+        <Modal title={T('🔒 Cerrar la partida', '🔒 Close the game')} onClose={() => setClosing(false)}>
+          <p className="small">{T('Nadie más podrá unirse con el código. Todo lo preparado (lugares, personajes, tesoro, imágenes, registro) se conserva; para la próxima sesión vuelves a pulsar «Crear partida» y tendrás un código nuevo. Antes, si quieres, guarda la copia de la campaña.', 'Nobody else can join with the code. Everything you prepared (places, characters, treasure, images, log) is kept; for the next session press “Create game” again to get a new code. First, if you like, save the campaign backup.')}</p>
+          <label className="check"><input type="checkbox" checked={kick} onChange={(e) => setKick(e.target.checked)} /> 👋 {T(`Sacar también a los jugadores conectados (${players})`, `Also remove the connected players (${players})`)}</label>
+          <button className="btn primary full" onClick={() => { send({ t: 'closeGame', removePlayers: kick }); setClosing(false); toast(T('🔒 Partida cerrada', '🔒 Game closed'), T('Pulsa «Crear partida» cuando quieras volver a jugar.', 'Press “Create game” whenever you want to play again.')); }}>🔒 {T('Cerrar la partida', 'Close the game')}</button>
         </Modal>
       )}
-    </details>
+    </Section>
   );
 }
 

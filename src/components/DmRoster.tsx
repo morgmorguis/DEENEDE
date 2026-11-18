@@ -8,7 +8,8 @@ import type { EncounterEntry, PreparedEncounter, RosterEntry } from '../party/pr
 import { MONSTERS, searchMonsters } from '../party/monsters';
 import { ENEMY_COLORS, setPrepFocus } from './Party';
 import { LootEditor } from './Treasure';
-import { encounterTemplateCsv, encountersToCsv, importEncounterFile, parseDelimited, rowsToEncounters } from '../party/encounterImport';
+import { encounterTemplateCsv, encountersRows, importEncounterFile, parseDelimited, rowsToEncounters } from '../party/encounterImport';
+import { buildXlsx, XLSX_MIME } from '../export/xlsx';
 import { NO_COINS, coinsText, hasCoins, itemLine } from '../rules/items';
 import { saveBackupFile } from '../backup';
 import { getLang } from '../i18n';
@@ -244,7 +245,7 @@ function EncountersSection() {
         <button className="btn small" onClick={() => fileRef.current?.click()}>📥 {T('Importar Excel / CSV', 'Import Excel / CSV')}</button>
         <button className="btn small" onClick={() => setPaste('')}>📋 {T('Pegar desde Excel', 'Paste from Excel')}</button>
         <button className="btn small" onClick={() => void saveBackupFile(encounterTemplateCsv(lang), T('plantilla-encuentros.csv', 'encounters-template.csv'), 'text/csv')}>📄 {T('Plantilla', 'Template')}</button>
-        {view.encounters.length > 0 && <button className="btn small" onClick={() => void saveBackupFile(encountersToCsv(view.encounters, lang), T('encuentros.csv', 'encounters.csv'), 'text/csv')}>📤 {T('Exportar a Excel', 'Export to Excel')}</button>}
+        {view.encounters.length > 0 && <button className="btn small" onClick={() => void saveBackupFile(buildXlsx([{ name: T('Encuentros', 'Encounters'), rows: encountersRows(view.encounters, lang), widths: [20, 22, 10, 9, 6, 6, 9, 6, 7, 8, 6, 6, 6, 40, 40] }]), T('encuentros.xlsx', 'encounters.xlsx'), XLSX_MIME)}>📤 {T('Exportar a Excel', 'Export to Excel')}</button>}
         <input ref={fileRef} type="file" hidden accept=".xlsx,.csv,.txt,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => void onFile(e.target.files?.[0])} />
       </div>
       {view.encounters.length === 0 && <p className="muted small">{T('Aún no tienes encuentros ni lugares.', 'No encounters or places yet.')}</p>}

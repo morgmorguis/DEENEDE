@@ -1,6 +1,7 @@
 // Imágenes de la mesa: el DM las arrastra (o las elige), decide cuándo y con quién compartirlas, y a los
 // jugadores les llegan como un aviso con la imagen; después pueden volver a verlas en «Partida».
 import { useEffect, useState } from 'react';
+import { useStore } from '../store';
 import { createPortal } from 'react-dom';
 import { useParty } from '../party/client';
 import { httpBase } from '../party/client';
@@ -138,9 +139,13 @@ export function ImageNotifier() {
   const url = useImageUrl();
   const [queue, setQueue] = useState<SharedImage[]>([]);
   useEffect(() => {
-    if (!view || view.you.role === 'dm') return;
+    // Sin partida (ha salido o el DM la ha cerrado) no queda nada que enseñar desde el servidor
+    if (!view) { setQueue([]); return; }
+    if (view.you.role === 'dm') return;
     const seen = loadSeen(view.code);
-    const fresh = view.images.filter((im) => im.shared && !seen.includes(seenId(im)));
+    // Las que ya están guardadas en el diario de este dispositivo ya se vieron (aunque el código haya cambiado)
+    const saved = new Set(useStore.getState().characters.flatMap((c) => c.notes.map((n) => n.ref)).filter(Boolean));
+    const fresh = view.images.filter((im) => im.shared && !seen.includes(seenId(im)) && !saved.has(`img:${im.id}`));
     if (!fresh.length) return;
     saveSeen(view.code, [...seen, ...fresh.map(seenId)]);
     setQueue((q) => [...q, ...fresh.filter((f) => !q.some((x) => x.id === f.id))]);
@@ -157,7 +162,7 @@ export function ImageNotifier() {
         <div className="row">
           <button className="btn primary grow" onClick={next}>👍 {T('Visto', 'Got it')}</button>
         </div>
-        <p className="hint">{T('Puedes volver a verla en Partida → Imágenes del DM.', 'You can view it again in Game → Images from the DM.')}</p>
+        <p className="hint">{T('Queda guardada en tu diario → 🤝 Compartido conmigo, también cuando acabe la partida.', 'It’s kept in your journal → 🤝 Shared with me, also after the game ends.')}</p>
       </div>
     </div>,
     document.body,

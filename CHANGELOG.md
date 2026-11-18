@@ -3,6 +3,27 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.27.0 · 18 nov 2026 — Crear la partida con un código y listas del DM en Excel
+
+**Partida**
+- **El DM prepara la sesión a solas y luego crea la partida.** Una partida nueva empieza cerrada: nadie puede unirse mientras preparas lugares, personajes, tesoro e imágenes. **🎲 Crear partida** genera el código (en grande, se copia al tocarlo). Luego puedes **🔁 cambiar el código** o **🔒 cerrar la partida**; la próxima sesión la vuelves a crear con un código nuevo y todo lo preparado sigue ahí. Las partidas que ya teníais siguen abiertas como estaban.
+- **Unirse solo con el código.** En la app basta escribir el código del DM: busca la partida en el servidor de la nube o en el último que usaste, y te quedas en la app (no se abre el navegador; en el navegador, en la misma pestaña). La dirección solo hace falta, una vez, si el DM usa su propio servidor en casa («Otro servidor»).
+- Si intentas entrar antes de que el DM cree la partida, la app te lo explica en vez de decir que el código está mal.
+- El informe del combate ya no termina con el turno que empezó justo antes de acabar.
+
+**🤝 Compartido conmigo (jugador)**
+- Todo lo que el DM te comparte queda en tu diario, en la carpeta **🤝 Compartido conmigo**, en tu dispositivo y **aunque la partida haya terminado o el DM la cierre**: los **mapas e imágenes** (enteros, a su resolución original; en la nota va una miniatura), las **crónicas**, el **informe de cada combate** (se guarda solo al terminar) y **lo que te dan** (el DM u otro jugador).
+- En **Partida**, también sin conexión, el apartado «🤝 Compartido conmigo» resume lo que tienes, con las miniaturas de los mapas y un botón para abrirlo en el diario.
+- Las imágenes se ven a pantalla completa con **🔍 zoom** para leer los mapas y **⬇️ Guardar** para tenerlas como archivo.
+- Si el DM cierra la partida te avisa («🔒 El DM ha cerrado la partida») y te recuerda dónde está lo compartido. Al volver a unirte con otro código ya no te vuelven a saltar las imágenes que ya viste.
+- Arreglado: al exportar el diario a Markdown o PDF se perdían las imágenes del DM.
+
+**Listas del DM**
+- **📊 Listas en Excel** (un .xlsx de verdad) y **📝 Listas en Markdown**: personajes preparados, lugares y encuentros, **tesoro de cada enemigo** y **de cada grupo** con su valor en oro, botín pendiente, entregas y registro. La pestaña «Encuentros» se vuelve a importar.
+- **📤 Exportar a Excel** de los encuentros ya es un .xlsx (antes, CSV).
+- La **copia de la campaña** puede llevar las **fichas completas de tus PNJ** (las fichas de tu app) y al restaurarla vuelven.
+- **Ficha en Excel o Markdown**: 📄 Exportar en la hoja ofrece Excel, Markdown y el PDF oficial; sirve para cualquier ficha, también la de un PNJ.
+
 ## 0.26.1 · 17 nov 2026 — Sesión nueva y cambiar el código de la partida
 
 - **🔁 Sesión y código de la partida** (DM, pestaña Partida): **cambiar el código** (quien ya está dentro sigue conectado; los nuevos necesitan el código nuevo) o **empezar una sesión nueva**: código nuevo, sin combate y, si quieres, sin jugadores (vuelven a unirse con el código nuevo) y sin el registro de combates. Se conservan los lugares y encuentros, personajes preparados, imágenes, crónicas, entregas y el botín pendiente.

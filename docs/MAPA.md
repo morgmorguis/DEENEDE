@@ -28,7 +28,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 ## server/
 
 - `app.ts` 3 KB — «Di en Di» para Windows (jugadores): sirve la app solo para este PC y la abre en una ventana propia (Microsoft Edge en modo aplicación). Las fichas se…
-- `index.ts` 19 KB — Servidor de partida de «Di en Di»: se ejecuta en el PC del DM. Sirve la app web y mantiene la partida compartida (party, combate por turnos, log) por…
+- `index.ts` 20 KB — Servidor de partida de «Di en Di»: se ejecuta en el PC del DM. Sirve la app web y mantiene la partida compartida (party, combate por turnos, log) por…
 - `publish.ts` 7 KB — Publicar el servidor en Internet al arrancar, con una dirección fija (DNS) y HTTPS, sin Cloudflare. - tailscale (por defecto si está instalado): Tailscale… · exporta: PublishMode, PublishConfig, PublishState, loadConfig, startPublishing, stopPublishing
 
 ## server/nube/
@@ -47,6 +47,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `importer.ts` 16 KB — Prepara fotos, PDF y Word para que Claude lea la ficha, y convierte el resultado en un personaje. · exporta: imageFileToBase64, filesToBlocks, sheetToCharacter, sheetSummary, OfflineMethod, importOffline
 - `main.tsx` 1 KB
 - `scenes.ts` 3 KB — Fondo de cada paleta según el estilo (Pixel, Retro 16-bit o Pintado) y fondo común durante un combate. Las imágenes salen de la IA local (scripts/arte) y… · exporta: POSTERS, PosterId, posterUrl, combatSceneName, sceneUrl, applyScene, setDmIcon
+- `sharedImages.ts` 1 KB — Imágenes que el DM comparte contigo (mapas, retratos…): el archivo completo se guarda en este dispositivo (IndexedDB, sin el límite de la ficha) y la nota… · exporta: sharedImageKey, stripDataUrl, storeSharedImage, loadSharedImage, sharedImageBase64, removeSharedImage
 - `speech.ts` 5 KB — Reconocimiento de voz continuo: plugin nativo en Android, Web Speech API en navegador. · exporta: Recorder, startRecording
 - `store.ts` 18 KB · exporta: Theme, Settings, Design, LootBundle, speechLangFor, useStore, useChar
 - `types.ts` 10 KB · exporta: Ability, DamageType, ConditionId, ProfLevel, RollScope, EffectMods, Effect, Attack, Spell, Resource, Recharge, Feature… (+15)
@@ -61,7 +62,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `CombatActions.tsx` 20 KB — Turno en el combate compartido con las acciones de las reglas 2024: atacar (con arma, sin armas, agarrar, empujar), magia, correr, destrabarse, esquivar,… · exporta: TURN_ACTIONS, REACTIONS, actionName, TargetChip, TurnPanel
 - `Confirm.tsx` 4 KB — Diálogos propios («¿Seguro que quieres borrar…?», «Nombre de la carpeta») con el estilo de la app. No usamos confirm()/prompt() del navegador: en el WebView… · exporta: useConfirm, askOk, askText, confirmDelete, ConfirmHost
 - `Consumables.tsx` 6 KB — Munición y consumibles: en la hoja se gestionan las cantidades; en combate se marca lo que gastas y al terminar se recupera lo que permiten las reglas. · exporta: Consumables
-- `DmBackup.tsx` 7 KB — Copia de la campaña del DM: personajes preparados, encuentros, entregas, registro de combate, crónicas, imágenes (con los archivos dentro) y ajustes de la… · exporta: CampaignFile, parseCampaign, DmBackupSection
+- `DmBackup.tsx` 10 KB — Copia de la campaña del DM: personajes preparados, encuentros, entregas, registro de combate, crónicas, imágenes (con los archivos dentro) y ajustes de la… · exporta: CampaignFile, parseCampaign, DmBackupSection
 - `DmGroup.tsx` 6 KB — Pestaña «Grupo» del DM: el estado de cada jugador siempre a la vista, dentro y fuera de combate: vida, CA, condiciones, oro, dados de golpe, espacios de… · exporta: DmGroupTab
 - `DmRoster.tsx` 23 KB — Pestaña «Personajes» del DM: aliados y enemigos preparados con su nivel y datos básicos para tenerlos a mano y meterlos en el combate. Se guardan en el… · exporta: DmRosterTab
 - `Editor.tsx` 6 KB · exporta: Editor
@@ -75,13 +76,13 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `Initiative.tsx` 20 KB · exporta: InitiativePrompt, entryHp, InitiativeTracker, TurnPanel
 - `LevelUp.tsx` 30 KB — Pantalla «Subir de nivel»: muestra lo que ganas según tu clase, te deja elegir las opciones que permiten las reglas (explicadas) y al pulsar LVL UP… · exporta: LevelUpPage
 - `Manual.tsx` 1 KB — Manual de la app (la guía ilustrada) dentro de una ventana a pantalla completa. · exporta: ManualViewer
-- `Notes.tsx` 18 KB · exporta: NotesDrawer
+- `Notes.tsx` 21 KB · exporta: openNotesAt, NotesDrawer
 - `OriginPicker.tsx` 12 KB — «Origen y habilidades»: elecciones de nivel 1 según trasfondo, clase y especie. Solo muestra lo que se puede escoger, avisa cuando dos fuentes dan la misma… · exporta: OriginPicker
-- `Party.tsx` 86 KB ⚠️ — Pestaña «Partida»: unirse a la partida del DM, ver la party, jugar el combate compartido por turnos, consultar el registro y (si eres el DM) organizarlo… · exporta: ENEMY_COLORS, StateBadge, isDmEntry, DmLogin, logLine, combatReport, CombatReportModal, TurnBanner, setPrepFocus, EncounterInvite, DmCombatTab, PartyTab… (+1)
+- `Party.tsx` 94 KB ⚠️ — Pestaña «Partida»: unirse a la partida del DM, ver la party, jugar el combate compartido por turnos, consultar el registro y (si eres el DM) organizarlo… · exporta: ENEMY_COLORS, StateBadge, isDmEntry, DmLogin, logLine, combatReport, saveCombatReport, CombatReportModal, TurnBanner, setPrepFocus, EncounterInvite, DmCombatTab… (+2)
 - `Rules.tsx` 6 KB · exporta: RulesTab
 - `Settings.tsx` 19 KB · exporta: SettingsTab
 - `Sheet.tsx` 69 KB ⚠️ · exporta: SheetTab, PartsList, SpellComp, EffectPicker
-- `SheetPdf.tsx` 4 KB — Exportar la ficha a PDF sobre la hoja oficial de 2024: el jugador elige el PDF una vez y se guarda en el dispositivo. · exporta: SheetPdfModal
+- `SheetPdf.tsx` 6 KB — Exportar la ficha: en PDF sobre la hoja oficial de 2024 (el jugador elige el PDF una vez y se guarda en el dispositivo), en Excel o en Markdown. · exporta: SheetPdfModal
 - `Suggest.tsx` 2 KB — Campo de texto con sugerencias (texto predictivo) que aparecen al escribir. · exporta: SuggestItem, SuggestInput
 - `Transition.tsx` 5 KB — Transiciones a pantalla completa al estilo de un encuentro de los RPG de los 90: destellos, barras que cierran la pantalla, el fondo se difumina y aparece… · exporta: FxKind, useFx, TransitionFx
 - `Treasure.tsx` 48 KB ⚠️ — Tesoro: catálogo de objetos, plantilla para crear objetos propios, la caja «Objetos» de la ficha y la pestaña «Tesoro» del DM para dar oro y objetos a un… · exporta: RarityTag, effectsText, ItemForm, ItemPicker, ItemsBox, CoinsTotal, CoinLabel, CoinInfoModal, Loot, LootEditor, BundleList, setGiveFocus… (+4)
@@ -89,9 +90,11 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 
 ## src/export/
 
+- `dmExport.ts` 12 KB — Listas del DM en Excel (.xlsx) o Markdown: personajes preparados, lugares y encuentros, tesoro de cada enemigo y de cada grupo, botín pendiente, entregas y… · exporta: DmLists, lootValue, rosterRows, lootPerEnemyRows, lootPerGroupRows, pendingLootRows, giftRows, logRows, dmWorkbook, mdTable, dmMarkdown, characterRows… (+2)
 - `notesExport.ts` 5 KB — Exporta el diario (notas, crónicas e imágenes del DM) a Markdown o a un PDF propio, por carpetas y en orden de fecha. · exporta: groupNotes, notesMarkdown, notesPdf, exportFileName
 - `sheetPdf.ts` 18 KB — Exporta la ficha a PDF rellenando la hoja oficial de 2024 (2 páginas, sin campos de formulario): se escribe el texto encima. Las posiciones están medidas… · exporta: SheetFields, sheetFields, pdfSafe, buildSheetPdf
 - `templateStore.ts` 2 KB — Archivos grandes guardados en este dispositivo (IndexedDB): la hoja oficial en PDF que el jugador elige una vez. · exporta: saveFile, loadFile, removeFile, SHEET_TEMPLATE
+- `xlsx.ts` 8 KB — Escribe libros de Excel (.xlsx) sin dependencias: un ZIP sin comprimir con hojas de celdas de texto y números. · exporta: Cell, XlsxSheet, crc32, zipStored, buildXlsx, XLSX_MIME
 
 ## src/offline/
 
@@ -102,14 +105,14 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 
 ## src/party/
 
-- `client.ts` 23 KB — Conexión de la app con el servidor de partida: estado en tiempo real, reconexión automática, envío del resumen de tu ficha y aplicación en tu ficha de lo… · exporta: PartyConn, wsUrl, httpBase, ERRORS, applyGift, giftLines, summaryOf, useParty, resolveServer, fetchSavedSheet, downloadAllSheets, resumeParty
+- `client.ts` 28 KB — Conexión de la app con el servidor de partida: estado en tiempo real, reconexión automática, envío del resumen de tu ficha y aplicación en tu ficha de lo… · exporta: PartyConn, wsUrl, httpBase, ERRORS, applyGift, giftLines, summaryOf, addSharedNotes, useParty, resolveServer, DEFAULT_SERVER, lastServer… (+5)
 - `difficulty.ts` 2 KB — Dificultad del encuentro (Dungeon Master’s Guide 2024): presupuesto de PX por personaje según su nivel (baja, moderada, alta) frente a la suma de PX de los… · exporta: xpForCr, Difficulty, encounterDifficulty
-- `encounterImport.ts` 16 KB — Listas de enemigos del DM desde Excel (.xlsx), CSV o texto pegado de una hoja de cálculo, plantilla para rellenarlas y exportación a CSV. · exporta: parseDelimited, readXlsx, parseItems, rowsToEncounters, importEncounterFile, encountersToCsv, encounterTemplateCsv, splitLoot, mergeLoot
+- `encounterImport.ts` 16 KB — Listas de enemigos del DM desde Excel (.xlsx), CSV o texto pegado de una hoja de cálculo, plantilla para rellenarlas y exportación a CSV. · exporta: parseDelimited, readXlsx, parseItems, rowsToEncounters, importEncounterFile, encountersRows, encountersToCsv, encounterTemplateCsv, splitLoot, mergeLoot
 - `monsters.ts` 13 KB — Monstruos habituales del System Reference Document 5.2 (CC-BY-4.0) para que el DM los añada al combate. Solo lo necesario para llevar el combate: CA, PG… · exporta: MonsterInfo, MONSTERS, searchMonsters
 - `narrative.ts` 8 KB — Resumen narrativo de un combate a partir de su registro: sin IA (frases generadas aquí) o con IA (se prepara el registro en texto para que Claude lo cuente… · exporta: lastCombat, combatTranscript, localNarrative
 - `phrases.ts` 5 KB — Frases para el aviso de «¡Comienza un encuentro!»: sale una al azar cada vez que el DM lanza un combate. · exporta: COMBAT_PHRASES, randomCombatPhrase
 - `protocol.ts` 15 KB — Protocolo de la partida compartida (modo party): tipos que comparten la app y el servidor. · exporta: Role, CombatantKind, PcSummary, SharedImage, Chronicle, RoomSettings, TimedCondition, Counter, Member, Combatant, CarriedLoot, LootDrop… (+18)
-- `room.ts` 42 KB ⚠️ — Lógica de la partida compartida. Funciones puras: el servidor guarda una `Room`, le aplica los comandos de cada cliente y envía a cada uno solo lo que puede… · exporta: StoredMember, Room, Effect, Result, cleanMods, cleanGift, cleanLoot, rid, canEnter, createRoom, normalizeRoom, neededReady… (+11)
+- `room.ts` 43 KB ⚠️ — Lógica de la partida compartida. Funciones puras: el servidor guarda una `Room`, le aplica los comandos de cada cliente y envía a cada uno solo lo que puede… · exporta: StoredMember, Room, Effect, Result, cleanMods, cleanGift, cleanLoot, rid, enterError, canEnter, createRoom, normalizeRoom… (+12)
 
 ## src/rules/
 
@@ -143,6 +146,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 
 - `src/__tests__/backup.test.ts`
 - `src/__tests__/speech.test.ts`
+- `src/export/__tests__/dmExport.test.ts`
 - `src/export/__tests__/notesExport.test.ts`
 - `src/export/__tests__/sheetPdf.test.ts`
 - `src/offline/__tests__/offline.test.ts`

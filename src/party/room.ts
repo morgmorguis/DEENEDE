@@ -13,6 +13,8 @@ interface Snapshot { encounter: Encounter; logLen: number }
 
 export interface Room {
   code: string;
+  /** Se puede entrar con el código. Una partida nueva empieza cerrada: el DM la prepara y la abre con `openGame` */
+  open?: boolean;
   dmKey: string;
   members: StoredMember[];
   encounter: Encounter;
@@ -111,13 +113,17 @@ const code6 = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ234
 /** Código distinto del anterior */
 const newCode = (prev: string) => { let c = code6(); while (c === prev) c = code6(); return c; };
 
-/** ¿Puede entrar? Con el código, con la clave del DM o con el token de alguien que ya está en la partida (aunque el código haya cambiado) */
-export function canEnter(room: Pick<Room, 'code' | 'dmKey' | 'members'>, code: string, token?: string, dmKey?: string): boolean {
-  return code.trim().toUpperCase() === room.code || (!!dmKey && dmKey === room.dmKey) || (!!token && room.members.some((m) => m.token === token));
+/** Por qué no puede entrar con ese código: la partida está cerrada o el código no es el suyo */
+export const enterError = (room: Pick<Room, 'code' | 'open'>, code: string): 'game-closed' | 'bad-code' =>
+  room.open === false && code.trim().toUpperCase() === room.code ? 'game-closed' : 'bad-code';
+
+/** ¿Puede entrar? Con el código (si la partida está abierta), con la clave del DM o con el token de alguien que ya está en la partida (aunque el código haya cambiado) */
+export function canEnter(room: Pick<Room, 'code' | 'dmKey' | 'members' | 'open'>, code: string, token?: string, dmKey?: string): boolean {
+  return (room.open !== false && code.trim().toUpperCase() === room.code) || (!!dmKey && dmKey === room.dmKey) || (!!token && room.members.some((m) => m.token === token));
 }
 
 export function createRoom(): Room {
-  return { code: code6(), dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [], settings: { showPartyHp: false }, images: [], chronicles: [], encounters: [], loot: [] };
+  return { code: code6(), open: false, dmKey: rid(12), members: [], encounter: { active: false, round: 1, turn: 0, begun: false, order: [] }, log: [], snapshots: [], acted: false, roster: [], gifts: [], settings: { showPartyHp: false }, images: [], chronicles: [], encounters: [], loot: [] };
 }
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -132,6 +138,8 @@ export function normalizeRoom(room: Room): Room {
   r.chronicles ??= [];
   r.encounters ??= [];
   r.loot ??= [];
+  // Partidas guardadas antes de «Crear partida»: siguen abiertas como estaban
+  r.open ??= true;
   r.settings = { ...{ showPartyHp: false }, ...(r.settings ?? {}) };
   r.encounter.phase ??= 'running';
   r.encounter.ready ??= [];
@@ -532,15 +540,30 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       r.code = newCode(r.code);
       return { room: r, effects };
     }
-    case 'newSession': {
+    case 'newSession':
+    case 'openGame': {
+      // Al abrir la partida, el combate que el DM esté preparando a solas se conserva
+      const keepPrep = cmd.t === 'openGame' && e.active && phaseOf(e) === 'prep';
       r.code = newCode(r.code);
-      // Sin combate (sin pasar al botín: era una sesión anterior); los aliados preparados se quedan
-      r.encounter = { active: false, phase: 'running', ready: [], accepted: [], round: 1, turn: 0, begun: false, scene: e.scene, order: e.order.filter((c) => c.kind === 'npc') };
-      r.snapshots = [];
-      r.acted = false;
+      r.open = true;
+      if (!keepPrep) {
+        // Sin combate (sin pasar al botín: era una sesión anterior); los aliados preparados se quedan
+        r.encounter = { active: false, phase: 'running', ready: [], accepted: [], round: 1, turn: 0, begun: false, scene: e.scene, order: e.order.filter((c) => c.kind === 'npc') };
+        r.snapshots = [];
+        r.acted = false;
+      }
       delete r.syncRequest;
-      if (cmd.removePlayers) r.members = r.members.filter((m) => m.role === 'dm');
+      if (cmd.removePlayers) {
+        const gone = new Set(r.members.filter((m) => m.role !== 'dm').map((m) => m.id));
+        r.members = r.members.filter((m) => m.role === 'dm');
+        if (keepPrep) r.encounter.order = r.encounter.order.filter((c) => !(c.kind === 'pc' && c.ownerId && gone.has(c.ownerId)));
+      }
       if (cmd.clearLog) r.log = [];
+      return { room: r, effects };
+    }
+    case 'closeGame': {
+      r.open = false;
+      if (cmd.removePlayers) r.members = r.members.filter((m) => m.role === 'dm');
       return { room: r, effects };
     }
     case 'lootDone': {
@@ -801,6 +824,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
   const { target, owner } = e.active && phaseOf(e) === 'running' && room.snapshots.length ? undoTarget(room) : {};
   return {
     code: room.code,
+    open: room.open !== false,
     you: { id: me.id, role: me.role, name: me.name },
     members: room.members.map(({ token: _t, ...m }) => {
       void _t;

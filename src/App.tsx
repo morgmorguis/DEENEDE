@@ -11,7 +11,7 @@ import { Toast } from './components/common';
 import { armorClass } from './rules/calc';
 import { classById } from './rules/srd';
 import { InfoBubble } from './components/InfoBubble';
-import { CombatReportModal, DmCombatTab, DmLogin, EncounterInvite, PartyTab, TurnBanner, TvView, isDmEntry } from './components/Party';
+import { CombatReportModal, saveCombatReport, DmCombatTab, DmLogin, EncounterInvite, PartyTab, TurnBanner, TvView, isDmEntry } from './components/Party';
 import { DmRosterTab } from './components/DmRoster';
 import { TreasureTab } from './components/Treasure';
 import { DmGroupTab } from './components/DmGroup';
@@ -93,6 +93,8 @@ export default function App() {
       useStore.getState().recoverConsumables();
       setTab('sheet');
       setEndReport(true);
+      const v = useParty.getState().view;
+      if (v) saveCombatReport(v);
     } else if (sharedCombat && before.phase === 'setup' && sharedPhase === 'running' && !needAccept) {
       play('combat', T('¡A LUCHAR!', 'FIGHT!'));
       if (!dmMode) setTab('party');

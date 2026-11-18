@@ -223,17 +223,22 @@ const csvCell = (v: string | number | null | undefined) => {
 };
 const itemsCell = (items?: ItemData[]) => (items ?? []).map((i) => (i.qty > 1 ? `${i.qty}x ${i.name}` : i.name)).join('; ');
 
-/** CSV con «;» (lo abre Excel en español) a partir de encuentros guardados */
-export function encountersToCsv(list: PreparedEncounter[], lang: 'es' | 'en'): string {
+/** Filas (con cabecera) de los encuentros guardados: las mismas columnas que se importan */
+export function encountersRows(list: PreparedEncounter[], lang: 'es' | 'en'): (string | number | null | undefined)[][] {
   const yes = lang === 'es' ? 'sí' : 'yes';
-  const lines = [(lang === 'es' ? ES_HEAD : EN_HEAD).join(';')];
+  const rows: (string | number | null | undefined)[][] = [lang === 'es' ? ES_HEAD : EN_HEAD];
   for (const enc of list) {
     for (const x of enc.entries) {
-      lines.push([enc.name, x.name, x.kind === 'npc' ? (lang === 'es' ? 'PNJ' : 'NPC') : (lang === 'es' ? 'Enemigo' : 'Enemy'), x.count, x.hpMax, x.ac, x.initBonus, x.cr, x.hidden ? yes : '', x.color,
-        x.loot?.coins?.gp, x.loot?.coins?.sp, x.loot?.coins?.cp, itemsCell(x.loot?.items), x.notes].map(csvCell).join(';'));
+      rows.push([enc.name, x.name, x.kind === 'npc' ? (lang === 'es' ? 'PNJ' : 'NPC') : (lang === 'es' ? 'Enemigo' : 'Enemy'), x.count, x.hpMax, x.ac, x.initBonus, x.cr, x.hidden ? yes : '', x.color,
+        x.loot?.coins?.gp, x.loot?.coins?.sp, x.loot?.coins?.cp, itemsCell(x.loot?.items), x.notes]);
     }
   }
-  return `\uFEFF${lines.join('\r\n')}\r\n`;
+  return rows;
+}
+
+/** CSV con «;» (lo abre Excel en español) a partir de encuentros guardados */
+export function encountersToCsv(list: PreparedEncounter[], lang: 'es' | 'en'): string {
+  return `\uFEFF${encountersRows(list, lang).map((r) => r.map(csvCell).join(';')).join('\r\n')}\r\n`;
 }
 
 /** Plantilla de ejemplo para rellenar en Excel */

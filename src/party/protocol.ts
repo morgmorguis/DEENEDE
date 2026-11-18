@@ -256,6 +256,8 @@ export interface CombatantView extends Omit<Combatant, 'notes'> {
 
 export interface RoomView {
   code: string;
+  /** La partida está abierta: se puede entrar con el código (cerrada mientras el DM prepara la sesión) */
+  open: boolean;
   you: { id: string; role: Role; name: string };
   members: Member[];
   encounter: {
@@ -345,6 +347,13 @@ export type Command =
    * opcionalmente se echa a los jugadores (vuelven a unirse con el código nuevo) y se borra el registro de combates.
    */
   | { t: 'newSession'; removePlayers: boolean; clearLog: boolean }
+  /**
+   * Crear (abrir) la partida: el DM ha preparado la sesión a solas y ahora genera un código nuevo con el que se unen
+   * los jugadores. Como en `newSession`, puede sacar a los jugadores anteriores y borrar el registro.
+   */
+  | { t: 'openGame'; removePlayers?: boolean; clearLog?: boolean }
+  /** Cerrar la partida: nadie nuevo puede unirse con el código (los de dentro siguen, salvo que se les saque) */
+  | { t: 'closeGame'; removePlayers?: boolean }
   | { t: 'add'; combatants: Partial<Combatant>[] }
   | { t: 'update'; id: string; patch: Partial<Combatant> }
   | { t: 'remove'; id: string }

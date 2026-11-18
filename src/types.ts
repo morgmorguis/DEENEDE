@@ -117,9 +117,11 @@ export interface Note {
   body: string;
   kind: 'note' | 'story' | 'transcript';
   folderId?: string | null;
-  /** Imagen (JPEG en base64) compartida por el DM */
+  /** Imagen (JPEG, data URL) compartida por el DM; si hay `imageKey`, es solo la miniatura */
   image?: string;
-  /** Lo que el DM compartió (para no guardarlo dos veces): 'img:<id>' o 'chr:<id>' */
+  /** Imagen completa guardada en este dispositivo (IndexedDB, ver sharedImages.ts) */
+  imageKey?: string;
+  /** Lo que se compartió contigo (para no guardarlo dos veces): 'img:<id>', 'chr:<id>', 'gift:<id>' o 'cmb:<id>' */
   ref?: string;
 }
 

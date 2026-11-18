@@ -77,13 +77,23 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 
 ## Estado y notas que no se ven en el código
 
-- Versión **0.26.1** (17 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
+- Versión **0.27.0** (18 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
 - Turnos: el servidor solo acepta `act` en tu turno o como reacción (una por ronda); `nextTurn`, solo el DM o el dueño del turno.
 - Fases del combate compartido (`Encounter.phase`): `prep` (el DM prepara a solas; `viewFor` se lo oculta a los demás y no se anotan
   las entradas en el registro), `setup` (lanzado con `launch`: aviso que el jugador acepta con `accept` y antesala con «Listo»; empieza
   cuando están listos todos los jugadores conectados, el DM no cuenta) y `running`. `start` (apps antiguas) = preparar + lanzar.
   Lo que llevan los enemigos (`Combatant.loot`, solo el DM) pasa a `room.loot` al terminar; el DM lo reparte con `give` y lo quita con `lootDone`.
   Los jugadores solo ven de un monstruo su nombre y si ha caído (`state` 'unknown' o 'down'), salvo `showHp`.
+- Crear la partida: `Room.open` (una partida nueva empieza cerrada; las guardadas antes se normalizan a abiertas). `openGame` = código nuevo
+  y abierta (conserva un combate en `prep`; opcionalmente saca jugadores y borra el registro), `closeGame` = nadie nuevo entra con el código
+  (opcionalmente saca a los jugadores). Con la partida cerrada `hello` con código da `game-closed` (`enterError`). Tras cualquier comando,
+  el servidor cierra (`session-reset`) los sockets de miembros que ya no están.
+- Unirse solo con el código: `findServer` (client.ts) prueba la página actual, el último servidor (`di-en-di-last-server`) y
+  `DEFAULT_SERVER` (https://di-en-di.web.app) con `/api/info?check=CÓDIGO` → `{match, closed}`; los servidores antiguos no traen `match`.
+- Compartido conmigo (jugador): `addSharedNotes` (client.ts) guarda en la carpeta `shared` del diario imágenes (`img:`), crónicas
+  (`chr:`), entregas (`gift:`) e informes de combate (`cmb:`, `saveCombatReport` al terminar). La imagen completa va a IndexedDB
+  (`src/sharedImages.ts`, `Note.imageKey`) y en la nota solo una miniatura: la ficha vive en localStorage (~5 MB) y no debe llenarse.
+- Exportar: `src/export/xlsx.ts` (escritor .xlsx propio, ZIP sin comprimir) y `src/export/dmExport.ts` (listas del DM y ficha en Excel/Markdown).
 - Sesiones: `newCode` (código nuevo, los miembros siguen) y `newSession` (código nuevo, sin combate, opcionalmente sin jugadores
   y sin registro). Se entra con el código, la clave del DM o el token de un miembro (`canEnter`): así se reconecta quien ya
   estaba aunque cambie el código. A los sockets de miembros quitados el servidor les manda `session-reset` y los cierra.

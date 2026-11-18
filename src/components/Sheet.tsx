@@ -220,7 +220,7 @@ export function SheetTab() {
         <button className="btn small primary lvlup-btn" disabled={c.level >= 20} onClick={() => { useFx.getState().play('levelup', undefined, T(`Nivel ${c.level} → ${c.level + 1}`, `Level ${c.level} → ${c.level + 1}`)); setLevelUp(true); }}>⬆️ {T('Subir de nivel', 'Level up')}</button>
         <button className={`btn small ${c.level === 1 ? 'primary' : ''}`} onClick={() => setOrigin(true)}>🎓 {T('Origen y habilidades', 'Origin & skills')}</button>
         <button className="btn small" onClick={() => setImporting(true)}>📥 {T('Importar ficha', 'Import sheet')}</button>
-        <button className="btn small" onClick={() => setPdfOpen(true)}>📄 {T('Exportar PDF', 'Export PDF')}</button>
+        <button className="btn small" onClick={() => setPdfOpen(true)}>📄 {T('Exportar', 'Export')}</button>
         <button className="btn small" onClick={() => setEditing(true)}>⚙️ {T('Más opciones', 'More options')}</button>
       </div>
 

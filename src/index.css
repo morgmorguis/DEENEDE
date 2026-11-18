@@ -939,6 +939,12 @@ body::after {
 .area-tag { font-style: normal; font-size: 10px; font-weight: 800; padding: 0 5px; border-radius: 6px; background: var(--gold); color: var(--on-accent); }
 .area-tag.half { background: var(--blue); color: #fff; }
 .tv-link { margin-bottom: 10px; }
+/* Partida del DM: preparando / abierta con el código grande */
+.game-panel.closed { border-left: 4px solid var(--gold); }
+.game-panel.open { border-left: 4px solid #3fa34d; }
+.game-code-row { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0 10px; }
+.game-code { font: 700 clamp(30px, 9vw, 44px)/1.1 ui-monospace, Consolas, monospace; letter-spacing: .18em; padding: 8px 18px; border-radius: 10px; border: 2px dashed var(--gold); background: var(--card2); color: inherit; cursor: pointer; }
+.join-code { font: 700 22px ui-monospace, Consolas, monospace; letter-spacing: .15em; text-transform: uppercase; }
 .tv-link summary { cursor: pointer; font-weight: 600; }
 .tv-link code { font-size: 12px; overflow-wrap: anywhere; padding: 6px; background: var(--card2); border-radius: 4px; }
 
@@ -1193,6 +1199,12 @@ button.plain { background: none; border: 0; padding: 0; color: inherit; text-ali
 .img-title { font-weight: 600; font-size: .85rem; overflow-wrap: anywhere; }
 .img-viewer { position: fixed; inset: 0; z-index: 400; background: rgba(0, 0, 0, .92); display: grid; grid-template-rows: 1fr auto; place-items: center; padding: 12px; }
 .img-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.img-viewer-pane { width: 100%; height: 100%; display: grid; place-items: center; overflow: auto; cursor: zoom-in; }
+.img-viewer.zoom .img-viewer-pane { place-items: start; cursor: zoom-out; }
+.img-viewer.zoom .img-viewer-pane img { max-width: none; max-height: none; width: 250%; }
+.img-viewer-bar .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shared-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; margin: 6px 0; }
+.shared-thumbs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 1px solid var(--line, #555); cursor: pointer; }
 .img-viewer-bar { display: flex; gap: 12px; align-items: center; color: #fff; padding: 8px; }
 .img-notice { position: fixed; inset: 0; z-index: 350; background: rgba(0, 0, 0, .6); display: grid; place-items: center; padding: 16px; }
 .img-notice-card { background: var(--card); border: 2px solid var(--gold); border-radius: 14px; padding: 12px; max-width: 640px; width: 100%; display: grid; gap: 8px; animation: up .25s ease-out; }

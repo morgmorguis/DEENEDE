@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { useStore } from '../store';
 import type { Character, Note } from '../types';
 import { compressImage } from '../imageUtil';
+import { storeSharedImage } from '../sharedImages';
 import type { ClientMessage, Command, Gift, PcSummary, Role, RoomView, ServerMessage } from './protocol';
 import { COIN_KEYS, coinsInGold, coinsText, itemLine } from '../rules/items';
 import { hitDiceText } from '../rules/multiclass';
@@ -75,6 +76,8 @@ export function httpBase(input?: string): string {
 
 export const ERRORS: Record<string, [string, string]> = {
   'bad-code': ['El código de la partida no es correcto (el DM puede haberlo cambiado: pídele el nuevo).', 'The game code is wrong (the DM may have changed it: ask for the new one).'],
+  'no-server': ['No encuentro ningún servidor de partida. Revisa la conexión a Internet o, si el DM usa su propio servidor, escribe su dirección en «Otro servidor».', 'Can’t find any game server. Check your Internet connection or, if the DM runs their own server, enter its address under “Other server”.'],
+  'game-closed': ['La partida aún no está abierta (o el DM la ha cerrado). Espera a que el DM pulse «Crear partida» y te dé el código.', 'The game isn’t open yet (or the DM closed it). Wait for the DM to press “Create game” and give you the code.'],
   'session-reset': ['El DM ha empezado una sesión nueva. Pídele el código nuevo para volver a unirte.', 'The DM started a new session. Ask for the new code to join again.'],
   'not-allowed': ['No puedes hacer eso (no es tu turno o no es tu personaje).', 'You can’t do that (not your turn or not your character).'],
   'no-combat': ['No hay ningún combate en marcha.', 'There’s no combat running.'],
@@ -158,6 +161,22 @@ const applying = new Set<string>();
 /** Imágenes y crónicas del DM que se están guardando en el diario */
 const pendingShared = new Set<string>();
 
+/**
+ * Guarda notas en el diario de una ficha, en la carpeta «🤝 Compartido conmigo» (la crea si no está). Cada nota lleva
+ * `ref` (lo que se compartió) y no se guarda dos veces. Quedan en el dispositivo aunque se acabe la partida.
+ */
+export function addSharedNotes(charId: string | undefined, notes: Note[]) {
+  const st = useStore.getState();
+  const c = st.characters.find((x) => x.id === charId) ?? st.active();
+  if (!c || !notes.length) return;
+  const next = structuredClone(c);
+  let folder = next.noteFolders.find((f) => f.key === 'shared');
+  if (!folder) { folder = { id: uid(), key: 'shared', name: T('Compartido conmigo', 'Shared with me') }; next.noteFolders.push(folder); }
+  let added = 0;
+  for (const n of notes) if (!n.ref || !next.notes.some((x) => x.ref === n.ref)) { next.notes.unshift({ ...n, folderId: folder.id }); added++; }
+  if (added) st.replace(next);
+}
+
 export const useParty = create<PartyState>((set, get) => {
   const out = (msg: ClientMessage) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); };
 
@@ -231,6 +250,8 @@ export const useParty = create<PartyState>((set, get) => {
       let next = c;
       for (const g of fresh) { applying.add(g.id); next = applyGift(next, g); }
       st.replace(next);
+      // Lo que te dan queda apuntado en «Compartido conmigo»
+      addSharedNotes(c.id, fresh.map((g) => ({ id: uid(), createdAt: g.at, title: `🎁 ${g.fromName ? T(`De ${g.fromName}`, `From ${g.fromName}`) : T('Del DM', 'From the DM')}: ${[g.coins ? coinsText(g.coins) : '', ...(g.items ?? []).map(itemLine)].filter(Boolean).join(', ').slice(0, 90)}`, body: giftLines(g).join('\n'), kind: 'note' as const, ref: `gift:${g.id}` })));
       const who = [...new Set(fresh.map((g) => g.fromName ?? 'DM'))].join(', ');
       const dmOnly = fresh.every((g) => !g.fromName);
       if (st.activeId === c.id) st.pushLog({ role: 'app', text: dmOnly ? T('🎁 Entrega del DM', '🎁 Gift from the DM') : T(`🎁 Te dan: ${who}`, `🎁 Given by: ${who}`), details: fresh.flatMap((g) => giftLines(g)) });
@@ -249,28 +270,25 @@ export const useParty = create<PartyState>((set, get) => {
     const chron = (view.chronicles ?? []).filter((x) => !have.has(`chr:${x.id}`) && !pendingShared.has(`chr:${x.id}`));
     const imgs = (view.images ?? []).filter((x) => x.shared && !have.has(`img:${x.id}`) && !pendingShared.has(`img:${x.id}`));
     if (!chron.length && !imgs.length) return;
-    const save = (notes: Note[]) => {
-      const st = useStore.getState();
-      const c = st.characters.find((x) => x.id === c0.id);
-      if (!c) return;
-      const next = structuredClone(c);
-      let folder = next.noteFolders.find((f) => f.key === 'shared');
-      if (!folder) { folder = { id: uid(), key: 'shared', name: T('Compartido', 'Shared') }; next.noteFolders.push(folder); }
-      for (const n of notes) if (!next.notes.some((x) => x.ref === n.ref)) next.notes.unshift({ ...n, folderId: folder.id });
-      st.replace(next);
-    };
+    const save = (notes: Note[]) => addSharedNotes(c0.id, notes);
     if (chron.length) {
       chron.forEach((x) => pendingShared.add(`chr:${x.id}`));
       save(chron.map((x) => ({ id: uid(), createdAt: x.at, title: `📖 ${x.title}`, body: x.text, kind: 'story', ref: `chr:${x.id}` })));
-      useStore.getState().showToast(T('📖 El DM comparte una crónica', '📖 The DM shares a chronicle'), [...chron.map((x) => x.title), T('Guardada en tu diario → Compartido.', 'Saved in your journal → Shared.')]);
+      useStore.getState().showToast(T('📖 El DM comparte una crónica', '📖 The DM shares a chronicle'), [...chron.map((x) => x.title), T('Guardada en tu diario → 🤝 Compartido conmigo.', 'Saved in your journal → 🤝 Shared with me.')]);
     }
     const conn = get().conn;
     for (const im of imgs) {
       pendingShared.add(`img:${im.id}`);
       void fetch(`${httpBase(conn?.url)}/img/${im.id}.jpg?t=${encodeURIComponent(conn?.token ?? '')}`)
         .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
-        .then((b) => compressImage(b, 900, 0.72))
-        .then(({ data }) => save([{ id: uid(), createdAt: im.sharedAt ?? im.at, title: `🖼️ ${im.title}`, body: '', kind: 'note', image: data, ref: `img:${im.id}` }]))
+        .then(async (b) => {
+          // La imagen entera, tal cual, en el dispositivo (IndexedDB); en el diario, una miniatura. Si no hay
+          // IndexedDB, la nota lleva la imagen algo reducida.
+          const ref = `img:${im.id}`;
+          const key = await storeSharedImage(ref, b).catch(() => null);
+          const { data } = key ? await compressImage(b, 480, 0.7) : await compressImage(b, 1200, 0.78);
+          save([{ id: uid(), createdAt: im.sharedAt ?? im.at, title: `🖼️ ${im.title}`, body: '', kind: 'note', image: data, ...(key ? { imageKey: key } : {}), ref }]);
+        })
         .catch(() => pendingShared.delete(`img:${im.id}`));
     }
   };
@@ -309,6 +327,7 @@ export const useParty = create<PartyState>((set, get) => {
       if (msg.t === 'welcome') {
         const next = { ...get().conn!, token: msg.token, characterId: get().conn?.characterId ?? useStore.getState().activeId };
         saveConn(next);
+        rememberServer(next.url);
         set({ conn: next, role: msg.role, status: 'online', error: null, ...(freshJoin ? { joinedAt: Date.now() } : {}) });
         freshJoin = false;
         lastSummary = '';
@@ -325,9 +344,13 @@ export const useParty = create<PartyState>((set, get) => {
       } else if (msg.t === 'sheet') {
         applySheet(msg);
       } else if (msg.t === 'error') {
-        set({ error: errorText(msg.message) });
-        if (msg.message === 'bad-code' || msg.message === 'session-reset') { get().leave(); set({ error: errorText(msg.message) }); }
-        if (msg.message === 'session-reset') useStore.getState().showToast(T('🔁 Sesión nueva', '🔁 New session'), [errorText('session-reset'), T('Tu ficha sigue igual en tu dispositivo.', 'Your sheet stays the same on your device.')]);
+        // Estaba dentro y el DM ha cerrado la partida (no es que intente entrar en una cerrada)
+        const kicked = msg.message === 'game-closed' && get().status === 'online';
+        set({ error: kicked ? T('El DM ha cerrado la partida. Cuando vuelva a crearla, pídele el código nuevo.', 'The DM closed the game. When they create it again, ask for the new code.') : errorText(msg.message) });
+        if (msg.message === 'bad-code' || msg.message === 'game-closed' || msg.message === 'session-reset') { const e = get().error; get().leave(); set({ error: e }); }
+        const keep = T('Lo que te han compartido sigue en tu diario → 🤝 Compartido conmigo. Tu ficha sigue igual.', 'What was shared with you stays in your journal → 🤝 Shared with me. Your sheet stays the same.');
+        if (msg.message === 'session-reset') useStore.getState().showToast(T('🔁 Sesión nueva', '🔁 New session'), [errorText('session-reset'), keep]);
+        if (kicked) useStore.getState().showToast(T('🔒 El DM ha cerrado la partida', '🔒 The DM closed the game'), [keep]);
       }
     };
     sock.onclose = () => {
@@ -408,6 +431,51 @@ export async function resolveServer(input: string): Promise<string | null> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Servidor de partida por defecto (el de la nube): con él basta el código para unirse */
+export const DEFAULT_SERVER = 'https://di-en-di.web.app';
+const LAST_SERVER = 'di-en-di-last-server';
+export const lastServer = (): string | null => { try { return localStorage.getItem(LAST_SERVER); } catch { return null; } };
+export const rememberServer = (url: string) => { try { localStorage.setItem(LAST_SERVER, url); } catch { /* sin almacenamiento */ } };
+
+type Probe = { url: string; match: boolean | null; closed?: boolean } | null;
+
+/** Pregunta a un servidor si el código es de su partida (null si no responde o no es de Di en Di) */
+async function probeServer(input: string, code: string): Promise<Probe> {
+  let base: string;
+  try { base = httpBase(input); } catch { return null; }
+  const real = (await resolveServer(base)) ?? base;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 5000);
+  try {
+    const r = await fetch(`${real}/api/info?check=${encodeURIComponent(code)}`, { signal: ctl.signal, cache: 'no-store' });
+    const j = (await r.json()) as { app?: string; match?: boolean; closed?: boolean };
+    if (j.app !== 'di-en-di') return null;
+    // Los servidores antiguos no saben comprobar el código (match ausente)
+    return { url: real, match: typeof j.match === 'boolean' ? j.match : null, closed: !!j.closed };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Busca el servidor de una partida a partir de solo su código: la dirección de esta página (si la sirve un
+ * servidor), el último servidor usado y el de la nube. Devuelve la dirección o el motivo del fallo.
+ */
+export async function findServer(code: string, extra?: string): Promise<{ url: string } | { error: 'bad-code' | 'game-closed' | 'no-server' }> {
+  // La dirección de esta página solo si es web (en la app de Android no responde nadie y se descarta sola)
+  const here = /^https?:$/.test(window.location.protocol) ? window.location.origin : null;
+  const list = [extra, here, lastServer(), DEFAULT_SERVER].filter((x): x is string => !!x?.trim());
+  const seen = new Set<string>();
+  const unique = list.filter((u) => { const k = (() => { try { return httpBase(u); } catch { return u; } })(); if (seen.has(k)) return false; seen.add(k); return true; });
+  const results = await Promise.all(unique.map((u) => probeServer(u, code)));
+  const hit = results.find((x) => x?.match === true) ?? results.find((x) => x?.match === null);
+  if (hit) return { url: hit.url };
+  if (results.some((x) => x?.closed)) return { error: 'game-closed' };
+  return { error: results.some((x) => x) ? 'bad-code' : 'no-server' };
 }
 
 /** Jugador: la ficha que guardó el servidor la última vez que se sincronizó (o null si no hay) */

@@ -7,7 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { apply, CAMPAIGN_KIND, canEnter, canSeeImage, createRoom, exportCampaign, importCampaign, join, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
+import { apply, CAMPAIGN_KIND, canEnter, canSeeImage, createRoom, enterError, exportCampaign, importCampaign, join, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
 import type { ClientMessage, ServerMessage } from '../src/party/protocol';
 import { startPublishing, stopPublishing, type PublishState } from './publish';
 
@@ -84,12 +84,14 @@ const server = http.createServer((req, res) => {
     const isDm = url.searchParams.get('dm') === room.dmKey;
     // «probe»: el propio servidor comprueba que es él quien responde en 127.0.0.1:PUERTO
     const probe = url.searchParams.get('probe') === PROBE ? { probe: PROBE } : {};
+    // «check»: la app pregunta si un código es de esta partida (para unirse solo con el código)
+    const check = (url.searchParams.get('check') ?? '').trim().toUpperCase().slice(0, 12);
     const pub = publicUrl(req);
     // La dirección real del servicio, para las apps antiguas que no entienden la corta (PROYECTO.web.app)
     const direct = CLOUD && req.headers.host ? `https://${req.headers.host}` : '';
     res.end(JSON.stringify(isDm
       ? { app: 'di-en-di', code: room.code, port: PORT, lan: lanIps().map((ip) => `http://${ip}:${PORT}`), publish: pub ? { mode: 'cloud', url: pub, status: 'on', message: '', ...(direct && direct !== pub ? { direct } : {}) } : publish, ...probe }
-      : { app: 'di-en-di', ...probe }));
+      : { app: 'di-en-di', ...probe, ...(check ? { match: canEnter(room, check), closed: !canEnter(room, check) && enterError(room, check) === 'game-closed' } : {}) }));
     return;
   }
   // Fichas guardadas con «Sincronizar fichas»: cada jugador la suya (con su token); el DM, todas en un archivo de copia
@@ -207,7 +209,7 @@ wss.on('connection', (ws) => {
     try { msg = JSON.parse(String(data)); } catch { return; }
     if (msg.t === 'hello') {
       if (!canEnter(room, msg.code ?? '', msg.token, msg.dmKey)) {
-        send(ws, { t: 'error', message: 'bad-code' });
+        send(ws, { t: 'error', message: enterError(room, msg.code ?? '') });
         return;
       }
       const j = join(room, msg.name ?? '', msg.token, msg.dmKey, !!msg.viewer);
@@ -256,16 +258,17 @@ wss.on('connection', (ws) => {
     if (r.error) { send(ws, { t: 'error', message: r.error }); return; }
     room = r.room;
     for (const eff of r.effects) for (const [w, mid] of clients) if (mid === eff.to) send(w, { t: 'sheet', ops: eff.ops });
-    // Sesión nueva: a quien ya no está en la partida se le avisa y se le desconecta
-    if (cmd.t === 'newSession') {
-      for (const [w, mid] of clients) {
-        if (room.members.some((m) => m.id === mid)) continue;
-        send(w, { t: 'error', message: 'session-reset' });
-        clients.delete(w);
-        w.close();
-      }
-      console.log(`→ Sesión nueva. Código de la partida: ${room.code}`);
-    } else if (cmd.t === 'newCode') console.log(`→ Código nuevo de la partida: ${room.code}`);
+    // Sesión nueva o partida cerrada: a quien ya no está en la partida se le avisa y se le desconecta
+    for (const [w, mid] of clients) {
+      if (room.members.some((m) => m.id === mid)) continue;
+      send(w, { t: 'error', message: room.open === false ? 'game-closed' : 'session-reset' });
+      clients.delete(w);
+      w.close();
+    }
+    if (cmd.t === 'newSession') console.log(`→ Sesión nueva. Código de la partida: ${room.code}`);
+    else if (cmd.t === 'openGame') console.log(`→ 🎲 Partida creada. Código para los jugadores: ${room.code}`);
+    else if (cmd.t === 'closeGame') console.log('→ Partida cerrada: nadie nuevo puede unirse con el código.');
+    else if (cmd.t === 'newCode') console.log(`→ Código nuevo de la partida: ${room.code}`);
     save();
     broadcast();
   });
@@ -339,7 +342,9 @@ server.on('listening', async () => {
   const dmUrl = CLOUD ? `${PUBLIC_URL || 'https://<dirección del servicio>'}/dm?dm=${room.dmKey}` : `http://localhost:${PORT}/dm?dm=${room.dmKey}`;
   const line = '─'.repeat(64);
   console.log(`\n${line}\n  🎲  Servidor de partida de «Di en Di»  (puerto ${PORT})\n${line}`);
-  console.log(`  Código de la partida:  ${room.code}`);
+  console.log(room.open === false
+    ? '  Partida sin abrir: prepárala en la pantalla del DM y pulsa «🎲 Crear partida» para tener el código.'
+    : `  Código de la partida:  ${room.code}`);
   console.log(`  Pantalla del DM (${CLOUD ? 'no la compartas' : 'solo en este PC, no la compartas'}):\n    ${dmUrl}`);
   console.log(`  Clave del DM (para entrar como DM desde el móvil o la tablet): ${room.dmKey}`);
   console.log('\n  Jugadores en tu misma Wi-Fi: en la app, «Partida» → dirección:');

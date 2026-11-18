@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/icono.png" alt="Icono de Di en Di: un d20 carmesí sobre un escudo con dos espadas, bajo la luna roja" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.26.1</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.27.0</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -435,7 +435,8 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <h3 id="partida-montar">Montar el servidor (DM, Windows)</h3>
       <ol class="steps">
         <li>Abre <code>Di en Di - Servidor.exe</code> (del artefacto <code>di-en-di-windows</code>). Si Windows avisa: «Más información» → «Ejecutar de todas formas»; si el firewall pregunta, permite las redes privadas.</li>
-        <li>Se abre tu pantalla de DM en el navegador. La ventana negra muestra el <b>código de la partida</b>, la <b>clave del DM</b> y la dirección para la Wi-Fi de casa (<code>http://192.168.x.x:3000</code>).</li>
+        <li>Se abre tu pantalla de DM en el navegador. La ventana negra muestra la <b>clave del DM</b> y la dirección para la Wi-Fi de casa (<code>http://192.168.x.x:3000</code>).</li>
+        <li><b>Prepara la sesión a solas</b>: la partida empieza <b>cerrada</b> (nadie puede unirse). Monta tus lugares y encuentros, personajes, tesoro e imágenes, o carga la copia de la campaña. Cuando lo tengas listo, pulsa <b>🎲 Crear partida</b> en la pestaña Partida: sale el <b>código</b> en grande para dárselo a los jugadores. Puedes <b>🔁 cambiar el código</b> o <b>🔒 cerrar la partida</b> al terminar; la próxima sesión vuelves a crearla con un código nuevo y todo lo preparado sigue ahí.</li>
         <li><b>A distancia</b> (sin Cloudflare, que en España se bloquea durante el fútbol): instala <a href="https://tailscale.com/download/windows">Tailscale</a>, ejecuta <code>tailscale funnel 3000</code> y comparte la dirección <code>https://….ts.net</code>. Los jugadores no instalan nada.</li>
         <li><b>Hay dos enlaces:</b> el de los jugadores (<code>…/?join=CÓDIGO</code>) y el tuyo de DM (<code>…/dm</code>), que solo pide la clave del DM y la recuerda. Para dirigir desde el móvil o la tablet abre tu enlace de DM (está en <b>Partida → 📨 Invitar jugadores → 🔑 Tu enlace de DM</b>) o, en la app, Partida → dirección → «¿Eres el DM?» → clave.</li>
       </ol>
@@ -443,10 +444,11 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <h3 id="partida-jugar">Jugar como jugador</h3>
       <div class="split">
         <div>
-          <p>En <b>Partida</b> escribe la dirección y el código y pulsa <b>Unirse</b> (o abre el enlace que te pase el DM). Puedes seguir usando la app con normalidad: mientras el DM prepara un combate no ves nada.</p>
+          <p>En <b>Partida</b> escribe <b>solo el código</b> que te da el DM y pulsa <b>Unirse</b>: la app busca la partida (en el servidor de la nube o en el último que usaste) y te quedas en ella, sin que se abra el navegador; si juegas desde el navegador, en esa misma pestaña. Solo si el DM usa su propio servidor en casa, la primera vez escribe su dirección en «Otro servidor» (la app la recuerda). Si el DM aún no ha creado la partida, te lo dice. Puedes seguir usando la app con normalidad: mientras el DM prepara un combate no ves nada.</p>
           <p>Cuando el DM lo <b>lanza</b> te sale un aviso pequeño con una frase de batalla al azar («¡Que hable el acero!», «Os estaban esperando…») y el nombre del encuentro («Taberna Malandra»). Al pulsar <b>✅ Aceptar</b> salta «¡COMBATE!» y entras en la <b>antesala</b>: ves cómo llegas (tu vida, CA, velocidad, condiciones, equipo, espacios y recursos; esto solo lo ves tú), pones o tiras tu iniciativa y pulsas <b>✅ ¡Listo!</b> (se puede quitar). De tus compañeros solo ves si están listos. Cuando lo están todos, empiezan los turnos con «¡A LUCHAR!».</p>
           <p>En el combate todos aparecéis en burbujas con vuestra iniciativa. De tus compañeros ves su estado (herido, ensangrentado…) y no su vida, salvo que el DM la muestre. De los enemigos solo sabes <b>qué son</b> (y si han caído). Cuando te toca, arriba sale el cartel <b>⚔️ ¡Tu turno!</b> (y el móvil vibra). Si un monstruo te pega, el daño se aplica en tu ficha con tus resistencias y temporales.</p>
           <p>Cuando el DM termina el combate vuelves solo a tu ficha y te sale el <b>informe del combate</b> ordenado por rondas, con el daño y las bajas de cada uno: <b>📜 Guardar en mi diario</b>, <b>⬇️ Descargar</b> o <b>📋 Copiar</b>. Sigues conectado a la partida para el siguiente combate, las imágenes o lo que te dé el DM.</p>
+          <p><b>🤝 Compartido conmigo</b>: todo lo que el DM te comparte queda en tu diario, en esa carpeta, en tu dispositivo y aunque la partida termine: los mapas e imágenes (a su tamaño original, con 🔍 zoom y ⬇️ Guardar), las crónicas, el informe de cada combate y lo que te dan. En <b>Partida</b> lo ves resumido incluso sin conexión.</p>
           <p>Si alguien se equivoca, el DM puede <b>Deshacer último turno</b>: revierte sus daños y curaciones, también en las fichas. Todo queda en el <b>registro del combate</b>.</p>
         </div>
         <div class="pair">
@@ -494,7 +496,8 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <figure><img class="shot" src="img/51-resumen.jpg" alt="Resumen narrativo del combate sin IA, con el botón Compartir con los jugadores" width="1200" height="806" loading="lazy"></figure>
 
       <h3 id="partida-campana">Copia de la campaña (DM)</h3>
-      <p>En <b>Personajes</b> (y en Ajustes) del DM, <b>💾 Exportar campaña</b> guarda en un archivo todo lo creado: personajes y monstruos preparados con su equipo y ataques, encuentros, entregas de oro y objetos, el registro de los combates, las crónicas, las <b>imágenes</b> (dentro del archivo), los ajustes de la partida, los botines preparados y las plantillas de objetos. <b>📂 Restaurar campaña</b> lo devuelve a cualquier servidor (también uno nuevo) sin tocar el código de la partida ni a los jugadores, y sin duplicar lo que ya esté. Es el mismo archivo en Android, Windows y el navegador.</p>
+      <p>En <b>Personajes</b> (y en Ajustes) del DM, <b>💾 Exportar campaña</b> guarda en un archivo todo lo creado: personajes y monstruos preparados con su equipo y ataques, encuentros, entregas de oro y objetos, el registro de los combates, las crónicas, las <b>imágenes</b> (dentro del archivo), los ajustes de la partida, los botines preparados y las plantillas de objetos. <b>📂 Restaurar campaña</b> lo devuelve a cualquier servidor (también uno nuevo) sin tocar el código de la partida ni a los jugadores, y sin duplicar lo que ya esté. Es el mismo archivo en Android, Windows y el navegador. Puede llevar también las <b>fichas completas de tus PNJ</b> (las fichas de personaje de tu app).</p>
+      <p>Para leer o imprimir: <b>📊 Listas en Excel</b> o <b>📝 Listas en Markdown</b> sacan tus personajes preparados, los lugares y encuentros, el <b>tesoro de cada enemigo</b> y el <b>de cada grupo</b> (con su valor en oro), el botín pendiente, las entregas y el registro. La pestaña «Encuentros» del Excel se puede volver a importar. Cualquier ficha (también la de un PNJ) se exporta en <b>📄 Exportar → 📊 Excel o 📝 Markdown</b>, además del PDF oficial.</p>
 
       <h3 id="partida-internet">Jugar a distancia (dirección fija)</h3>
       <p>Si tienes <b>Tailscale</b> instalado, el servidor publica la partida <b>solo al abrirse</b> en una dirección fija con HTTPS (<code>https://tu-pc.tuXXXX.ts.net</code>), sin Cloudflare y sin tocar el router. La red local sigue funcionando igual. En la pantalla del DM, <b>Partida → 📨 Invitar jugadores</b> muestra el enlace de Internet y el de la misma Wi-Fi, ya con el código, para copiarlos. Alternativa: <b>ngrok</b> con su dominio fijo gratuito. Todo se configura en <code>di-en-di-servidor.json</code> junto al .exe (detalles en <i>PUBLICAR.txt</i>). Si el puerto 3000 ya lo usa otro programa del PC, el servidor elige solo otro libre y publica ese.</p>

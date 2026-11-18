@@ -40,3 +40,23 @@ describe('exportar las notas', () => {
     expect(exportFileName('diario', 'Brakka Pielpétrea', 'md')).toMatch(/^diario-brakka-pielpetrea-\d{4}-\d{2}-\d{2}\.md$/);
   });
 });
+
+describe('imágenes compartidas en el diario', () => {
+  it('la imagen de una nota se exporta igual venga como data URL o en base64', () => {
+    const c = sampleCharacter();
+    const b64 = '/9j/4AAQSkZJRgABAQ==';
+    c.notes = [
+      { id: 'a', createdAt: 1, title: 'Mapa', body: '', kind: 'note', folderId: null, image: `data:image/jpeg;base64,${b64}`, imageKey: 'compartido/img:x', ref: 'img:x' },
+      { id: 'b', createdAt: 2, title: 'Retrato', body: '', kind: 'note', folderId: null, image: b64 },
+    ];
+    const md = notesMarkdown(c, c.notes);
+    expect(md).toContain(`![Mapa](data:image/jpeg;base64,${b64})`);
+    expect(md).toContain(`![Retrato](data:image/jpeg;base64,${b64})`);
+    expect(md).not.toContain('base64,data:');
+  });
+
+  it('la carpeta de lo compartido se llama «Compartido conmigo»', () => {
+    const c = sampleCharacter();
+    expect(c.noteFolders.find((f) => f.key === 'shared')?.name).toBe('Compartido conmigo');
+  });
+});

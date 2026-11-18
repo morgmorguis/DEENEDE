@@ -7,6 +7,49 @@ import { DEFAULT_FOLDERS } from '../rules/srd';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
 import { exportEverything, saveBackupFile } from '../backup';
+import { create } from 'zustand';
+import { loadSharedImage, removeSharedImage, sharedImageBase64, stripDataUrl } from '../sharedImages';
+
+/** Abrir el diario desde otra pantalla, ya en una carpeta (p. ej. «Compartido conmigo» desde Partida) */
+const useNotesNav = create<{ folderKey: string | null; tick: number }>(() => ({ folderKey: null, tick: 0 }));
+export const openNotesAt = (folderKey: string) => useNotesNav.setState((s) => ({ folderKey, tick: s.tick + 1 }));
+
+/** Las notas con su imagen completa (la que quedó guardada en el dispositivo), para exportarlas */
+async function withFullImages(notes: Note[]): Promise<Note[]> {
+  return Promise.all(notes.map(async (n) => {
+    const full = n.imageKey ? await sharedImageBase64(n.imageKey) : null;
+    return full ? { ...n, image: full } : n;
+  }));
+}
+
+/** Imagen a pantalla completa: la original si está guardada en el dispositivo, con zoom para leer los mapas y botón para guardarla */
+function ImageViewer({ note, onClose }: { note: Note; onClose: () => void }) {
+  const [src, setSrc] = useState(note.image ?? '');
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [zoom, setZoom] = useState(false);
+  useEffect(() => {
+    if (!note.imageKey) return;
+    let url: string | null = null;
+    void loadSharedImage(note.imageKey).then((b) => { if (b) { url = URL.createObjectURL(b); setSrc(url); setBlob(b); } });
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [note.imageKey]);
+  const save = async () => {
+    const data = blob ? new Uint8Array(await blob.arrayBuffer()) : Uint8Array.from(atob(stripDataUrl(note.image ?? '')), (ch) => ch.charCodeAt(0));
+    const name = `${note.title.replace(/^\S+\s/, '').replace(/[^\p{L}\p{N} _-]+/gu, '').trim().replace(/\s+/g, '-').toLowerCase() || 'imagen'}.jpg`;
+    const where = await saveBackupFile(data, name, 'image/jpeg');
+    useStore.getState().showToast(T('🖼️ Imagen guardada', '🖼️ Image saved'), [where ?? name]);
+  };
+  return createPortal(
+    <div className={`img-viewer ${zoom ? 'zoom' : ''}`} role="dialog" aria-label={note.title}>
+      <div className="img-viewer-pane" onClick={() => setZoom(!zoom)}><img src={src} alt={note.title} /></div>
+      <div className="img-viewer-bar">
+        <b className="grow">{note.title}</b>
+        <button className="btn small" onClick={() => setZoom(!zoom)}>{zoom ? '🔎 −' : '🔍 +'}</button>
+        <button className="btn small" onClick={() => void save()}>⬇️ {T('Guardar', 'Save')}</button>
+        <button className="btn small" onClick={onClose}>✕ {T('Cerrar', 'Close')}</button>
+      </div>
+    </div>, document.body);
+}
 
 const folderLabel = (f: NoteFolder) => {
   const d = f.key ? DEFAULT_FOLDERS.find((x) => x.key === f.key) : undefined;
@@ -35,6 +78,16 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
   const timer = useRef<number | null>(null);
 
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
+
+  // Abierto desde otra pantalla en una carpeta concreta
+  const nav = useNotesNav();
+  useEffect(() => {
+    if (!nav.tick) return;
+    const f = c.noteFolders.find((x) => x.key === nav.folderKey);
+    setFolderId(f?.id ?? null);
+    if (!open) onToggle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al pedirlo
+  }, [nav.tick]);
 
   const folder = c.noteFolders.find((f) => f.id === folderId) ?? null;
   const chroniclesId = c.noteFolders.find((f) => f.key === 'chronicles')?.id ?? folder?.id ?? null;
@@ -101,9 +154,10 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
       const { notesMarkdown, notesPdf, exportFileName } = await import('../export/notesExport');
       const title = folder ? `${T('Diario de', 'Journal of')} ${c.name} · ${folderLabel(folder).replace(/^\S+\s/, '')}` : undefined;
       const file = exportFileName(T('diario', 'journal'), c.name, kind);
+      const full = await withFullImages(notes);
       const where = kind === 'md'
-        ? await saveBackupFile(notesMarkdown(c, notes, title), file, 'text/markdown')
-        : await saveBackupFile(await notesPdf(c, notes, title), file, 'application/pdf');
+        ? await saveBackupFile(notesMarkdown(c, full, title), file, 'text/markdown')
+        : await saveBackupFile(await notesPdf(c, full, title), file, 'application/pdf');
       useStore.getState().showToast(kind === 'md' ? T('📝 Notas en Markdown', '📝 Notes as Markdown') : T('📄 Notas en PDF', '📄 Notes as PDF'), [where ? T(`En ${where}.`, `In ${where}.`) : file]);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
@@ -222,7 +276,8 @@ function NoteItem({ note, folders }: { note: Note; folders: NoteFolder[] }) {
   const deleteNote = useStore((s) => s.deleteNote);
   const [editing, setEditing] = useState(false);
   const [big, setBig] = useState(false);
-  const icon = note.image ? '' : note.kind === 'story' ? '📖' : note.kind === 'transcript' ? '🎙️' : '📝';
+  // Lo compartido ya trae su icono en el título (🖼️, 📖, ⚔️, 🎁)
+  const icon = note.image || note.ref ? '' : note.kind === 'story' ? '📖' : note.kind === 'transcript' ? '🎙️' : '📝';
   const folder = folders.find((f) => f.id === note.folderId);
   return (
     <details className="note">
@@ -240,11 +295,7 @@ function NoteItem({ note, folders }: { note: Note; folders: NoteFolder[] }) {
         note.body && <div className="note-body">{note.body}</div>
       )}
       {note.image && <img className="note-img" src={note.image} alt={note.title} onClick={() => setBig(true)} />}
-      {big && note.image && createPortal(
-        <div className="img-viewer" onClick={() => setBig(false)} role="dialog" aria-label={note.title}>
-          <img src={note.image} alt={note.title} />
-          <div className="img-viewer-bar"><b>{note.title}</b><button className="btn small">✕ {T('Cerrar', 'Close')}</button></div>
-        </div>, document.body)}
+      {big && note.image && <ImageViewer note={note} onClose={() => setBig(false)} />}
       <div className="row wrap">
         <select className="note-move" value={note.folderId ?? ''} aria-label={T('Mover a carpeta', 'Move to folder')} onChange={(e) => updateNote(note.id, { folderId: e.target.value || null })}>
           <option value="">{T('Sin carpeta', 'No folder')}</option>
@@ -252,7 +303,7 @@ function NoteItem({ note, folders }: { note: Note; folders: NoteFolder[] }) {
         </select>
         <button className="btn small" onClick={() => setEditing(!editing)}>{editing ? T('Listo', 'Done') : T('Editar', 'Edit')}</button>
         <button className="btn small" onClick={() => void navigator.clipboard?.writeText(`${note.title}\n\n${note.body}`)}>{T('Copiar', 'Copy')}</button>
-        <button className="btn small danger" onClick={async () => { if (await askOk(T('¿Borrar esta nota?', 'Delete this note?'))) deleteNote(note.id); }}>{T('Borrar', 'Delete')}</button>
+        <button className="btn small danger" onClick={async () => { if (await askOk(T('¿Borrar esta nota?', 'Delete this note?'))) { if (note.imageKey) void removeSharedImage(note.imageKey); deleteNote(note.id); } }}>{T('Borrar', 'Delete')}</button>
       </div>
     </details>
   );

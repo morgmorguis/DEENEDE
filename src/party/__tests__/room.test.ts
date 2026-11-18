@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { apply, canEnter, createRoom, exportCampaign, hpState, importCampaign, join, viewFor, type Room } from '../room';
+import { apply, canEnter, createRoom, enterError, exportCampaign, hpState, importCampaign, join, normalizeRoom, viewFor, type Room } from '../room';
 import { COMBAT_SCENES, type Command, type PcSummary } from '../protocol';
 
 const summary = (name: string, hp = 20): PcSummary => ({ name, species: 'Humano', className: 'Guerrero', level: 3, hp, hpMax: hp, temp: 0, ac: 16, speed: 30, passive: 12, conditions: [] });
 
 function setup() {
-  let room: Room = createRoom();
+  // Partida ya creada por el DM (abierta)
+  let room: Room = { ...createRoom(), open: true };
   const dmJ = join(room, 'Marc', undefined, room.dmKey); room = dmJ.room;
   const p1 = join(room, 'Ana'); room = p1.room;
   const p2 = join(room, 'Leo'); room = p2.room;
@@ -438,5 +439,55 @@ describe('sesiones y código de la partida', () => {
     expect(s.room.members).toHaveLength(3);
     expect(s.room.log.some((e) => e.kind === 'start')).toBe(true);
     expect(s.room.encounter.active).toBe(false);
+  });
+});
+
+describe('crear la partida', () => {
+  it('una partida nueva está cerrada: con el código no se entra hasta que el DM la crea', () => {
+    let room = createRoom();
+    expect(canEnter(room, room.code)).toBe(false);
+    expect(enterError(room, room.code)).toBe('game-closed');
+    expect(enterError(room, 'ZZZZZZ')).toBe('bad-code');
+    // El DM sí entra (con su clave) para preparar la sesión
+    expect(canEnter(room, '', undefined, room.dmKey)).toBe(true);
+    const dm = join(room, 'Marc', undefined, room.dmKey); room = dm.room;
+    expect(viewFor(room, dm.member.id)!.open).toBe(false);
+    const old = room.code;
+    room = apply(room, dm.member.id, { t: 'openGame' }).room;
+    expect(room.code).not.toBe(old);
+    expect(canEnter(room, room.code.toLowerCase())).toBe(true);
+    expect(viewFor(room, dm.member.id)!.open).toBe(true);
+  });
+
+  it('las partidas guardadas antes siguen abiertas', () => {
+    const r = createRoom();
+    delete r.open;
+    expect(normalizeRoom(r).open).toBe(true);
+    expect(canEnter(r, r.code)).toBe(true);
+  });
+
+  it('crear la partida conserva el combate que el DM está preparando a solas', () => {
+    const s = setup();
+    s.run(s.dm, { t: 'prepare', title: 'Cripta' });
+    s.run(s.dm, { t: 'add', combatants: [{ name: 'Esqueleto', kind: 'monster', hpMax: 13 }] });
+    s.run(s.dm, { t: 'openGame', removePlayers: true });
+    expect(s.room.encounter.active).toBe(true);
+    expect(s.room.encounter.phase).toBe('prep');
+    expect(s.room.encounter.order.map((c) => c.name)).toEqual(['Esqueleto']);
+    expect(s.room.members.map((m) => m.role)).toEqual(['dm']);
+  });
+
+  it('solo el DM crea o cierra la partida; al cerrarla nadie nuevo entra y quien estaba puede seguir', () => {
+    const s = setup();
+    expect(apply(s.room, s.p1, { t: 'openGame' }).error).toBe('not-allowed');
+    expect(apply(s.room, s.p1, { t: 'closeGame' }).error).toBe('not-allowed');
+    s.run(s.dm, { t: 'openGame' });
+    const ana = s.room.members.find((m) => m.id === s.p1)!;
+    s.run(s.dm, { t: 'closeGame' });
+    expect(canEnter(s.room, s.room.code)).toBe(false);
+    expect(canEnter(s.room, '', ana.token)).toBe(true);
+    s.run(s.dm, { t: 'closeGame', removePlayers: true });
+    expect(canEnter(s.room, '', ana.token)).toBe(false);
+    expect(s.room.members.map((m) => m.role)).toEqual(['dm']);
   });
 });

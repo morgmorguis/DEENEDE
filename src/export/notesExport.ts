@@ -2,6 +2,7 @@
 import type { Character, Note, NoteFolder } from '../types';
 import { DEFAULT_FOLDERS } from '../rules/srd';
 import { L, T, locale } from '../i18n';
+import { stripDataUrl } from '../sharedImages';
 import { pdfSafe } from './sheetPdf';
 
 const folderName = (f?: NoteFolder | null) => {
@@ -27,7 +28,7 @@ export function notesMarkdown(c: Character, notes: Note[], title?: string): stri
     out.push(`## ${folderName(g.folder)}`, '');
     for (const n of g.notes) {
       out.push(`### ${n.title || T('Sin título', 'Untitled')}`, `_${dateText(n.createdAt)}_`, '');
-      if (n.image) out.push(`![${n.title}](data:image/jpeg;base64,${n.image})`, '');
+      if (n.image) out.push(`![${n.title}](data:image/jpeg;base64,${stripDataUrl(n.image)})`, '');
       if (n.body.trim()) out.push(n.body.trim(), '');
     }
   }
@@ -82,7 +83,7 @@ export async function notesPdf(c: Character, notes: Note[], title?: string): Pro
       write(dateText(n.createdAt), ital, 9, ink, 0.6);
       if (n.image) {
         try {
-          const img = await doc.embedJpg(Uint8Array.from(atob(n.image), (ch) => ch.charCodeAt(0)));
+          const img = await doc.embedJpg(Uint8Array.from(atob(stripDataUrl(n.image)), (ch) => ch.charCodeAt(0)));
           const scale = Math.min(LW / img.width, 260 / img.height, 1);
           const w = img.width * scale, h = img.height * scale;
           ensure(h + 8);
