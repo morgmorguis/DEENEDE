@@ -201,5 +201,12 @@ describe('migration', () => {
     expect(c.noteFolders.length).toBeGreaterThan(0);
     expect(c.resources[0].key).toBe('rage');
   });
+
+  it('adds «Shared with me» to old journals that did not have it, keeping their folders', () => {
+    const old = { ...sampleCharacter(), noteFolders: [{ id: 'f1', key: 'names', name: 'Nombres' }, { id: 'f2', name: 'Pistas' }] };
+    const c = normalizeCharacter(old as never);
+    expect(c.noteFolders.map((f) => f.key ?? f.name)).toEqual(['names', 'Pistas', 'shared']);
+    expect(normalizeCharacter(c as never).noteFolders.filter((f) => f.key === 'shared')).toHaveLength(1);
+  });
 });
 

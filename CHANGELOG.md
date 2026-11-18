@@ -3,6 +3,16 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.29.0 · 18 nov 2026 — El diario se convierte en grimorio
+
+- **El diario es ahora un grimorio**, con el aspecto de un libro antiguo: tapas de cuero con filete dorado, páginas de pergamino, letras capitulares y el botón 📖 para abrirlo.
+- **Índice con capítulos**: Compartido conmigo, Nombres, Lugares, Misiones, Objetos, Crónicas y los que crees, numerados como en un libro, con cuántas notas tiene cada uno y los títulos de las últimas. Toca un capítulo o el título de una nota para ir directo a ella.
+- **Dentro de cada capítulo se lee todo**: título, fecha y contenido de cada nota a la vista (y la imagen, si la tiene), sin tener que abrirlas una por una. En el móvil la letra es algo más pequeña para que quepa.
+- **⛶ Más grande**: el grimorio ocupa toda la pantalla. En el PC o la tablet en horizontal se abre como un libro, con el índice a la izquierda y el capítulo a la derecha. Se acuerda del tamaño que elegiste.
+- **🤝 Compartido conmigo está siempre** (también en las fichas antiguas, y no se puede borrar) y separa lo que el DM te ha mandado **🔒 solo a ti** de lo que es **👥 para todo el grupo**: cartas, mapas e imágenes, crónicas, informes de combate y entregas.
+- **El DM puede escribir notas a un jugador, a varios o a todo el grupo** (Partida → ✉️ Notas para los jugadores): una carta, una pista o un secreto que llega al grimorio de quien la recibe, aunque ahora no esté conectado. Las privadas no salen en el registro que ven los demás.
+- Escribir una nota, grabar la sesión, el kill count y exportar a Markdown o PDF siguen en el grimorio: en el índice, o dentro de cada capítulo para ese capítulo.
+
 ## 0.28.0 · 18 nov 2026 — La partida del PC del DM, con el código desde cualquier sitio
 
 - **El código del servidor de tu PC ya sirve en la nube.** Si llevas la partida con «Di en Di - Servidor.exe», en la pestaña Partida pones **una vez** la clave del DM de tu servidor de la nube (🌐 Partida en la nube). Desde entonces, al pulsar **🎲 Crear partida** el PC se enlaza con la nube y los jugadores entran **solo con el código**, desde cualquier sitio (otra casa, datos del móvil), sin escribir ninguna dirección.

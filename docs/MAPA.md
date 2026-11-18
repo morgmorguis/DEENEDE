@@ -65,6 +65,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `Consumables.tsx` 6 KB — Munición y consumibles: en la hoja se gestionan las cantidades; en combate se marca lo que gastas y al terminar se recupera lo que permiten las reglas. · exporta: Consumables
 - `DmBackup.tsx` 10 KB — Copia de la campaña del DM: personajes preparados, encuentros, entregas, registro de combate, crónicas, imágenes (con los archivos dentro) y ajustes de la… · exporta: CampaignFile, parseCampaign, DmBackupSection
 - `DmGroup.tsx` 6 KB — Pestaña «Grupo» del DM: el estado de cada jugador siempre a la vista, dentro y fuera de combate: vida, CA, condiciones, oro, dados de golpe, espacios de… · exporta: DmGroupTab
+- `DmNotes.tsx` 4 KB — DM: escribir notas (cartas, pistas, secretos) a un jugador, a varios o a todo el grupo; llegan a su grimorio, en «Compartido conmigo». · exporta: DmNotes
 - `DmRoster.tsx` 23 KB — Pestaña «Personajes» del DM: aliados y enemigos preparados con su nivel y datos básicos para tenerlos a mano y meterlos en el combate. Se guardan en el… · exporta: DmRosterTab
 - `Editor.tsx` 6 KB · exporta: Editor
 - `ErrorBoundary.tsx` 2 KB — Si una pantalla falla, en vez de quedarse en negro muestra el error y deja volver o copiarlo para avisar. · exporta: ErrorBoundary
@@ -77,7 +78,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `Initiative.tsx` 20 KB · exporta: InitiativePrompt, entryHp, InitiativeTracker, TurnPanel
 - `LevelUp.tsx` 30 KB — Pantalla «Subir de nivel»: muestra lo que ganas según tu clase, te deja elegir las opciones que permiten las reglas (explicadas) y al pulsar LVL UP… · exporta: LevelUpPage
 - `Manual.tsx` 1 KB — Manual de la app (la guía ilustrada) dentro de una ventana a pantalla completa. · exporta: ManualViewer
-- `Notes.tsx` 21 KB · exporta: openNotesAt, NotesDrawer
+- `Notes.tsx` 29 KB · exporta: openNotesAt, NotesDrawer
 - `OriginPicker.tsx` 12 KB — «Origen y habilidades»: elecciones de nivel 1 según trasfondo, clase y especie. Solo muestra lo que se puede escoger, avisa cuando dos fuentes dan la misma… · exporta: OriginPicker
 - `Party.tsx` 95 KB ⚠️ — Pestaña «Partida»: unirse a la partida del DM, ver la party, jugar el combate compartido por turnos, consultar el registro y (si eres el DM) organizarlo… · exporta: ENEMY_COLORS, StateBadge, isDmEntry, DmLogin, logLine, combatReport, saveCombatReport, CombatReportModal, TurnBanner, setPrepFocus, EncounterInvite, DmCombatTab… (+2)
 - `Rules.tsx` 6 KB · exporta: RulesTab
@@ -113,7 +114,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `narrative.ts` 8 KB — Resumen narrativo de un combate a partir de su registro: sin IA (frases generadas aquí) o con IA (se prepara el registro en texto para que Claude lo cuente… · exporta: lastCombat, combatTranscript, localNarrative
 - `phrases.ts` 5 KB — Frases para el aviso de «¡Comienza un encuentro!»: sale una al azar cada vez que el DM lanza un combate. · exporta: COMBAT_PHRASES, randomCombatPhrase
 - `protocol.ts` 16 KB — Protocolo de la partida compartida (modo party): tipos que comparten la app y el servidor. · exporta: Role, CombatantKind, PcSummary, SharedImage, Chronicle, RoomSettings, TimedCondition, Counter, Member, Combatant, CarriedLoot, LootDrop… (+20)
-- `room.ts` 43 KB ⚠️ — Lógica de la partida compartida. Funciones puras: el servidor guarda una `Room`, le aplica los comandos de cada cliente y envía a cada uno solo lo que puede… · exporta: StoredMember, Room, Effect, Result, cleanMods, cleanGift, cleanLoot, rid, enterError, canEnter, createRoom, normalizeRoom… (+12)
+- `room.ts` 44 KB ⚠️ — Lógica de la partida compartida. Funciones puras: el servidor guarda una `Room`, le aplica los comandos de cada cliente y envía a cada uno solo lo que puede… · exporta: StoredMember, Room, Effect, Result, cleanMods, cleanGift, cleanLoot, rid, enterError, canEnter, createRoom, normalizeRoom… (+13)
 
 ## src/rules/
 

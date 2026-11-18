@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/icono.png" alt="Icono de Di en Di: un d20 carmesí sobre un escudo con dos espadas, bajo la luna roja" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.28.0</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.29.0</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -160,7 +160,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <li><a href="#municion">Objetos, munición y consumibles</a></li>
       <li><a class="sub" href="#equipar">Equipar objetos</a></li>
       <li><a href="#asistente">El asistente</a></li>
-      <li><a href="#diario">Diario, voz y kill count</a></li>
+      <li><a href="#diario">Grimorio (diario), voz y kill count</a></li>
       <li><a href="#importar">Importar una ficha</a></li>
       <li><a href="#partida">Partida compartida</a></li>
       <li><a class="sub" href="#partida-montar">Montar el servidor</a></li>
@@ -398,10 +398,12 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
     <!-- 10 -->
     <section class="chapter" id="diario">
-      <div class="chapter-head"><span class="chapter-num">Capítulo 11</span><h2>Diario, voz y kill count</h2></div>
+      <div class="chapter-head"><span class="chapter-num">Capítulo 11</span><h2>Grimorio (diario), voz y kill count</h2></div>
       <div class="split">
         <div>
-          <p>El botón 📜 abre el <b>diario</b> desde cualquier pantalla. Tiene categorías (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees) y notas rápidas. Al escribir una nota eliges su <b>Categoría</b> o creas una con <b>＋ Nueva</b>; lo que estás escribiendo se guarda en el dispositivo aunque cierres la app. Abajo, <b>📝 Markdown</b> y <b>📄 PDF</b> exportan las notas que estás viendo (todas o las de la categoría elegida), ordenadas por categoría y fecha y con las imágenes del DM; y <b>💾 Guardar archivo</b> crea el archivo de guardado con fichas y notas (capítulo 15).</p>
+          <p>El botón 📖 abre tu <b>grimorio</b> (el diario) desde cualquier pantalla. Empieza por el <b>índice</b>: los capítulos numerados (🤝 Compartido conmigo, Nombres, Lugares, Misiones, Objetos, Crónicas y los que crees con <b>＋ Nuevo capítulo</b>), cuántas notas tiene cada uno y los títulos de las últimas; toca un capítulo, o el título de una nota para ir directo a ella. Dentro de un capítulo ves de cada nota su <b>título, fecha y contenido</b>, y debajo <b>✏️ Editar</b>, 📋 copiar, moverla a otro capítulo o 🗑️ borrarla.</p>
+          <p><b>✒️ Escribir una nota</b> (en el índice eliges el capítulo; dentro de un capítulo va a ese): la primera línea es el título, y lo que escribes se guarda en el dispositivo aunque cierres la app. <b>⛶</b> lo hace <b>más grande</b>: ocupa toda la pantalla y, en el PC o la tablet en horizontal, se abre como un libro con el índice a la izquierda. En <b>Apéndices</b> están el kill count, <b>📝 Markdown</b> y <b>📄 PDF</b> (todo el grimorio; dentro de un capítulo, solo ese) y <b>💾 Guardar archivo</b> con fichas y notas (capítulo 15).</p>
+          <p><b>🤝 Compartido conmigo</b> está siempre y separa lo que el DM te manda <b>🔒 solo a ti</b> de lo que es <b>👥 para todo el grupo</b>.</p>
           <p><b>Grabar sesión:</b> deja el móvil en la mesa y la app transcribe lo que se dice. Al parar, puedes corregir la transcripción y guardarla tal cual o, con una clave de Claude, convertirla en una crónica escrita como un relato.</p>
           <p><b>Kill count:</b> los enemigos a los que tu personaje da el golpe final se apuntan solos, en el combate de la app y en la partida compartida. Si el DM deshace ese turno, la baja se quita. Solo cuentan tus bajas; también puedes añadirlas a mano.</p>
         </div>
@@ -492,7 +494,8 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
       <h3 id="partida-resumen">Registro y resumen narrativo</h3>
       <p>Todo lo que pasa queda en el <b>registro del combate</b>: quién ataca a quién, con qué arma o conjuro, la tirada, los fallos, los críticos, las reacciones, las curas y quién cae. Al acabar, <b>📖 Resumen</b> lo convierte en un relato en pasado («Brakka golpeó con fuerza al goblin y lo derrotó; intentaron alcanzarle, pero falló…»): <b>Sin IA</b> funciona siempre y <b>Con IA (Claude)</b> lo cuenta como un narrador si pusiste tu clave en Ajustes. Se puede retocar antes de guardarlo.</p>
-      <p>El DM lo <b>comparte con los jugadores</b>: a cada uno se le guarda en su diario, en la carpeta <b>🤝 Compartido</b>, donde también quedan las <b>imágenes</b> que comparta el DM. Los jugadores pueden guardarlo en su diario con 📜 Guardar.</p>
+      <p>El DM lo <b>comparte con los jugadores</b>: a cada uno se le guarda en su grimorio, en <b>🤝 Compartido conmigo</b>, donde también quedan las <b>imágenes</b> que comparta el DM. Los jugadores pueden guardarlo en su diario con 📜 Guardar.</p>
+      <p><b>✉️ Notas para los jugadores</b> (Partida, DM): escribe una carta, una pista o un secreto y mándalo a <b>todo el grupo</b> o <b>solo a</b> los jugadores que elijas. Llega a su grimorio marcado «solo para ti» o «para el grupo», también a quien no esté conectado en ese momento cuando vuelva. Las privadas no salen en el registro. En <b>Enviadas</b> ves a quién fue cada una y puedes quitarla.</p>
       <figure><img class="shot" src="img/51-resumen.jpg" alt="Resumen narrativo del combate sin IA, con el botón Compartir con los jugadores" width="1200" height="806" loading="lazy"></figure>
 
       <h3 id="partida-campana">Copia de la campaña (DM)</h3>

@@ -54,8 +54,9 @@ export interface SharedImage {
   h?: number;
 }
 
-/** Crónica que el DM comparte (p. ej. el resumen narrativo de un combate) */
-export interface Chronicle { id: string; title: string; text: string; at: number }
+/** Crónica o nota escrita que el DM comparte (p. ej. el resumen narrativo de un combate o una carta para un jugador).
+ *  `to`: 'all' (o sin `to`, partidas antiguas) para todo el grupo, o los ids de los jugadores que la reciben */
+export interface Chronicle { id: string; title: string; text: string; at: number; to?: 'all' | string[] }
 
 /** Ajustes de la mesa que decide el DM */
 export interface RoomSettings {
@@ -389,7 +390,7 @@ export type Command =
   | { t: 'imageUnshare'; id: string }
   | { t: 'imageRemove'; id: string }
   | { t: 'imageRename'; id: string; title: string }
-  | { t: 'chronicleShare'; title: string; text: string }
+  | { t: 'chronicleShare'; title: string; text: string; to?: 'all' | string[] }
   | { t: 'chronicleRemove'; id: string }
   /** Anula una entrega que aún no ha llegado */
   | { t: 'giftCancel'; id: string };

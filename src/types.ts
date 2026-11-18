@@ -123,6 +123,8 @@ export interface Note {
   imageKey?: string;
   /** Lo que se compartió contigo (para no guardarlo dos veces): 'img:<id>', 'chr:<id>', 'gift:<id>' o 'cmb:<id>' */
   ref?: string;
+  /** Lo compartido por el DM: solo para ti ('me') o para todo el grupo ('all') */
+  sharedTo?: 'me' | 'all';
 }
 
 /** Participante en el orden de iniciativa: tu personaje, compañeros o enemigos */

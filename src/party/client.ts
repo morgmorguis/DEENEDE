@@ -251,7 +251,7 @@ export const useParty = create<PartyState>((set, get) => {
       for (const g of fresh) { applying.add(g.id); next = applyGift(next, g); }
       st.replace(next);
       // Lo que te dan queda apuntado en «Compartido conmigo»
-      addSharedNotes(c.id, fresh.map((g) => ({ id: uid(), createdAt: g.at, title: `🎁 ${g.fromName ? T(`De ${g.fromName}`, `From ${g.fromName}`) : T('Del DM', 'From the DM')}: ${[g.coins ? coinsText(g.coins) : '', ...(g.items ?? []).map(itemLine)].filter(Boolean).join(', ').slice(0, 90)}`, body: giftLines(g).join('\n'), kind: 'note' as const, ref: `gift:${g.id}` })));
+      addSharedNotes(c.id, fresh.map((g) => ({ id: uid(), createdAt: g.at, title: `🎁 ${g.fromName ? T(`De ${g.fromName}`, `From ${g.fromName}`) : T('Del DM', 'From the DM')}: ${[g.coins ? coinsText(g.coins) : '', ...(g.items ?? []).map(itemLine)].filter(Boolean).join(', ').slice(0, 90)}`, body: giftLines(g).join('\n'), kind: 'note' as const, ref: `gift:${g.id}`, sharedTo: 'me' as const })));
       const who = [...new Set(fresh.map((g) => g.fromName ?? 'DM'))].join(', ');
       const dmOnly = fresh.every((g) => !g.fromName);
       if (st.activeId === c.id) st.pushLog({ role: 'app', text: dmOnly ? T('🎁 Entrega del DM', '🎁 Gift from the DM') : T(`🎁 Te dan: ${who}`, `🎁 Given by: ${who}`), details: fresh.flatMap((g) => giftLines(g)) });
@@ -273,8 +273,8 @@ export const useParty = create<PartyState>((set, get) => {
     const save = (notes: Note[]) => addSharedNotes(c0.id, notes);
     if (chron.length) {
       chron.forEach((x) => pendingShared.add(`chr:${x.id}`));
-      save(chron.map((x) => ({ id: uid(), createdAt: x.at, title: `📖 ${x.title}`, body: x.text, kind: 'story', ref: `chr:${x.id}` })));
-      useStore.getState().showToast(T('📖 El DM comparte una crónica', '📖 The DM shares a chronicle'), [...chron.map((x) => x.title), T('Guardada en tu diario → 🤝 Compartido conmigo.', 'Saved in your journal → 🤝 Shared with me.')]);
+      save(chron.map((x) => ({ id: uid(), createdAt: x.at, title: `${Array.isArray(x.to) ? '✉️' : '📖'} ${x.title}`, body: x.text, kind: 'story', ref: `chr:${x.id}`, sharedTo: Array.isArray(x.to) ? 'me' : 'all' })));
+      useStore.getState().showToast(chron.some((x) => Array.isArray(x.to)) ? T('✉️ El DM te ha escrito', '✉️ The DM wrote to you') : T('📖 El DM comparte una crónica', '📖 The DM shares a chronicle'), [...chron.map((x) => x.title), T('Guardada en tu diario → 🤝 Compartido conmigo.', 'Saved in your journal → 🤝 Shared with me.')]);
     }
     const conn = get().conn;
     for (const im of imgs) {
@@ -287,7 +287,7 @@ export const useParty = create<PartyState>((set, get) => {
           const ref = `img:${im.id}`;
           const key = await storeSharedImage(ref, b).catch(() => null);
           const { data } = key ? await compressImage(b, 480, 0.7) : await compressImage(b, 1200, 0.78);
-          save([{ id: uid(), createdAt: im.sharedAt ?? im.at, title: `🖼️ ${im.title}`, body: '', kind: 'note', image: data, ...(key ? { imageKey: key } : {}), ref }]);
+          save([{ id: uid(), createdAt: im.sharedAt ?? im.at, title: `🖼️ ${im.title}`, body: '', kind: 'note', image: data, ...(key ? { imageKey: key } : {}), ref, sharedTo: im.to === 'all' ? 'all' : 'me' }]);
         })
         .catch(() => pendingShared.delete(`img:${im.id}`));
     }

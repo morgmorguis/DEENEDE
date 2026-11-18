@@ -1339,3 +1339,93 @@ html[data-design='poster'] .fx-title b { font-weight: 900; letter-spacing: .06em
 .dm-ico { width: 22px; height: 22px; image-rendering: pixelated; border-radius: 4px; vertical-align: -5px; }
 .dm-login-icon { display: block; width: 120px; height: 120px; margin: 0 auto 12px; image-rendering: pixelated; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
 .notes-export { display: grid; gap: 6px; padding: 10px; border: 1px dashed var(--line); border-radius: 10px; }
+
+/* ---------- Grimorio (el diario de notas): índice, capítulos y libro abierto a dos páginas ---------- */
+.drawer.grimoire {
+  --grim-leather: color-mix(in srgb, var(--parch-accent) 50%, #140a05);
+  --grim-gilt: color-mix(in srgb, var(--gold) 65%, var(--parch-accent));
+  background: radial-gradient(ellipse at 50% 35%, transparent 55%, color-mix(in srgb, var(--parch-handle) 38%, transparent) 100%), var(--parch-bg);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, .55), inset 0 0 0 4px var(--grim-leather), inset 0 0 0 5px var(--grim-gilt), inset 0 0 0 9px var(--parch-bg), inset 0 0 0 10px color-mix(in srgb, var(--grim-gilt) 45%, transparent);
+  transition: transform .28s cubic-bezier(.2, .8, .2, 1), height .25s ease, width .25s ease;
+  overflow: hidden;
+}
+.drawer.grimoire.big { height: 100dvh; border-radius: 0; }
+.grim-top { display: flex; align-items: center; gap: 6px; padding: 2px 16px 8px; border-bottom: 3px double var(--parch-rule); margin: 0 6px; }
+.grim-title { flex: 1; min-width: 0; text-align: center; font-family: 'Cinzel', Georgia, serif; color: var(--parch-accent); font-size: 1.2rem; line-height: 1.1; }
+.grim-title small { display: block; font-size: .6rem; letter-spacing: .3em; text-transform: uppercase; color: var(--parch-muted); }
+.grim-title span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grim-sigil { font-size: 1.3rem; min-width: 36px; text-align: center; }
+.grim-rec { color: var(--parch-danger); font-weight: 700; font-size: .85rem; animation: pulse 1.2s infinite; }
+.grim-top .icon-btn { color: var(--parch-accent); }
+.grim-back { font-family: 'Cinzel', Georgia, serif; }
+.grim-book { flex: 1; min-height: 0; display: flex; }
+.grim-page { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 14px 18px calc(28px + env(safe-area-inset-bottom)); display: grid; gap: 12px; align-content: start; animation: grim-turn .32s ease both; transform-origin: left center; }
+@keyframes grim-turn { from { opacity: 0; transform: perspective(1400px) rotateY(-12deg) translateX(10px); } to { opacity: 1; transform: none; } }
+.drawer.grimoire.spread .grim-index { flex: 0 0 min(38%, 440px); animation: none; border-right: 1px solid var(--parch-rule); box-shadow: inset -22px 0 26px -22px rgba(60, 30, 10, .5); }
+.drawer.grimoire.spread .grim-chapter { box-shadow: inset 22px 0 26px -22px rgba(60, 30, 10, .5); padding-left: 28px; padding-right: 28px; }
+
+.grim-heading { font-family: 'Cinzel', Georgia, serif; text-align: center; letter-spacing: .22em; text-transform: uppercase; color: var(--parch-accent); font-size: 1rem; }
+.grim-heading::before, .grim-heading::after { content: ' ✦ '; opacity: .55; }
+.grim-heading.small { font-size: .8rem; margin-top: 6px; }
+.grim-toc { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.grim-toc-ch { border-radius: 6px; padding: 2px 6px 4px; }
+.grim-toc-ch.on { background: color-mix(in srgb, var(--parch-accent) 9%, transparent); }
+button.plain.grim-toc-head { display: flex; align-items: baseline; gap: 8px; width: 100%; font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 1rem; color: var(--parch-ink); padding: 4px 0; }
+.grim-toc-ch.on .grim-toc-head, button.plain.grim-toc-head:hover { color: var(--parch-accent); }
+.grim-toc-num { color: var(--parch-accent); min-width: 2.1em; font-size: .85em; }
+.grim-toc-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grim-leader { flex: 1; min-width: 14px; border-bottom: 2px dotted var(--parch-handle); transform: translateY(-4px); }
+.grim-toc-count { font-family: Georgia, serif; color: var(--parch-muted); font-weight: 400; }
+.grim-toc-sub { display: block; font-size: .75rem; color: var(--parch-muted); padding-left: 2.6em; }
+.grim-toc-notes { list-style: none; margin: 2px 0 0; padding-left: 2.6em; display: grid; }
+.grim-toc-notes button.plain { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Georgia, serif; font-style: italic; font-size: .86rem; padding: 2px 0; opacity: .85; }
+.grim-toc-notes button.plain:hover { color: var(--parch-accent); opacity: 1; text-decoration: underline; }
+.grim-toc-notes .grim-more { color: var(--parch-muted); }
+.drawer .grim-add-ch { justify-self: start; border-style: dashed; background: none; }
+.grim-ornament { text-align: center; color: var(--parch-handle); font-size: 1.2rem; letter-spacing: .4em; }
+.drawer .grim-write { font-family: 'Cinzel', Georgia, serif; font-weight: 700; border-style: dashed; background: color-mix(in srgb, var(--parch-btn) 55%, transparent); }
+
+.grim-ch-head { display: grid; justify-items: center; gap: 2px; text-align: center; padding-bottom: 8px; border-bottom: 3px double var(--parch-rule); }
+.grim-ch-num { font-family: 'Cinzel', Georgia, serif; font-size: .68rem; letter-spacing: .32em; text-transform: uppercase; color: var(--parch-muted); }
+.grim-ch-head h3 { font-family: 'Cinzel', Georgia, serif; color: var(--parch-accent); font-size: 1.4rem; overflow-wrap: anywhere; }
+.grim-ch-tools { display: flex; gap: 6px; margin-top: 4px; }
+.grim-ch-hint, .grim-empty { text-align: center; font-style: italic; font-family: Georgia, serif; }
+.grim-group { display: grid; gap: 2px; }
+.grim-group-title { font-family: 'Cinzel', Georgia, serif; color: var(--parch-accent); font-size: .9rem; letter-spacing: .08em; border-bottom: 1px solid var(--parch-rule); padding-bottom: 3px; margin-top: 6px; }
+.grim-group-title small { color: var(--parch-muted); font-family: Georgia, serif; }
+.grim-entry { padding: 10px 4px 8px; border-bottom: 1px solid var(--parch-rule); border-radius: 6px; scroll-margin-top: 10px; transition: background .8s; }
+.grim-entry.flash { background: color-mix(in srgb, var(--gold) 30%, transparent); }
+.grim-entry-head { display: flex; align-items: baseline; gap: 8px; }
+.grim-entry-head h4 { flex: 1; min-width: 0; font-family: 'Cinzel', Georgia, serif; font-size: 1rem; color: var(--parch-ink); overflow-wrap: anywhere; }
+.grim-entry-head time { font-family: Georgia, serif; font-style: italic; font-size: .72rem; color: var(--parch-muted); white-space: nowrap; }
+.grim-entry-body { white-space: pre-wrap; font-family: Georgia, serif; font-size: .95rem; line-height: 1.55; margin-top: 4px; overflow-wrap: anywhere; }
+.grim-entry-body.drop::first-letter { float: left; font-family: 'Cinzel', Georgia, serif; font-weight: 900; font-size: 2.7em; line-height: .9; padding: 4px 6px 0 0; color: var(--parch-accent); }
+.grim-entry .grim-img { width: auto; max-width: 100%; max-height: 260px; display: block; background: none; border: 3px solid var(--parch-btn-border); border-radius: 4px; box-shadow: 0 3px 8px rgba(40, 20, 5, .3); }
+.grim-entry > input { margin-bottom: 6px; font-family: 'Cinzel', Georgia, serif; font-weight: 700; }
+.grim-entry-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; opacity: .55; transition: opacity .2s; }
+.grim-entry:hover .grim-entry-tools, .grim-entry:focus-within .grim-entry-tools { opacity: 1; }
+.drawer .grim-entry-tools .btn.small { min-height: 30px; padding: 2px 9px; }
+.grim-entry-tools .note-move { min-height: 30px; max-width: 46%; }
+
+.notes-fab.grim-fab { background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--parch-accent) 75%, #fff 10%), color-mix(in srgb, var(--parch-accent) 50%, #140a05)); border-color: var(--gold); font-size: 1.6rem; }
+.notes-fab.grim-fab.recording { background: var(--red); font-size: 1rem; }
+html[data-design='retro'] :is(.grim-entry, .grim-toc-ch, .drawer.grimoire, .grim-entry .grim-img) { border-radius: 0; }
+@media (max-width: 480px) {
+  .grim-page { padding: 10px 12px calc(24px + env(safe-area-inset-bottom)); gap: 10px; }
+  .grim-top { padding: 0 10px 6px; }
+  .grim-title { font-size: 1.05rem; }
+  button.plain.grim-toc-head { font-size: .92rem; }
+  .grim-toc-notes button.plain { font-size: .8rem; }
+  .grim-entry-head h4 { font-size: .9rem; }
+  .grim-entry-body { font-size: .85rem; line-height: 1.45; }
+  .grim-ch-head h3 { font-size: 1.15rem; }
+}
+@media (min-width: 900px) {
+  .drawer.grimoire { width: min(500px, 45vw); }
+  .grim-top { padding-top: 14px; }
+  .drawer.grimoire.big { width: calc(100vw - var(--rail)); max-width: 1500px; height: 100%; border-radius: 0; }
+  .drawer.grimoire.big .grim-entry-body { font-size: 1.02rem; }
+}
+@media (prefers-reduced-motion: reduce) { .grim-page { animation: none; } }
+.dm-sent-notes { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.dm-sent-notes li { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 3px; }

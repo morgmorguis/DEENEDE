@@ -77,7 +77,7 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 
 ## Estado y notas que no se ven en el código
 
-- Versión **0.27.0** (18 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
+- Versión **0.29.0** (18 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
 - Turnos: el servidor solo acepta `act` en tu turno o como reacción (una por ronda); `nextTurn`, solo el DM o el dueño del turno.
 - Fases del combate compartido (`Encounter.phase`): `prep` (el DM prepara a solas; `viewFor` se lo oculta a los demás y no se anotan
   las entradas en el registro), `setup` (lanzado con `launch`: aviso que el jugador acepta con `accept` y antesala con «Listo»; empieza
@@ -99,6 +99,10 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 - Compartido conmigo (jugador): `addSharedNotes` (client.ts) guarda en la carpeta `shared` del diario imágenes (`img:`), crónicas
   (`chr:`), entregas (`gift:`) e informes de combate (`cmb:`, `saveCombatReport` al terminar). La imagen completa va a IndexedDB
   (`src/sharedImages.ts`, `Note.imageKey`) y en la nota solo una miniatura: la ficha vive en localStorage (~5 MB) y no debe llenarse.
+- Grimorio (diario, `Notes.tsx`): índice de capítulos (carpetas; «Compartido conmigo» primero y siempre presente: `normalizeCharacter`
+  la añade y el store no la deja borrar ni renombrar) y páginas con las notas enteras; «grande» (`di-en-di-grimoire-big`) ocupa la pantalla
+  y con ≥900 px se abre a dos páginas. Notas del DM a jugadores: `chronicleShare` con `to` ('all' o ids), `canSeeChronicle` en `viewFor`;
+  en la nota del jugador `sharedTo` ('me'/'all'; sin él, `gift:` es 'me' y lo demás 'all'). Panel del DM: `DmNotes.tsx`.
 - Exportar: `src/export/xlsx.ts` (escritor .xlsx propio, ZIP sin comprimir) y `src/export/dmExport.ts` (listas del DM y ficha en Excel/Markdown).
 - Sesiones: `newCode` (código nuevo, los miembros siguen) y `newSession` (código nuevo, sin combate, opcionalmente sin jugadores
   y sin registro). Se entra con el código, la clave del DM o el token de un miembro (`canEnter`): así se reconecta quien ya

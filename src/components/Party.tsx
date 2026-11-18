@@ -18,6 +18,7 @@ import { TurnPanel, actionName } from './CombatActions';
 import { combatTranscript, lastCombat, localNarrative } from '../party/narrative';
 import { describeError, narrateCombatWithClaude } from '../ai';
 import { DmImages, SharedGallery, useImageUrl } from './Images';
+import { DmNotes } from './DmNotes';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
 import { randomCombatPhrase } from '../party/phrases';
@@ -333,7 +334,7 @@ export function saveCombatReport(view: RoomView) {
   const start = [...view.log].reverse().find((e) => e.kind === 'start');
   if (!start) return;
   const { title, text } = combatReport(view);
-  addSharedNotes(useParty.getState().conn?.characterId, [{ id: uid(), createdAt: start.at, title: `⚔️ ${title}`, body: text, kind: 'story', ref: `cmb:${start.id}` }]);
+  addSharedNotes(useParty.getState().conn?.characterId, [{ id: uid(), createdAt: start.at, title: `⚔️ ${title}`, body: text, kind: 'story', ref: `cmb:${start.id}`, sharedTo: 'all' }]);
 }
 
 /** Informe del combate: leerlo, guardarlo en el diario, descargarlo o copiarlo */
@@ -1078,6 +1079,7 @@ export function PartyTab() {
           {dm ? <DmCombatCard view={view} /> : !view.encounter.active && <SharedCombat view={view} />}
           {dm && !view.encounter.active && <LootPanel view={view} />}
           {dm && <DmImages view={view} />}
+          {dm && <DmNotes view={view} />}
           <SharedGallery view={view} />
           <MyGifts view={view} />
           {view.you.role === 'player' && <SharedWithMe />}

@@ -594,9 +594,12 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
     case 'chronicleShare': {
       const text = String(cmd.text ?? '').trim().slice(0, 20000);
       if (!text) return { room, effects: [], error: 'empty' };
-      r.chronicles.push({ id: rid(10), title: String(cmd.title ?? '').trim().slice(0, 120) || 'Crónica', text, at: Date.now() });
+      // Para todo el grupo o solo para algunos jugadores (lo privado no sale en el registro, que lo ven todos)
+      const to = Array.isArray(cmd.to) ? cmd.to.filter((id) => r.members.some((m) => m.id === id && m.role === 'player')) : 'all';
+      if (Array.isArray(to) && !to.length) return { room, effects: [], error: 'no-target' };
+      r.chronicles.push({ id: rid(10), title: String(cmd.title ?? '').trim().slice(0, 120) || 'Crónica', text, at: Date.now(), to });
       if (r.chronicles.length > 200) r.chronicles.splice(0, r.chronicles.length - 200);
-      pushLog(r, { kind: 'narrative', text: String(cmd.title ?? '').slice(0, 120) });
+      if (to === 'all') pushLog(r, { kind: 'narrative', text: String(cmd.title ?? '').slice(0, 120) });
       return { room: r, effects };
     }
     case 'chronicleRemove': {
@@ -771,6 +774,13 @@ function undoTarget(r: Room): { target?: Snapshot; owner?: string } {
 // ---------- Vista de cada cliente ----------
 
 /** ¿Puede este miembro ver la imagen? DM todas; jugadores las compartidas con ellos; la tele las compartidas con todos */
+/** Quién ve una crónica o nota del DM: el DM, todos si es para el grupo y, si es privada, solo sus destinatarios */
+export function canSeeChronicle(me: Pick<Member, 'id' | 'role'>, ch: Chronicle): boolean {
+  if (me.role === 'dm') return true;
+  if (!ch.to || ch.to === 'all') return true;
+  return me.role === 'player' && ch.to.includes(me.id);
+}
+
 export function canSeeImage(_room: Room, me: Pick<Member, 'id' | 'role'>, im: SharedImage): boolean {
   void _room;
   if (me.role === 'dm') return true;
@@ -840,7 +850,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
     }),
     settings: room.settings,
     images: room.images.filter((im) => canSeeImage(room, me, im)),
-    chronicles: room.chronicles,
+    chronicles: room.chronicles.filter((ch) => canSeeChronicle(me, ch)),
     roster: dm ? room.roster : [],
     encounters: dm ? room.encounters : [],
     encounter: {

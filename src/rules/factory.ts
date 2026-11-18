@@ -110,6 +110,8 @@ export function normalizeCharacter(raw: Partial<Character> & Record<string, unkn
   if (!c.classId && c.className) c.classId = classById(c.className)?.id ?? '';
   c.resources = (c.resources ?? []).map((r: Resource) => ({ ...r, key: r.key ?? LEGACY_RESOURCE_KEYS[r.name.toLowerCase()] }));
   c.noteFolders = raw.noteFolders?.length ? raw.noteFolders : base.noteFolders;
+  // «Compartido conmigo» está siempre (las fichas de antes de la 0.27 no lo tenían)
+  if (!c.noteFolders.some((f) => f.key === 'shared')) c.noteFolders = [...c.noteFolders, base.noteFolders.find((f) => f.key === 'shared')!];
   c.notes = (c.notes ?? []).map((n) => ({ ...n, folderId: n.folderId ?? (n.kind === 'story' ? c.noteFolders.find((x) => x.key === 'chronicles')?.id ?? null : null) }));
   return c;
 }

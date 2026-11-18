@@ -203,9 +203,11 @@ export const useStore = create<State>()(
       },
       renameFolder: (id, name) => get().update((c) => {
         // Al renombrar una carpeta predefinida deja de traducirse automáticamente
-        c.noteFolders = c.noteFolders.map((f) => (f.id === id ? { id: f.id, name } : f));
+        c.noteFolders = c.noteFolders.map((f) => (f.id === id && f.key !== 'shared' ? { id: f.id, name } : f));
       }),
       deleteFolder: (id) => get().update((c) => {
+        // «Compartido conmigo» no se borra: ahí llega lo que manda el DM
+        if (c.noteFolders.find((f) => f.id === id)?.key === 'shared') return;
         c.noteFolders = c.noteFolders.filter((f) => f.id !== id);
         c.notes = c.notes.map((n) => (n.folderId === id ? { ...n, folderId: null } : n));
       }),

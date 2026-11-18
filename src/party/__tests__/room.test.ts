@@ -491,3 +491,21 @@ describe('crear la partida', () => {
     expect(s.room.members.map((m) => m.role)).toEqual(['dm']);
   });
 });
+
+describe('notas del DM para un jugador o para el grupo', () => {
+  it('una nota privada solo la ven el DM y sus destinatarios, y no sale en el registro', () => {
+    let r: Room = createRoom();
+    const dm = join(r, 'DM', undefined, r.dmKey); r = dm.room;
+    const ana = join(r, 'Ana'); r = ana.room;
+    const bo = join(r, 'Bo'); r = bo.room;
+    const run = (cmd: Command) => { const x = apply(r, dm.member.id, cmd); if (x.error) throw new Error(x.error); r = x.room; };
+    run({ t: 'chronicleShare', title: 'Carta sellada', text: 'Solo tú sabes dónde está la llave.', to: [ana.member.id] });
+    run({ t: 'chronicleShare', title: 'La posada', text: 'Llegáis de noche.' });
+    expect(viewFor(r, ana.member.id)!.chronicles.map((c) => c.title)).toEqual(['Carta sellada', 'La posada']);
+    expect(viewFor(r, bo.member.id)!.chronicles.map((c) => c.title)).toEqual(['La posada']);
+    expect(viewFor(r, dm.member.id)!.chronicles).toHaveLength(2);
+    expect(r.log.filter((e) => e.kind === 'narrative').map((e) => e.text)).toEqual(['La posada']);
+    // Sin destinatarios válidos no se manda
+    expect(apply(r, dm.member.id, { t: 'chronicleShare', title: 'x', text: 'y', to: ['nadie'] }).error).toBe('no-target');
+  });
+});
