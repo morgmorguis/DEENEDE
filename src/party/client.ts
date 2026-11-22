@@ -3,10 +3,14 @@
 import { create } from 'zustand';
 import { useStore } from '../store';
 import type { Character, Note } from '../types';
-import { compressImage } from '../imageUtil';
+import { compressImage, squareThumb } from '../imageUtil';
 import { storeSharedImage } from '../sharedImages';
 import { CLOUD_SERVER, type ClientMessage, type Command, type Gift, type PcSummary, type Role, type RoomView, type ServerMessage } from './protocol';
-import { COIN_KEYS, coinsInGold, coinsText, itemLine } from '../rules/items';
+import { COIN_KEYS, NO_COINS, coinsInGold, coinsText, itemLine, payCoins, valueText } from '../rules/items';
+import { placeReceived, wearable } from '../rules/stash';
+import { setEquipped } from '../rules/gear';
+import { categoryIcon } from '../imageCategories';
+import { backupNow, isMyGame, patchGame, scheduleBackup } from './myGames';
 import { hitDiceText } from '../rules/multiclass';
 import { uid } from '../rules/factory';
 import { backupFileName, buildBackup, parseBackup, saveBackupFile } from '../backup';
@@ -78,6 +82,11 @@ export const ERRORS: Record<string, [string, string]> = {
   'bad-code': ['El código de la partida no es correcto (el DM puede haberlo cambiado: pídele el nuevo).', 'The game code is wrong (the DM may have changed it: ask for the new one).'],
   'no-server': ['No encuentro ningún servidor de partida. Revisa la conexión a Internet o, si el DM usa su propio servidor, escribe su dirección en «Otro servidor».', 'Can’t find any game server. Check your Internet connection or, if the DM runs their own server, enter its address under “Other server”.'],
   'game-closed': ['La partida aún no está abierta (o el DM la ha cerrado). Espera a que el DM pulse «Crear partida» y te dé el código.', 'The game isn’t open yet (or the DM closed it). Wait for the DM to press “Create game” and give you the code.'],
+  kicked: ['El DM te ha sacado de la partida.', 'The DM removed you from the game.'],
+  'unknown-game': ['Esa partida ya no está en el servidor (las creadas desde la app se borran tras 5 días sin uso). Si la creaste en este dispositivo, restáurala desde «Mis partidas».', 'That game is no longer on the server (games created from the app are deleted after 5 days unused). If you created it on this device, restore it from “My games”.'],
+  'too-many': ['Has creado muchas partidas hoy. Prueba mañana o usa una de «Mis partidas».', 'You’ve created many games today. Try tomorrow or use one of “My games”.'],
+  full: ['El servidor no admite más partidas ahora mismo. Prueba más tarde.', 'The server can’t take more games right now. Try later.'],
+  'no-multi': ['Ese servidor no permite crear partidas desde la app (es el de un PC). Ábrelo como DM con su enlace.', 'That server doesn’t allow creating games from the app (it’s a PC’s). Open it as DM with its link.'],
   'session-reset': ['El DM ha empezado una sesión nueva. Pídele el código nuevo para volver a unirte.', 'The DM started a new session. Ask for the new code to join again.'],
   'not-allowed': ['No puedes hacer eso (no es tu turno o no es tu personaje).', 'You can’t do that (not your turn or not your character).'],
   'no-combat': ['No hay ningún combate en marcha.', 'There’s no combat running.'],
@@ -97,20 +106,50 @@ export const ERRORS: Record<string, [string, string]> = {
 
 /** Suma a la ficha las monedas y objetos de una entrega del DM (los objetos iguales se apilan) */
 export function applyGift(c: Character, g: Gift, from = g.fromName ?? 'DM'): Character {
+  return receiveGift(c, g, from).char;
+}
+
+/**
+ * Aplica una entrega: monedas, cobro del DM, munición y consumibles a su lista y el resto a «Objetos» (armas y armaduras
+ * reconocidas por el nombre, listas para equipar). `lines`: dónde ha ido cada cosa · `wear`: ids de objetos para equipar.
+ */
+export function receiveGift(c: Character, g: Gift, from = g.fromName ?? 'DM'): { char: Character; lines: string[]; wear: string[] } {
   const next = structuredClone(c);
+  const lines: string[] = [];
+  const wear: string[] = [];
   for (const k of COIN_KEYS) next.coins[k] = (next.coins[k] ?? 0) + Math.max(0, Math.round(g.coins?.[k] ?? 0));
-  for (const it of g.items ?? []) {
+  if (g.charge && g.charge > 0) {
+    const paid = payCoins({ ...NO_COINS, ...next.coins }, g.charge);
+    next.coins = paid.coins;
+    lines.push(paid.short > 0
+      ? T(`💸 Pagas ${valueText(g.charge - paid.short)} de ${valueText(g.charge)}: no te llega (faltan ${valueText(paid.short)})`, `💸 You pay ${valueText(g.charge - paid.short)} of ${valueText(g.charge)}: not enough (${valueText(paid.short)} short)`)
+      : T(`💸 Pagas ${valueText(g.charge)}`, `💸 You pay ${valueText(g.charge)}`));
+  }
+  next.consumables = next.consumables ?? [];
+  for (const raw of g.items ?? []) {
+    const p = placeReceived(raw);
+    if (p.where === 'consumable') {
+      const same = next.consumables.find((x) => x.name.toLowerCase() === p.name.toLowerCase());
+      if (same) same.qty += p.qty;
+      else next.consumables.push({ id: uid(), name: p.name, qty: p.qty, kind: p.kind, used: 0, ...(p.description ? { description: p.description } : {}) });
+      lines.push(T(`${p.kind === 'ammo' ? '🏹' : p.kind === 'thrown' ? '🗡️' : '🧪'} ${p.qty} × ${p.name} → Munición y consumibles`, `${p.kind === 'ammo' ? '🏹' : p.kind === 'thrown' ? '🗡️' : '🧪'} ${p.qty} × ${p.name} → Ammo & consumables`));
+      continue;
+    }
+    const it = p.item;
     const same = next.items.find((x) => x.name === it.name && x.rarity === it.rarity && x.description === it.description && x.value === it.value);
-    if (same) same.qty += it.qty;
-    else next.items.push({ ...it, id: uid(), from, at: g.at, gift: g.id });
+    if (same) { same.qty += it.qty; continue; }
+    const id = uid();
+    next.items.push({ ...it, id, from, at: g.at, gift: g.id });
+    if (wearable(it)) wear.push(id);
   }
   next.giftsReceived = [...next.giftsReceived, g.id].slice(-500);
-  return next;
+  return { char: next, lines, wear };
 }
 
 /** Líneas para el aviso: «50 po», «2 × Poción de curación» */
-export const giftLines = (g: Pick<Gift, 'coins' | 'items' | 'note'>) => [
+export const giftLines = (g: Pick<Gift, 'coins' | 'items' | 'note' | 'charge'>) => [
   ...(g.coins && coinsText(g.coins) ? [`💰 ${coinsText(g.coins)}`] : []),
+  ...(g.charge ? [T(`💸 Cobra ${valueText(g.charge)}`, `💸 Charges ${valueText(g.charge)}`)] : []),
   ...(g.items ?? []).map((i) => `🎁 ${itemLine(i)}`),
   ...(g.note ? [`✉️ ${g.note}`] : []),
 ];
@@ -186,11 +225,20 @@ export const useParty = create<PartyState>((set, get) => {
     return s.characters.find((c) => c.id === id) ?? s.active();
   };
 
+  let face: { src: string; face: string } | null = null;
+  let facing = '';
   const pushSummary = (force = false) => {
     if (get().role !== 'player') return;
     const c = sharedChar();
     if (!c) return;
     const sum = summaryOf(c);
+    // La cara (miniatura del retrato) se hace una vez por retrato y se manda en cuanto está lista
+    const src = c.portraitThumb ?? c.portrait ?? '';
+    if (src && face?.src !== src && facing !== src) {
+      facing = src;
+      void squareThumb(src).then((f) => { face = { src, face: f }; }).catch(() => { face = { src, face: '' }; }).finally(() => { facing = ''; pushSummary(); });
+    }
+    if (src && face?.src === src && face.face) sum.face = face.face;
     const k = JSON.stringify(sum);
     if (!force && k === lastSummary) return;
     lastSummary = k;
@@ -248,14 +296,21 @@ export const useParty = create<PartyState>((set, get) => {
     const c = sharedChar();
     if (fresh.length && c) {
       let next = c;
-      for (const g of fresh) { applying.add(g.id); next = applyGift(next, g); }
+      const placed: string[] = [];
+      const wear: string[] = [];
+      for (const g of fresh) { applying.add(g.id); const r = receiveGift(next, g); next = r.char; placed.push(...r.lines); wear.push(...r.wear); }
       st.replace(next);
       // Lo que te dan queda apuntado en «Compartido conmigo»
-      addSharedNotes(c.id, fresh.map((g) => ({ id: uid(), createdAt: g.at, title: `🎁 ${g.fromName ? T(`De ${g.fromName}`, `From ${g.fromName}`) : T('Del DM', 'From the DM')}: ${[g.coins ? coinsText(g.coins) : '', ...(g.items ?? []).map(itemLine)].filter(Boolean).join(', ').slice(0, 90)}`, body: giftLines(g).join('\n'), kind: 'note' as const, ref: `gift:${g.id}`, sharedTo: 'me' as const })));
+      addSharedNotes(c.id, fresh.map((g) => ({ id: uid(), createdAt: g.at, title: `🎁 ${g.fromName ? T(`De ${g.fromName}`, `From ${g.fromName}`) : T('Del DM', 'From the DM')}: ${[g.coins ? coinsText(g.coins) : '', ...(g.items ?? []).map(itemLine), g.charge ? `💸 −${valueText(g.charge)}` : ''].filter(Boolean).join(', ').slice(0, 90)}`, body: giftLines(g).join('\n'), kind: 'note' as const, ref: `gift:${g.id}`, sharedTo: 'me' as const })));
       const who = [...new Set(fresh.map((g) => g.fromName ?? 'DM'))].join(', ');
       const dmOnly = fresh.every((g) => !g.fromName);
       if (st.activeId === c.id) st.pushLog({ role: 'app', text: dmOnly ? T('🎁 Entrega del DM', '🎁 Gift from the DM') : T(`🎁 Te dan: ${who}`, `🎁 Given by: ${who}`), details: fresh.flatMap((g) => giftLines(g)) });
-      st.showToast(dmOnly ? T(`🎁 El DM te da algo${c.id !== st.activeId ? ` (${c.name})` : ''}`, `🎁 The DM gives you something${c.id !== st.activeId ? ` (${c.name})` : ''}`) : T(`🎁 ${who} te da algo`, `🎁 ${who} gives you something`), fresh.flatMap((g) => giftLines(g)));
+      // Armas, armaduras y escudos: botón para equiparlos ya (pone la CA o crea su fila de Armas)
+      const actions = wear.slice(0, 3).map((id) => {
+        const it = next.items.find((x) => x.id === id)!;
+        return { label: `🛡️ ${T('Equipar', 'Equip')} ${it.name}`, run: () => { const s2 = useStore.getState(); const cur = s2.characters.find((x) => x.id === c.id); if (!cur) return; const ch = structuredClone(cur); setEquipped(ch, id, true); s2.replace(ch); } };
+      });
+      st.showToast(dmOnly ? (fresh.every((g) => !g.items?.length && !g.coins) ? T('💸 El DM te cobra', '💸 The DM charges you') : T(`🎁 El DM te da algo${c.id !== st.activeId ? ` (${c.name})` : ''}`, `🎁 The DM gives you something${c.id !== st.activeId ? ` (${c.name})` : ''}`)) : T(`🎁 ${who} te da algo`, `🎁 ${who} gives you something`), [...fresh.flatMap((g) => giftLines({ ...g, charge: undefined })), ...placed], actions);
     }
     const ack = pending.filter((g) => seen.has(g.id) || applying.has(g.id)).map((g) => g.id);
     if (ack.length) out({ t: 'cmd', cmd: { t: 'giftAck', ids: ack } });
@@ -267,6 +322,17 @@ export const useParty = create<PartyState>((set, get) => {
     const c0 = sharedChar();
     if (!c0) return;
     const have = new Set(c0.notes.map((n) => n.ref).filter(Boolean));
+    // Si el DM cambia la categoría de una imagen ya guardada, la nota del diario la sigue
+    const moved = (view.images ?? []).filter((im) => im.category && c0.notes.some((n) => n.ref === `img:${im.id}` && n.category !== im.category));
+    if (moved.length) {
+      const st = useStore.getState();
+      const cur = st.characters.find((x) => x.id === c0.id);
+      if (cur) {
+        const next = structuredClone(cur);
+        for (const im of moved) for (const n of next.notes) if (n.ref === `img:${im.id}`) { n.category = im.category; n.title = `${categoryIcon[im.category!]} ${n.title.replace(/^\S+\s/, '')}`; }
+        st.replace(next);
+      }
+    }
     const chron = (view.chronicles ?? []).filter((x) => !have.has(`chr:${x.id}`) && !pendingShared.has(`chr:${x.id}`));
     const imgs = (view.images ?? []).filter((x) => x.shared && !have.has(`img:${x.id}`) && !pendingShared.has(`img:${x.id}`));
     if (!chron.length && !imgs.length) return;
@@ -287,7 +353,8 @@ export const useParty = create<PartyState>((set, get) => {
           const ref = `img:${im.id}`;
           const key = await storeSharedImage(ref, b).catch(() => null);
           const { data } = key ? await compressImage(b, 480, 0.7) : await compressImage(b, 1200, 0.78);
-          save([{ id: uid(), createdAt: im.sharedAt ?? im.at, title: `🖼️ ${im.title}`, body: '', kind: 'note', image: data, ...(key ? { imageKey: key } : {}), ref, sharedTo: im.to === 'all' ? 'all' : 'me' }]);
+          const category = im.category ?? 'other';
+          save([{ id: uid(), createdAt: im.sharedAt ?? im.at, title: `${categoryIcon[category]} ${im.title}`, body: '', kind: 'note', image: data, ...(key ? { imageKey: key } : {}), ref, sharedTo: im.to === 'all' ? 'all' : 'me', category }]);
         })
         .catch(() => pendingShared.delete(`img:${im.id}`));
     }
@@ -337,6 +404,9 @@ export const useParty = create<PartyState>((set, get) => {
         unsubSheet = useStore.subscribe(() => { if (t) clearTimeout(t); t = window.setTimeout(() => pushSummary(), 300); });
       } else if (msg.t === 'state') {
         set({ view: msg.view });
+        // El DM en una partida que creó desde esta app: copia en el dispositivo por si la nube la borra
+        const cc = get().conn;
+        if (msg.view.you.role === 'dm' && cc?.dmKey) { scheduleBackup(cc.url, cc.dmKey); patchGame(cc.dmKey, { code: msg.view.code }); }
         reconcileKills(msg.view);
         reconcileGifts(msg.view);
         reconcileShared(msg.view);
@@ -347,9 +417,10 @@ export const useParty = create<PartyState>((set, get) => {
         // Estaba dentro y el DM ha cerrado la partida (no es que intente entrar en una cerrada)
         const kicked = msg.message === 'game-closed' && get().status === 'online';
         set({ error: kicked ? T('El DM ha cerrado la partida. Cuando vuelva a crearla, pídele el código nuevo.', 'The DM closed the game. When they create it again, ask for the new code.') : errorText(msg.message) });
-        if (msg.message === 'bad-code' || msg.message === 'game-closed' || msg.message === 'session-reset') { const e = get().error; get().leave(); set({ error: e }); }
+        if (msg.message === 'bad-code' || msg.message === 'game-closed' || msg.message === 'session-reset' || msg.message === 'kicked' || msg.message === 'unknown-game') { const e = get().error; get().leave(); set({ error: e }); }
         const keep = T('Lo que te han compartido sigue en tu diario → 🤝 Compartido conmigo. Tu ficha sigue igual.', 'What was shared with you stays in your journal → 🤝 Shared with me. Your sheet stays the same.');
         if (msg.message === 'session-reset') useStore.getState().showToast(T('🔁 Sesión nueva', '🔁 New session'), [errorText('session-reset'), keep]);
+        if (msg.message === 'kicked') useStore.getState().showToast(T('👋 Fuera de la partida', '👋 Out of the game'), [errorText('kicked'), keep]);
         if (kicked) useStore.getState().showToast(T('🔒 El DM ha cerrado la partida', '🔒 The DM closed the game'), [keep]);
       }
     };
@@ -393,6 +464,8 @@ export const useParty = create<PartyState>((set, get) => {
     },
     leave: () => {
       if (retryTimer) clearTimeout(retryTimer);
+      const was = get().conn;
+      if (was?.dmKey && get().status === 'online' && isMyGame(was.dmKey)) void backupNow(was.url, was.dmKey);
       unsubSheet?.();
       unsubSheet = null;
       const s = ws;

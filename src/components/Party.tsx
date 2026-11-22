@@ -21,6 +21,7 @@ import { DmImages, SharedGallery, useImageUrl } from './Images';
 import { DmNotes } from './DmNotes';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
+import { DmStart } from './DmStart';
 import { randomCombatPhrase } from '../party/phrases';
 import { uid } from '../rules/factory';
 import { openNotesAt } from './Notes';
@@ -162,7 +163,7 @@ function JoinForm() {
           </label>
         </details>
         <details className="dm-option" open={asDm}>
-          <summary className="small muted">{T('¿Eres el DM?', 'Are you the DM?')}</summary>
+          <summary className="small muted">{T('¿Eres el DM y tienes una clave?', 'Are you the DM with a key?')}</summary>
           <p className="small muted">{T('Lo más cómodo es tu enlace de DM (termina en /dm). Desde aquí también puedes entrar con la clave:', 'The easiest way is your DM link (it ends in /dm). You can also enter with the key here:')}</p>
           <label className="check"><input type="checkbox" checked={asDm} onChange={(e) => setAsDm(e.target.checked)} /> {T('Soy el DM', 'I’m the DM')}</label>
         </details>
@@ -177,6 +178,7 @@ function JoinForm() {
           {busy ? `⏳ ${T('Buscando la partida…', 'Looking for the game…')}` : `🎲 ${T('Unirse', 'Join')}`}
         </button>
       </Section>
+      <DmStart server={url} />
       <SharedWithMe />
     </div>
   );
@@ -1062,7 +1064,18 @@ export function PartyTab() {
             <div className="party-members">
               {view.members.filter((m) => m.role === 'player').map((m) => (
                 <div key={m.id} className={`member ${m.online ? '' : 'offline'}`}>
-                  <b>{m.online ? '🟢' : '⚪'} {m.summary?.name ?? m.name}</b>
+                  <b className="member-head">
+                    <span className={`member-face ${m.online ? 'on' : 'off'}`} title={m.online ? T('Conectado', 'Online') : T('Desconectado', 'Offline')}>
+                      {m.summary?.face ? <img src={m.summary.face} alt="" /> : (m.summary?.name ?? m.name).trim().charAt(0).toUpperCase() || '?'}
+                    </span>
+                    <span className="grow">{m.summary?.name ?? m.name}</span>
+                    {dm && (
+                      <button className="btn small member-kick" title={T('Sacar de la partida', 'Remove from the game')} onClick={async () => {
+                        const who = m.summary?.name ?? m.name;
+                        if (await askOk(T(`¿Sacar a ${who} de la partida?`, `Remove ${who} from the game?`), { text: T('Desaparece de la lista y su personaje sale del combate. Si la partida sigue abierta, puede volver a entrar con el código. Su ficha (en su dispositivo) no se toca.', 'They disappear from the list and their character leaves combat. If the game is still open, they can rejoin with the code. Their sheet (on their device) isn’t touched.'), ok: T('👋 Sacar', '👋 Remove'), danger: true })) useParty.getState().send({ t: 'kick', id: m.id });
+                      }}>👋</button>
+                    )}
+                  </b>
                   {m.summary ? (
                     <span className="small">
                       {m.summary.species} {m.summary.className} {m.summary.level}{!m.summary.hpHidden && <> · ❤️ {m.summary.hp}/{m.summary.hpMax}{m.summary.temp ? ` +${m.summary.temp}` : ''}</>} · {T('CA', 'AC')} {m.summary.ac} · 👁️ {m.summary.passive}

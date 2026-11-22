@@ -38,12 +38,21 @@ export interface PcSummary {
   /** Objetos destacados (equipados o mágicos) */
   items?: string[];
   dead?: boolean;
+  /** Cara del personaje (JPEG cuadrado pequeño, data URL) para la lista de la party */
+  face?: string;
 }
+
+/** Categoría de una imagen compartida (para ordenarlas en «Compartido conmigo») */
+export const IMAGE_CATEGORIES = ['map', 'character', 'place', 'clue', 'item', 'other'] as const;
+export type ImageCategory = typeof IMAGE_CATEGORIES[number];
+export const isImageCategory = (x: unknown): x is ImageCategory => (IMAGE_CATEGORIES as readonly unknown[]).includes(x);
 
 /** Imagen que el DM sube (mapa, retrato de un PNJ, pista…) y comparte cuando quiere */
 export interface SharedImage {
   id: string;
   title: string;
+  /** Mapas, personajes, lugares… (sin ella, «otros») */
+  category?: ImageCategory;
   at: number;
   /** Compartida con los jugadores (si no, solo la ve el DM) */
   shared: boolean;
@@ -241,6 +250,8 @@ export interface Gift {
   fromName?: string;
   coins?: Partial<Coins5>;
   items?: ItemData[];
+  /** El DM cobra al jugador (en po): se le resta de sus monedas al llegar */
+  charge?: number;
   note?: string;
   /** Ya ha llegado a la ficha del jugador */
   delivered: boolean;
@@ -334,7 +345,7 @@ export type Command =
   /** El jugador confirma que las entregas ya están en su ficha */
   | { t: 'giftAck'; ids: string[] }
   /** El DM da a un jugador; un jugador da de lo suyo a un compañero */
-  | { t: 'give'; toId: string; coins?: Partial<Coins5>; items?: ItemData[]; note?: string }
+  | { t: 'give'; toId: string; coins?: Partial<Coins5>; items?: ItemData[]; note?: string; charge?: number }
   /** El jugador sube su ficha completa (copia de seguridad en JSON); el servidor la guarda en disco y quita `data` */
   | { t: 'sheetUpload'; data?: string }
   // Solo el DM
@@ -368,6 +379,8 @@ export type Command =
   | { t: 'openGame'; removePlayers?: boolean; clearLog?: boolean }
   /** Cerrar la partida: nadie nuevo puede unirse con el código (los de dentro siguen, salvo que se les saque) */
   | { t: 'closeGame'; removePlayers?: boolean }
+  /** Echa a un jugador o una pantalla de la partida (puede volver con el código si la partida está abierta) */
+  | { t: 'kick'; id: string }
   /** Servidor del PC: guarda la clave del DM de la nube (url vacía = la de siempre) o la quita (key vacía) */
   | { t: 'cloudLink'; url: string; key: string }
   | { t: 'add'; combatants: Partial<Combatant>[] }
@@ -385,7 +398,8 @@ export type Command =
   | { t: 'encounterLoad'; id: string }
   | { t: 'roomSettings'; patch: Partial<RoomSettings> }
   /** El cliente manda `data` (JPEG en base64); el servidor la guarda en disco y la sustituye por `id` */
-  | { t: 'imageAdd'; title: string; data?: string; id?: string; w?: number; h?: number }
+  | { t: 'imageAdd'; title: string; data?: string; id?: string; w?: number; h?: number; category?: ImageCategory }
+  | { t: 'imageCategory'; id: string; category: ImageCategory }
   | { t: 'imageShare'; id: string; to: 'all' | string[] }
   | { t: 'imageUnshare'; id: string }
   | { t: 'imageRemove'; id: string }

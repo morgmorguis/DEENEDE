@@ -133,3 +133,17 @@ export function armorTrained(c: Character, kind: 'light' | 'medium' | 'heavy') {
   return !!c.armorTraining?.[kind];
 }
 
+/** Equipa o se quita un objeto de «Objetos»: una sola armadura y un escudo a la vez; las armas crean (o quitan) su fila en Armas */
+export function setEquipped(c: Character, itemId: string, on: boolean): void {
+  const it = c.items.find((y) => y.id === itemId);
+  if (!it) return;
+  it.equipped = on;
+  if (on) {
+    if (it.mods?.armor) for (const o of c.items) if (o.id !== it.id && o.mods?.armor) o.equipped = false;
+    if (it.mods?.shield) { c.shield = false; for (const o of c.items) if (o.id !== it.id && o.mods?.shield) o.equipped = false; }
+    const atk = attackFromItem(c, it);
+    if (atk && !c.attacks.some((a) => a.itemId === it.id)) c.attacks.push(atk);
+  } else {
+    c.attacks = c.attacks.filter((a) => a.itemId !== it.id);
+  }
+}

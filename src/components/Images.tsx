@@ -5,8 +5,10 @@ import { useStore } from '../store';
 import { createPortal } from 'react-dom';
 import { useParty } from '../party/client';
 import { httpBase } from '../party/client';
-import type { RoomView, SharedImage } from '../party/protocol';
+import type { ImageCategory, RoomView, SharedImage } from '../party/protocol';
+import { IMAGE_CATEGORIES, categoryLabel } from '../imageCategories';
 import { Modal, Section, pickFiles } from './common';
+import { DoodleViewer } from './DoodleViewer';
 import { askText, confirmDelete } from './Confirm';
 import { T, locale } from '../i18n';
 
@@ -21,16 +23,10 @@ import { compressImage } from '../imageUtil';
 
 const when = (ms: number) => new Date(ms).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-/** Imagen a pantalla completa */
+/** Imagen a pantalla completa: zoom y pluma para garabatear encima (solo lo ve quien dibuja) */
 export function ImageViewer({ image, onClose }: { image: SharedImage; onClose: () => void }) {
   const url = useImageUrl();
-  return createPortal(
-    <div className="img-viewer" onClick={onClose} role="dialog" aria-label={image.title}>
-      <img src={url(image.id)} alt={image.title} />
-      <div className="img-viewer-bar"><b>{image.title}</b><button className="btn small" onClick={onClose}>✕ {T('Cerrar', 'Close')}</button></div>
-    </div>,
-    document.body,
-  );
+  return <DoodleViewer src={url(image.id)} title={image.title} doodleRef={`img:${image.id}`} onClose={onClose} />;
 }
 
 function ShareModal({ view, image, onClose }: { view: RoomView; image: SharedImage; onClose: () => void }) {
@@ -58,13 +54,14 @@ export function DmImages({ view }: { view: RoomView }) {
   const [busy, setBusy] = useState(0);
   const [share, setShare] = useState<SharedImage | null>(null);
   const [show, setShow] = useState<SharedImage | null>(null);
+  const [cat, setCat] = useState<ImageCategory>('map');
   const upload = async (files: File[]) => {
     const imgs = files.filter((f) => f.type.startsWith('image/'));
     setBusy((n) => n + imgs.length);
     for (const f of imgs) {
       try {
         const { data, w, h } = await compressImage(f);
-        send({ t: 'imageAdd', title: f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').slice(0, 80), data, w, h });
+        send({ t: 'imageAdd', title: f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').slice(0, 80), data, w, h, category: cat });
       } catch { /* imagen que no se puede leer */ }
       setBusy((n) => n - 1);
     }
@@ -73,6 +70,11 @@ export function DmImages({ view }: { view: RoomView }) {
   const images = [...view.images].reverse();
   return (
     <Section title={T('🖼️ Imágenes para la mesa', '🖼️ Images for the table')}>
+      <label className="field">{T('Categoría de lo que subas', 'Category for what you upload')}
+        <select value={cat} onChange={(e) => setCat(e.target.value as ImageCategory)}>
+          {IMAGE_CATEGORIES.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}
+        </select>
+      </label>
       <div
         className={`drop-zone ${over ? 'over' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }}
@@ -90,6 +92,9 @@ export function DmImages({ view }: { view: RoomView }) {
           <div key={im.id} className={`img-card ${im.shared ? 'shared' : ''}`}>
             <button className="plain img-thumb" onClick={() => setShow(im)}><img src={url(im.id)} alt={im.title} loading="lazy" /></button>
             <button className="plain img-title" onClick={async () => { const t = await askText(T('Título de la imagen', 'Image title'), im.title); if (t) send({ t: 'imageRename', id: im.id, title: t }); }}>{im.title} ✏️</button>
+            <select className="img-cat" value={im.category ?? 'other'} aria-label={T('Categoría', 'Category')} onChange={(e) => send({ t: 'imageCategory', id: im.id, category: e.target.value as ImageCategory })}>
+              {IMAGE_CATEGORIES.map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}
+            </select>
             <span className="tiny muted">{im.shared ? (im.to === 'all' ? T('👥 Compartida con todos', '👥 Shared with everyone') : `🔒 ${im.to.map(nameOf).join(', ')}`) : T('🙈 Solo tú', '🙈 Only you')}</span>
             <div className="row">
               <button className={`btn small grow ${im.shared ? '' : 'primary'}`} onClick={() => setShare(im)}>📤 {im.shared ? T('Cambiar', 'Change') : T('Compartir', 'Share')}</button>
@@ -115,10 +120,19 @@ const seenId = (im: SharedImage) => `${im.id}@${im.sharedAt ?? 0}`;
 export function SharedGallery({ view }: { view: RoomView }) {
   const url = useImageUrl();
   const [show, setShow] = useState<SharedImage | null>(null);
+  const [cat, setCat] = useState<ImageCategory | ''>('');
   if (view.you.role !== 'player' || !view.images.length) return null;
-  const images = [...view.images].sort((a, b) => (b.sharedAt ?? b.at) - (a.sharedAt ?? a.at));
+  const all = [...view.images].sort((a, b) => (b.sharedAt ?? b.at) - (a.sharedAt ?? a.at));
+  const cats = IMAGE_CATEGORIES.filter((k) => all.some((im) => (im.category ?? 'other') === k));
+  const images = cat ? all.filter((im) => (im.category ?? 'other') === cat) : all;
   return (
-    <Section title={T(`🖼️ Imágenes del DM (${images.length})`, `🖼️ Images from the DM (${images.length})`)}>
+    <Section title={T(`🖼️ Imágenes del DM (${all.length})`, `🖼️ Images from the DM (${all.length})`)}>
+      {cats.length > 1 && (
+        <div className="chips">
+          <button className={`chip ${cat ? '' : 'on'}`} onClick={() => setCat('')}>{T('Todas', 'All')}</button>
+          {cats.map((k) => <button key={k} className={`chip ${cat === k ? 'on' : ''}`} onClick={() => setCat(k)}>{categoryLabel(k)}</button>)}
+        </div>
+      )}
       <div className="img-grid">
         {images.map((im) => (
           <button key={im.id} className="plain img-card" onClick={() => setShow(im)}>
@@ -151,17 +165,23 @@ export function ImageNotifier() {
     setQueue((q) => [...q, ...fresh.filter((f) => !q.some((x) => x.id === f.id))]);
     try { navigator.vibrate?.([40, 30, 40]); } catch { /* sin vibración */ }
   }, [view]);
+  const [big, setBig] = useState(false);
   const im = queue[0];
   if (!im) return null;
-  const next = () => setQueue((q) => q.slice(1));
+  const next = () => { setBig(false); setQueue((q) => q.slice(1)); };
   return createPortal(
     <div className="img-notice" role="alertdialog" aria-label={im.title}>
       <div className="img-notice-card">
-        <p className="img-notice-head">🖼️ {T('El DM comparte', 'The DM shares')}: <b>{im.title}</b></p>
-        <img src={url(im.id)} alt={im.title} />
+        <div className="img-notice-top">
+          <p className="img-notice-head grow">🖼️ {T('El DM comparte', 'The DM shares')}: <b>{im.title}</b></p>
+          <button className="img-notice-x" onClick={next} aria-label={T('Cerrar', 'Close')}>✕</button>
+        </div>
+        <button className="plain img-notice-img" onClick={() => setBig(true)} title={T('Ver en grande', 'View large')}><img src={url(im.id)} alt={im.title} /></button>
         <div className="row">
+          <button className="btn grow" onClick={() => setBig(true)}>🔍 {T('Ver en grande', 'View large')}</button>
           <button className="btn primary grow" onClick={next}>👍 {T('Visto', 'Got it')}</button>
         </div>
+        {big && <ImageViewer image={im} onClose={() => setBig(false)} />}
         <p className="hint">{T('Queda guardada en tu diario → 🤝 Compartido conmigo, también cuando acabe la partida.', 'It’s kept in your journal → 🤝 Shared with me, also after the game ends.')}</p>
       </div>
     </div>,

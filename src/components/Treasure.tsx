@@ -12,7 +12,7 @@ import {
   itemLine, searchCatalog, suggestedValue, valueText, BASE_ARMORS, COIN_INFO, COIN_IN_CP, coinsWeight, exchangeCoins, CATALOG_MODS, equippable, type Coins5, type ItemData, type ItemMods, type ItemType, type Rarity,
 } from '../rules/items';
 import type { AbilityKey } from '../rules/itemTypes';
-import { attackFromItem, needsAttunement } from '../rules/gear';
+import { needsAttunement, setEquipped } from '../rules/gear';
 import { uid } from '../rules/factory';
 import type { LootBundle } from '../store';
 import { GearPlus, Modal, NumberInput, Section } from './common';
@@ -213,12 +213,18 @@ export function ItemPicker({ onPick, onClose, title }: { onPick: (i: ItemData) =
 
 // ---------- Caja «Objetos» de la ficha ----------
 
+/** En una partida, los objetos de la ficha compartida los da el DM (o un compañero): el jugador no los crea ni los edita */
+function useItemsByDm(charId: string) {
+  return useParty((s) => !!s.conn && !s.conn.dmKey && !s.conn.viewer && s.conn.characterId === charId);
+}
+
 function ItemDetail({ item, onClose }: { item: OwnedItem; onClose: () => void }) {
   const c = useChar();
   const update = useStore((s) => s.update);
   const [edit, setEdit] = useState(false);
   const [giving, setGiving] = useState(false);
   const partyView = useParty((s) => s.view);
+  const locked = useItemsByDm(c.id);
   const attuned = c.attunement.includes(item.name);
   const set = (fn: (i: OwnedItem) => void) => update((x) => { const i = x.items.find((y) => y.id === item.id); if (i) fn(i); });
   const toggleAttune = () => update((x) => {
@@ -228,20 +234,7 @@ function ItemDetail({ item, onClose }: { item: OwnedItem; onClose: () => void })
     if (free >= 0) x.attunement[free] = item.name;
   });
   const canEquip = equippable(item);
-  const toggleEquip = () => update((x) => {
-    const it = x.items.find((y) => y.id === item.id);
-    if (!it) return;
-    it.equipped = !it.equipped;
-    if (it.equipped) {
-      // Solo una armadura y un escudo a la vez
-      if (it.mods?.armor) for (const o of x.items) if (o.id !== it.id && o.mods?.armor) o.equipped = false;
-      if (it.mods?.shield) { x.shield = false; for (const o of x.items) if (o.id !== it.id && o.mods?.shield) o.equipped = false; }
-      const atk = attackFromItem(x, it);
-      if (atk && !x.attacks.some((a) => a.itemId === it.id)) x.attacks.push(atk);
-    } else {
-      x.attacks = x.attacks.filter((a) => a.itemId !== it.id);
-    }
-  });
+  const toggleEquip = () => update((x) => setEquipped(x, item.id, !item.equipped));
   const fx = effectsText(item.mods);
   const waiting = needsAttunement(c, item);
   if (edit) {
@@ -291,7 +284,7 @@ function ItemDetail({ item, onClose }: { item: OwnedItem; onClose: () => void })
       {giving && partyView && <GiveToFriend view={partyView} itemId={item.id} onClose={() => { setGiving(false); onClose(); }} />}
       <div className="row">
         <button className="btn danger" onClick={async () => { if (await confirmDelete(item.name)) { update((x) => { x.items = x.items.filter((y) => y.id !== item.id); x.attacks = x.attacks.filter((a) => a.itemId !== item.id); const at = x.attunement.indexOf(item.name); if (at >= 0) x.attunement[at] = ''; }); onClose(); } }}>🗑️ {T('Borrar', 'Delete')}</button>
-        <button className="btn grow" onClick={() => setEdit(true)}>✏️ {T('Editar', 'Edit')}</button>
+        {!locked && <button className="btn grow" onClick={() => setEdit(true)}>✏️ {T('Editar', 'Edit')}</button>}
       </div>
     </Modal>
   );
@@ -302,6 +295,7 @@ export function ItemsBox() {
   const update = useStore((s) => s.update);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const locked = useItemsByDm(c.id);
   const item = c.items.find((i) => i.id === open);
   const total = itemsValue(c.items);
   return (
@@ -314,7 +308,9 @@ export function ItemsBox() {
           <small className="muted">{valueText(i.value)}</small>
         </button>
       ))}
-      <button className="p-link" onClick={() => setAdding(true)}>＋ {T('Añadir objeto', 'Add item')}</button>
+      {locked
+        ? <p className="hint">{T('En la partida los objetos te los da el DM (o un compañero). Puedes equiparlos, cambiar la cantidad, darlos o borrarlos.', 'In the game the DM (or a companion) gives you items. You can equip them, change the quantity, give them away or delete them.')}</p>
+        : <button className="p-link" onClick={() => setAdding(true)}>＋ {T('Añadir objeto', 'Add item')}</button>}
       {/* Fuera de la hoja de papel, para que no herede sus estilos ni quede bajo la barra superior */}
       {item && createPortal(<ItemDetail item={item} onClose={() => setOpen(null)} />, document.body)}
       {adding && createPortal(<ItemPicker onClose={() => setAdding(false)} onPick={(i) => { update((x) => { x.items.push({ ...i, id: uid(), at: Date.now() }); }); setAdding(false); }} />, document.body)}
@@ -415,6 +411,7 @@ function GiftRow({ g, dm, me }: { g: Gift; dm: boolean; me?: string }) {
       </div>
       <ul className="gift-lines">
         {g.coins && hasCoins(g.coins) && <li>💰 {coinsText(g.coins)}</li>}
+        {!!g.charge && <li>💸 {T(`Cobra ${valueText(g.charge)}`, `Charges ${valueText(g.charge)}`)}</li>}
         {(g.items ?? []).map((i, k) => <li key={k}><span className="item-dot" style={{ background: RARITY[i.rarity].color }} aria-hidden /> {itemLine(i)} <small className="muted">· {L(RARITY[i.rarity].name)} · {valueText(i.value)}</small></li>)}
         {g.note && <li className="muted">✉️ {g.note}</li>}
       </ul>
@@ -427,10 +424,11 @@ function Totals({ gifts }: { gifts: Gift[] }) {
   const coins: Coins5 = { ...NO_COINS };
   for (const g of gifts) for (const k of COIN_KEYS) coins[k] += g.coins?.[k] ?? 0;
   const items = gifts.flatMap((g) => g.items ?? []);
-  const gold = coinsInGold(coins) + itemsValue(items);
+  const charged = gifts.reduce((s, g) => s + (g.charge ?? 0), 0);
+  const gold = coinsInGold(coins) + itemsValue(items) - charged;
   return (
     <p className="small gift-totals">
-      {hasCoins(coins) ? `💰 ${coinsText(coins)}` : T('💰 sin monedas', '💰 no coins')} · 🎁 {items.reduce((s, i) => s + i.qty, 0)} {T('objetos', 'items')} · <b>≈ {valueText(Math.round(gold * 100) / 100)}</b>
+      {hasCoins(coins) ? `💰 ${coinsText(coins)}` : T('💰 sin monedas', '💰 no coins')} · 🎁 {items.reduce((s, i) => s + i.qty, 0)} {T('objetos', 'items')}{charged > 0 && <> · 💸 −{valueText(Math.round(charged * 100) / 100)}</>} · <b>≈ {valueText(Math.round(gold * 100) / 100)}</b>
     </p>
   );
 }
@@ -531,24 +529,28 @@ function GiveForm({ view }: { view: RoomView }) {
   const [mode, setMode] = useState<'each' | 'split'>('each');
   const [loot, setLoot] = useState<Loot>(emptyLoot());
   const [fromBundle, setFromBundle] = useState<string | null>(null);
+  // Cobrar al jugador (lo que vale lo que le das, o lo que tú digas): se le resta de sus monedas
+  const [charging, setCharging] = useState(false);
+  const [charge, setCharge] = useState(0);
+  const pay = charging ? Math.max(0, charge) : 0;
   const targets = players.filter((m) => to.includes(m.id));
   const nameOf = (m: { name: string; summary?: { name: string } }) => m.summary?.name ?? m.name;
   // Lo que recibe cada uno: todo a cada uno, o repartido (monedas a partes iguales, objetos por turnos)
   const parts = mode === 'split' && targets.length > 1 ? splitLoot(loot, targets.length) : targets.map(() => ({ coins: loot.coins, items: loot.items }));
-  const ok = targets.length > 0 && !lootEmpty(loot);
+  const ok = targets.length > 0 && (!lootEmpty(loot) || pay > 0);
   const toggle = (id: string) => setTo(to.includes(id) ? to.filter((x) => x !== id) : [...to, id]);
   const give = () => {
     if (!ok) return;
     const lines: string[] = [];
     targets.forEach((m, i) => {
       const part = parts[i];
-      if (!hasCoins(part.coins) && !part.items.length) return;
-      send({ t: 'give', toId: m.id, coins: part.coins, items: part.items, note: loot.note });
-      lines.push(`${m.online ? '🟢' : '⚪'} ${nameOf(m)}: ${bundleLine({ ...part, id: '', name: '', note: '' })}`);
+      if (!hasCoins(part.coins) && !part.items.length && !pay) return;
+      send({ t: 'give', toId: m.id, coins: part.coins, items: part.items, note: loot.note, ...(pay ? { charge: pay } : {}) });
+      lines.push(`${m.online ? '🟢' : '⚪'} ${nameOf(m)}: ${[bundleLine({ ...part, id: '', name: '', note: '' }), pay ? `💸 −${valueText(pay)}` : ''].filter(Boolean).join(' · ')}`);
     });
     showToast(targets.length === 1 ? T(`🎁 Entregado a ${nameOf(targets[0])}`, `🎁 Given to ${nameOf(targets[0])}`) : T(`🎁 Entregado a ${lines.length} jugadores`, `🎁 Given to ${lines.length} players`),
-      [...(targets.length === 1 ? giftLines(loot) : lines), targets.some((m) => !m.online) ? T('A quien esté desconectado le llegará al volver a conectarse.', 'Anyone offline will get it when they reconnect.') : T('Llega a su ficha ahora.', 'It reaches their sheet now.')]);
-    setLoot(emptyLoot()); setFromBundle(null);
+      [...(targets.length === 1 ? giftLines({ ...loot, charge: pay }) : lines), targets.some((m) => !m.online) ? T('A quien esté desconectado le llegará al volver a conectarse.', 'Anyone offline will get it when they reconnect.') : T('Llega a su ficha ahora.', 'It reaches their sheet now.')]);
+    setLoot(emptyLoot()); setFromBundle(null); setCharging(false); setCharge(0);
   };
   const saveBundle = () => {
     const bundles = useStore.getState().settings.lootBundles ?? [];
@@ -580,6 +582,18 @@ function GiveForm({ view }: { view: RoomView }) {
       )}
       {fromBundle && <p className="hint">🎒 {T(`Cargado: ${fromBundle}`, `Loaded: ${fromBundle}`)}</p>}
       <LootEditor loot={loot} onChange={setLoot} />
+      <div className="charge-row">
+        <button className={`btn small ${charging ? 'primary' : ''}`} aria-pressed={charging} onClick={() => { if (!charging) setCharge(Math.round(itemsValue(loot.items) * 100) / 100); setCharging(!charging); }}>
+          💸 {T('Cobrar al jugador', 'Charge the player')}
+        </button>
+        {charging && (
+          <label className="row">
+            <input className="num charge-num" type="number" inputMode="decimal" min={0} step={0.01} value={charge} aria-label={T('Valor a cobrar en po', 'Amount to charge in gp')} onChange={(e) => { const n = Number(e.target.value); if (!Number.isNaN(n)) setCharge(Math.max(0, n)); }} />
+            <span className="small">{T('po', 'gp')}{targets.length > 1 ? T(' a cada uno', ' each') : ''}</span>
+          </label>
+        )}
+      </div>
+      {charging && <p className="hint">{T('Se le resta de sus monedas al llegarle (si no le llega, paga lo que tenga y se le avisa). Sirve también sin dar nada: para cobrar una posada, un soborno…', 'It’s taken from their coins when it arrives (if they don’t have enough, they pay what they have and get told). Also works without giving anything: an inn, a bribe…')}</p>}
       {targets.length > 1 && !lootEmpty(loot) && (
         <ul className="small loot-preview">
           {targets.map((m, i) => <li key={m.id}><b>{nameOf(m)}</b>: {bundleLine({ ...parts[i], id: '', name: '', note: '' })}</li>)}
@@ -664,16 +678,22 @@ export function GiveToFriend({ view, itemId, onClose }: { view: RoomView; itemId
   const [to, setTo] = useState(friends[0]?.id ?? '');
   const [coins, setCoins] = useState<Coins5>({ ...NO_COINS });
   const [sel, setSel] = useState<Record<string, number>>(itemId ? { [itemId]: 1 } : {});
+  const [selC, setSelC] = useState<Record<string, number>>({});
   const [note, setNote] = useState('');
   const target = friends.find((m) => m.id === to);
   const items = c.items.filter((i) => i.qty > 0);
   const chosen = items.filter((i) => (sel[i.id] ?? 0) > 0);
-  const ok = !!target && (hasCoins(coins) || chosen.length > 0) && COIN_KEYS.every((k) => coins[k] <= (c.coins[k] ?? 0));
+  const cons = (c.consumables ?? []).filter((x) => x.qty > 0);
+  const chosenC = cons.filter((x) => (selC[x.id] ?? 0) > 0);
+  const ok = !!target && (hasCoins(coins) || chosen.length > 0 || chosenC.length > 0) && COIN_KEYS.every((k) => coins[k] <= (c.coins[k] ?? 0));
   const give = () => {
     if (!target || !ok) return;
     const out: ItemData[] = chosen.map((i) => ({ name: i.name, rarity: i.rarity, type: i.type, description: i.description, value: i.value, weight: i.weight, attunement: i.attunement, qty: Math.min(i.qty, sel[i.id]), ...(i.ref ? { ref: i.ref } : {}), ...(i.mods ? { mods: i.mods } : {}) }));
+    // Munición y consumibles: llegan a la misma lista del compañero
+    for (const x of chosenC) out.push({ name: x.name, rarity: 'mundane', type: x.kind === 'item' ? 'potion' : 'gear', description: x.description ?? '', value: 0, qty: Math.min(x.qty, selC[x.id]), consumable: x.kind });
     // Sale de tu ficha
     const next = structuredClone(c);
+    for (const x of chosenC) { const y = next.consumables.find((z) => z.id === x.id); if (y) y.qty = Math.max(0, y.qty - Math.min(y.qty, selC[x.id])); }
     for (const k of COIN_KEYS) next.coins[k] = Math.max(0, (next.coins[k] ?? 0) - coins[k]);
     for (const i of chosen) {
       const it = next.items.find((x) => x.id === i.id)!;
@@ -717,6 +737,15 @@ export function GiveToFriend({ view, itemId, onClose }: { view: RoomView; itemId
               <span className="grow item-name">{i.name}{i.equipped && <span className="item-eq">{T('equipado', 'equipped')}</span>}</span>
               {(sel[i.id] ?? 0) > 0 && i.qty > 1 && <NumberInput value={sel[i.id]} min={1} max={i.qty} onChange={(n) => setSel({ ...sel, [i.id]: Math.max(1, Math.min(i.qty, n)) })} />}
               <small className="muted">×{i.qty}</small>
+            </div>
+          ))}
+          {cons.length > 0 && <span className="p-mini">{T('Munición y consumibles', 'Ammo & consumables')}</span>}
+          {cons.map((x) => (
+            <div key={x.id} className="item-row">
+              <input type="checkbox" checked={(selC[x.id] ?? 0) > 0} onChange={(e) => setSelC({ ...selC, [x.id]: e.target.checked ? Math.min(x.qty, 1) : 0 })} aria-label={x.name} />
+              <span className="grow item-name">{x.kind === 'ammo' ? '🏹' : x.kind === 'thrown' ? '🗡️' : '🧪'} {x.name}</span>
+              {(selC[x.id] ?? 0) > 0 && x.qty > 1 && <NumberInput value={selC[x.id]} min={1} max={x.qty} onChange={(n) => setSelC({ ...selC, [x.id]: Math.max(1, Math.min(x.qty, n)) })} />}
+              <small className="muted">×{x.qty}</small>
             </div>
           ))}
           <label className="field">{T('Nota (opcional)', 'Note (optional)')}<input value={note} placeholder={T('Te debía una', 'I owed you one')} onChange={(e) => setNote(e.target.value)} /></label>

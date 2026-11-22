@@ -3,6 +3,29 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.30.0 · 23 nov 2026 — Partidas desde la app, cobrar, garabatos en los mapas y emojis medievales
+
+**Partida**
+- **El DM crea la partida desde la app con un botón** (Partida → 🎲 Soy el DM → Crear partida), en Android, Windows o el navegador: se crea en la nube y los jugadores entran solo con el código. Sin clave ni PC. «Mis partidas» guarda las tuyas para volver a entrar.
+- Las partidas creadas desde la app **se borran de la nube tras 5 días sin uso**, pero el dispositivo del DM guarda una copia y las **restaura** con un toque (código nuevo, todo lo preparado intacto).
+- **El servidor del PC se enlaza solo con la nube** al crear la partida: el código sirve desde cualquier sitio sin copiar ninguna clave.
+- **👋 Sacar a un jugador** de la partida desde la lista de la party (sale también del combate).
+- En la lista de la party, **la cara del personaje** en lugar de la bola verde (borde verde si está conectado, gris si no).
+
+**Tesoro**
+- **💸 Cobrar al jugador**: al darle algo, el DM puede quitarle el valor que diga de sus monedas (con cambio; si no le llega, se le avisa). También sin darle nada.
+- **Lo que recibes va a su sitio**: munición y consumibles a «Munición y consumibles» (sumando a lo que tengas); armas, armaduras y escudos, aunque estén escritos a mano, quedan listos para equipar con un botón 🛡️ Equipar en el aviso.
+- Entre compañeros también se pueden pasar **munición y consumibles**.
+- En una partida, los objetos los da el DM: el jugador ya no los crea ni los edita (sí equiparlos, cambiar la cantidad, darlos o borrarlos).
+
+**Imágenes**
+- **Categorías**: el DM las marca como mapas, personajes, lugares, pistas, objetos u otros, y el jugador las filtra en Partida y en el grimorio.
+- El aviso de imagen nueva tiene **✕ para salir** y **🔍 Ver en grande** con zoom, aunque el mapa sea enorme.
+- **✒️ Pluma**: garabatea encima de un mapa en negro, verde o azul, como en un mapa de papel. Solo lo ves tú y se guarda en tu dispositivo.
+
+**Aspecto**
+- **Emojis propios de estilo medieval** en toda la app: pixel art de grimorio iluminado hecho con la IA local, con objetos de época (el guardado es un cofre con candado, la papelera un cubo de madera con una piel de plátano…).
+
 ## 0.29.0 · 18 nov 2026 — El diario se convierte en grimorio
 
 - **El diario es ahora un grimorio**, con el aspecto de un libro antiguo: tapas de cuero con filete dorado, páginas de pergamino, letras capitulares y el botón 📖 para abrirlo.

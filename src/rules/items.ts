@@ -49,6 +49,30 @@ export function exchangeCoins(c: Coins5, from: keyof Coins5, to: keyof Coins5, a
   return { ...c, [from]: c[from] - amount, [to]: c[to] + cp / COIN_IN_CP[to] };
 }
 
+/**
+ * Paga `gp` piezas de oro con las monedas que hay: primero las pequeñas y, si no sale exacto, rompe la moneda más
+ * pequeña que alcance y devuelve el cambio en oro, plata y cobre. `short`: lo que falta (en po) si no llega.
+ */
+export function payCoins(c: Coins5, gp: number): { coins: Coins5; short: number } {
+  const next = { ...c };
+  let need = Math.round(Math.max(0, gp) * 100);
+  for (const k of COIN_KEYS) {
+    const use = Math.min(next[k] ?? 0, Math.floor(need / COIN_IN_CP[k]));
+    next[k] = (next[k] ?? 0) - use;
+    need -= use * COIN_IN_CP[k];
+  }
+  if (need > 0) {
+    const k = COIN_KEYS.find((x) => (next[x] ?? 0) > 0 && COIN_IN_CP[x] >= need);
+    if (k) {
+      next[k] -= 1;
+      let change = COIN_IN_CP[k] - need;
+      need = 0;
+      for (const x of ['gp', 'sp', 'cp'] as const) { const n = Math.floor(change / COIN_IN_CP[x]); next[x] += n; change -= n * COIN_IN_CP[x]; }
+    }
+  }
+  return { coins: next, short: need / 100 };
+}
+
 /** «50 po», «5 pp», «1 pc» */
 export function valueText(gp: number): string {
   if (!gp) return '—';

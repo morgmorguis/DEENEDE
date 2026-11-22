@@ -19,6 +19,8 @@ export interface ItemData {
   ref?: string;
   /** Efectos al equiparlo */
   mods?: ItemMods;
+  /** Va a «Munición y consumibles» al recibirlo (lo pone quien lo da desde esa lista) */
+  consumable?: 'ammo' | 'thrown' | 'item';
 }
 
 export interface Coins5 { cp: number; sp: number; ep: number; gp: number; pp: number }

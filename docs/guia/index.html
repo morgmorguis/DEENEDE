@@ -130,7 +130,7 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
   <div class="cover-inner">
     <img class="cover-icon" src="img/icono.png" alt="Icono de Di en Di: un d20 carmesí sobre un escudo con dos espadas, bajo la luna roja" width="120" height="120">
     <div>
-      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.29.0</p>
+      <p class="eyebrow">MANUAL DEL AVENTURERO · v0.30.0</p>
       <h1>Guía de Di en Di</h1>
       <p class="lede">Todo lo que hace la app compañera para D&amp;D 2024: la hoja de personaje viva, el combate, el diario y la partida compartida con tu DM. Cada capítulo explica qué hace cada pantalla y cómo usarla.</p>
       <ul class="cover-facts">
@@ -432,13 +432,17 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
     <!-- 12 -->
     <section class="chapter" id="partida">
       <div class="chapter-head"><span class="chapter-num">Capítulo 13</span><h2>Partida compartida</h2></div>
-      <p>El DM ejecuta un pequeño servidor en su PC y todos jugáis el mismo combate desde la app o el navegador. Las fichas siguen en cada móvil; a la partida solo se envía un resumen (vida, CA, percepción pasiva, condiciones, concentración).</p>
+      <p>El DM crea la partida en la nube con un botón (o la lleva en el servidor de su PC) y todos jugáis el mismo combate desde la app o el navegador. Las fichas siguen en cada móvil; a la partida solo se envía un resumen (vida, CA, percepción pasiva, condiciones, concentración y la cara del personaje).</p>
+
+      <h3 id="partida-crear">Crear la partida desde la app (DM, sin PC)</h3>
+      <p>En la pestaña <b>Partida</b>, en <b>🎲 Soy el DM</b>, pulsa <b>🎲 Crear partida</b>: se crea en la nube y entras directamente como DM con el <b>código</b> para los jugadores, que se unen solo con él. No hace falta clave ni PC, y vale igual en Android, en Windows o en el navegador. Tus partidas quedan en <b>Mis partidas</b> para volver a entrar con un toque.</p>
+      <p>Una partida creada así <b>se borra de la nube si pasa 5 días sin usarse</b>, pero tu dispositivo guarda una copia (lugares, personajes, tesoro, imágenes y registro) mientras juegas y al salir. Si al pulsar <b>Entrar</b> ya no está, la app te ofrece <b>♻️ Restaurarla</b> con un código nuevo.</p>
 
       <h3 id="partida-montar">Montar el servidor (DM, Windows)</h3>
       <ol class="steps">
         <li>Abre <code>Di en Di - Servidor.exe</code> (del artefacto <code>di-en-di-windows</code>). Si Windows avisa: «Más información» → «Ejecutar de todas formas»; si el firewall pregunta, permite las redes privadas.</li>
         <li>Se abre tu pantalla de DM en el navegador. La ventana negra muestra la <b>clave del DM</b> y la dirección para la Wi-Fi de casa (<code>http://192.168.x.x:3000</code>).</li>
-        <li><b>Prepara la sesión a solas</b>: la partida empieza <b>cerrada</b> (nadie puede unirse). Monta tus lugares y encuentros, personajes, tesoro e imágenes, o carga la copia de la campaña. Cuando lo tengas listo, pulsa <b>🎲 Crear partida</b> en la pestaña Partida: sale el <b>código</b> en grande para dárselo a los jugadores. Puedes <b>🔁 cambiar el código</b> o <b>🔒 cerrar la partida</b> al terminar; la próxima sesión vuelves a crearla con un código nuevo y todo lo preparado sigue ahí. Si llevas la partida en el <b>servidor de tu PC</b>, pon una vez en <b>🌐 Partida en la nube</b> la clave del DM de tu servidor de la nube: al crear la partida el PC se enlaza con ella y el código sirve <b>desde cualquier sitio</b>, no solo en tu Wi-Fi (la partida sigue en tu PC; la nube solo es la puerta).</li>
+        <li><b>Prepara la sesión a solas</b>: la partida empieza <b>cerrada</b> (nadie puede unirse). Monta tus lugares y encuentros, personajes, tesoro e imágenes, o carga la copia de la campaña. Cuando lo tengas listo, pulsa <b>🎲 Crear partida</b> en la pestaña Partida: sale el <b>código</b> en grande para dárselo a los jugadores. Puedes <b>🔁 cambiar el código</b> o <b>🔒 cerrar la partida</b> al terminar; la próxima sesión vuelves a crearla con un código nuevo y todo lo preparado sigue ahí. Al crear la partida, el servidor de tu PC <b>se enlaza solo con la nube</b> y el código sirve <b>desde cualquier sitio</b>, no solo en tu Wi-Fi (la partida sigue en tu PC; la nube solo es la puerta). Si prefieres tu propio servidor de la nube, pon su clave del DM en <b>🌐 Partida en la nube</b>.</li>
         <li><b>A distancia</b> (sin Cloudflare, que en España se bloquea durante el fútbol): instala <a href="https://tailscale.com/download/windows">Tailscale</a>, ejecuta <code>tailscale funnel 3000</code> y comparte la dirección <code>https://….ts.net</code>. Los jugadores no instalan nada.</li>
         <li><b>Hay dos enlaces:</b> el de los jugadores (<code>…/?join=CÓDIGO</code>) y el tuyo de DM (<code>…/dm</code>), que solo pide la clave del DM y la recuerda. Para dirigir desde el móvil o la tablet abre tu enlace de DM (está en <b>Partida → 📨 Invitar jugadores → 🔑 Tu enlace de DM</b>) o, en la app, Partida → dirección → «¿Eres el DM?» → clave.</li>
       </ol>
@@ -510,6 +514,9 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
 
       <h3 id="partida-dar">Dar oro y objetos (DM)</h3>
       <p>En <b>💰 Tesoro</b> eliges <b>a quién</b>: uno, varios o <b>👥 Todos</b>. Con varios, decides si <b>🎁 Esto a cada uno</b> o <b>⚖️ Repartir entre ellos</b>, y ves antes lo que recibirá cada uno. En la pestaña <b>👥 Grupo</b>, el botón 🎁 de cada jugador abre Tesoro con él ya elegido. Las imágenes se comparten en <b>Partida → Imágenes para la mesa</b>.</p>
+      <p><b>💸 Cobrar al jugador</b>: al dar algo (un libro, una posada, un soborno) pulsa el botón y escribe cuánto cuesta (sale el valor de lo que das). Se le resta de sus monedas al llegarle, con cambio; si no le llega, paga lo que tiene y se le avisa. También sirve sin dar nada.</p>
+      <p>Lo que recibe un jugador va a su sitio de la ficha: flechas, virotes, pociones o antorchas a <b>Munición y consumibles</b>; armas, armaduras y escudos (aunque los escribas a mano) a Objetos, con un botón <b>🛡️ Equipar</b> en el aviso. Mientras está en la partida, el jugador no crea ni edita objetos: se los das tú (o un compañero, que también puede pasar munición y consumibles).</p>
+      <p><b>👋 Sacar a un jugador</b>: en la lista de la party de la pestaña Partida, el botón 👋 de cada jugador lo saca de la partida (y su personaje del combate). Si la partida sigue abierta, puede volver a entrar con el código.</p>
 
       <h3 id="partida-grupo">Grupo (DM)</h3>
       <p>La pestaña <b>👥 Grupo</b> del DM muestra siempre, dentro y fuera de combate, a cada jugador: vida (y temporales), CA, percepción pasiva, velocidad, oro, dados de golpe, espacios de conjuro, recursos de clase, condiciones, concentración, inspiración, agotamiento y objetos equipados o mágicos. Arriba, los totales del grupo: vida, oro y cuántos están a 0 PG. El oro y los objetos de cada jugador solo los ve el DM.</p>
@@ -519,7 +526,8 @@ th { font: 700 15px var(--f-head); color: var(--gold); }
       <div class="split">
         <div>
           <p>En <b>Partida → 🖼️ Imágenes para la mesa</b> el DM <b>arrastra</b> mapas, retratos o pistas (o toca para elegirlos). Se suben al servidor y nadie las ve hasta que pulsa <b>📤 Compartir</b>, con todos o solo con algunos jugadores.</p>
-          <p>Al jugador le aparece un aviso con la imagen encima de lo que esté haciendo; después puede verla cuando quiera en <b>Partida → Imágenes del DM</b>. La vista para la tele muestra en grande la última imagen compartida con todos.</p>
+          <p>Al subirlas eliges su <b>categoría</b> (🗺️ Mapas, 🧑 Personajes, 🏰 Lugares, 🔎 Pistas, 💎 Objetos u 🖼️ Otros) y la puedes cambiar en cada imagen. El jugador las filtra por categoría en Partida y en el grimorio, en 🤝 Compartido conmigo.</p>
+          <p>Al jugador le aparece un aviso con la imagen encima de lo que esté haciendo, con <b>✕</b> para cerrarlo y <b>🔍 Ver en grande</b>: a pantalla completa se amplía y se recorre con el dedo. Con la <b>✒️ Pluma</b> puede garabatear encima en negro, verde o azul (deshacer y borrar todo); lo que dibuja solo lo ve él y se queda guardado en su dispositivo. La vista para la tele muestra en grande la última imagen compartida con todos.</p>
           <p><b>Conexión discreta:</b> al unirte fuera de combate la app vuelve a tu ficha y sigues usándola con normalidad. Solo te interrumpe cuando el DM hace algo: empezar un combate, darte algo o compartir una imagen.</p>
         </div>
         <figure><img class="phone" src="img/44-imagen-compartida.jpg" alt="Aviso en el móvil: El DM comparte mapa de la cripta" width="700" height="1425" loading="lazy"><figcaption>Aviso de imagen compartida.</figcaption></figure>

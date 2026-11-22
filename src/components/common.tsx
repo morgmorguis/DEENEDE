@@ -51,7 +51,7 @@ export function Toast() {
   const hide = useStore((s) => s.hideToast);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(hide, 6000);
+    const t = setTimeout(hide, toast.actions ? 15000 : 6000);
     return () => clearTimeout(t);
   }, [toast, hide]);
   if (!toast) return null;
@@ -61,6 +61,11 @@ export function Toast() {
       {toast.lines.map((l, i) => (
         <div key={i} className={/^Total|✅|❌|☠️/.test(l) ? 'toast-total' : ''}>{l}</div>
       ))}
+      {toast.actions && (
+        <div className="toast-actions">
+          {toast.actions.map((a, i) => <button key={i} className="btn small primary" onClick={(e) => { e.stopPropagation(); a.run(); hide(); }}>{a.label}</button>)}
+        </div>
+      )}
     </div>
   );
 }

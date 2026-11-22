@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { setLang } from '../../i18n';
 import { apply, createRoom, join, normalizeRoom, viewFor, type Room } from '../room';
 import type { Command } from '../protocol';
-import { applyGift } from '../client';
+import { applyGift, receiveGift } from '../client';
 import { blankCharacter } from '../../rules/factory';
 import { ITEM_CATALOG, coinsInGold, fromCatalog, searchCatalog, suggestedValue, valueText } from '../../rules/items';
 
@@ -23,6 +23,8 @@ function setup() {
 beforeAll(() => setLang('es'));
 
 const potion = () => fromCatalog(ITEM_CATALOG.find((x) => x.id === 'potion-healing')!, 2);
+/** Objeto que se queda en «Objetos» (las pociones van a «Munición y consumibles») */
+const ring = () => fromCatalog(ITEM_CATALOG.find((x) => x.id === 'ring-of-protection')!, 2);
 
 describe('entregas del DM', () => {
   it('el DM da oro y objetos a un jugador concreto y queda en su registro', () => {
@@ -42,7 +44,7 @@ describe('entregas del DM', () => {
   it('un jugador da a un compañero (intercambio) pero no a sí mismo; el DM lo ve en el registro', () => {
     const s = setup();
     expect(apply(s.room, s.p1, { t: 'give', toId: s.p1, coins: { gp: 10 } }).error).toBe('no-target');
-    s.run(s.p1, { t: 'give', toId: s.p2, coins: { gp: 10 }, items: [potion()] });
+    s.run(s.p1, { t: 'give', toId: s.p2, coins: { gp: 10 }, items: [ring()] });
     const g = s.room.gifts[0];
     expect(g).toMatchObject({ fromId: s.p1, toId: s.p2, coins: { gp: 10 } });
     expect(viewFor(s.room, s.p1)!.gifts).toHaveLength(1);
@@ -92,15 +94,15 @@ describe('entregas del DM', () => {
 
   it('la entrega se suma a la ficha: monedas al total y objetos apilados', () => {
     const s = setup();
-    s.run(s.dm, { t: 'give', toId: s.p1, coins: { gp: 50, cp: 7 }, items: [potion()] });
-    s.run(s.dm, { t: 'give', toId: s.p1, items: [{ ...potion(), qty: 1 }] });
+    s.run(s.dm, { t: 'give', toId: s.p1, coins: { gp: 50, cp: 7 }, items: [ring()] });
+    s.run(s.dm, { t: 'give', toId: s.p1, items: [{ ...ring(), qty: 1 }] });
     let c = blankCharacter();
     c.coins.gp = 15;
     for (const g of s.room.gifts) c = applyGift(c, g);
     expect(c.coins.gp).toBe(65);
     expect(c.coins.cp).toBe(7);
     expect(c.items).toHaveLength(1);
-    expect(c.items[0]).toMatchObject({ name: 'Poción de curación', qty: 3, from: 'DM' });
+    expect(c.items[0]).toMatchObject({ name: 'Anillo de protección', qty: 3, from: 'DM' });
     expect(c.giftsReceived).toEqual(s.room.gifts.map((g) => g.id));
   });
 });
@@ -177,5 +179,79 @@ describe('imágenes de la mesa', () => {
     expect(other.gold).toBeUndefined();
     expect(other.items).toBeUndefined();
     expect(viewFor(s.room, s.p1)!.members.find((m) => m.id === s.p1)!.summary!.gold).toBe(120);
+  });
+});
+
+describe('cobrar, clasificar lo recibido y sacar jugadores (0.30)', () => {
+  it('el DM cobra al dar (o solo cobra); un jugador no puede cobrar a otro', () => {
+    const s = setup();
+    s.run(s.dm, { t: 'give', toId: s.p1, items: [{ name: 'Libro de saberes', rarity: 'mundane', type: 'gear', description: '', value: 25, qty: 1 }], charge: 25 });
+    s.run(s.dm, { t: 'give', toId: s.p1, charge: 2.5 });
+    const g = viewFor(s.room, s.p1)!.gifts;
+    expect(g.map((x) => x.charge)).toEqual([25, 2.5]);
+    s.run(s.p1, { t: 'give', toId: s.p2, coins: { gp: 1 }, charge: 100 });
+    expect(viewFor(s.room, s.p2)!.gifts[0].charge).toBeUndefined();
+    expect(apply(s.room, s.p1, { t: 'give', toId: s.p2, charge: 5 }).error).toBe('empty-gift');
+  });
+
+  it('el cobro se resta de las monedas con cambio, y avisa si no llega', () => {
+    const c = blankCharacter();
+    c.coins = { cp: 5, sp: 0, ep: 0, gp: 1, pp: 0 };
+    const r = receiveGift(c, { id: 'g1', at: 1, toId: 'x', toName: 'X', charge: 0.07, delivered: false });
+    expect(r.char.coins).toEqual({ cp: 8, sp: 9, ep: 0, gp: 0, pp: 0 });
+    const poor = receiveGift(c, { id: 'g2', at: 1, toId: 'x', toName: 'X', charge: 5, delivered: false });
+    expect(coinsInGold(poor.char.coins)).toBe(0);
+    expect(poor.lines[0]).toMatch(/faltan/);
+  });
+
+  it('munición y pociones van a su lista (sumando), las armaduras a Objetos listas para equipar', () => {
+    const c = blankCharacter();
+    c.consumables = [{ id: 'a', name: 'Flechas', qty: 3, kind: 'ammo', used: 0 }];
+    const r = receiveGift(c, { id: 'g3', at: 1, toId: 'x', toName: 'X', delivered: false, items: [
+      { name: '20 flechas', rarity: 'mundane', type: 'gear', description: '', value: 1, qty: 1 },
+      potion(),
+      { name: 'Cota de mallas', rarity: 'mundane', type: 'other', description: '', value: 75, qty: 1 },
+    ] });
+    expect(r.char.consumables.find((x) => x.name === 'Flechas')!.qty).toBe(23);
+    expect(r.char.consumables.find((x) => x.name === 'Poción de curación')).toMatchObject({ qty: 2, kind: 'item' });
+    expect(r.char.items.map((i) => i.name)).toEqual(['Cota de mallas']);
+    expect(r.char.items[0].mods?.armor?.base).toBe(16);
+    expect(r.wear).toHaveLength(1);
+  });
+
+  it('el DM saca a un jugador: sale de la lista y del combate; a otro DM no se le puede sacar', () => {
+    const s = setup();
+    s.run(s.p1, { t: 'summary', summary: { name: 'Brakka', species: '', className: '', level: 1, hp: 5, hpMax: 5, temp: 0, ac: 12, speed: 30, passive: 10, conditions: [] } });
+    s.run(s.dm, { t: 'prepare' });
+    s.run(s.dm, { t: 'launch' });
+    expect(s.room.encounter.order.some((c) => c.ownerId === s.p1)).toBe(true);
+    expect(apply(s.room, s.p2, { t: 'kick', id: s.p1 }).error).toBeTruthy();
+    s.run(s.dm, { t: 'kick', id: s.p1 });
+    expect(s.room.members.some((m) => m.id === s.p1)).toBe(false);
+    expect(s.room.encounter.order.some((c) => c.ownerId === s.p1)).toBe(false);
+    expect(apply(s.room, s.dm, { t: 'kick', id: s.dm }).error).toBe('no-target');
+  });
+
+  it('la cara del resumen solo se guarda si es una miniatura', () => {
+    const s = setup();
+    const base = { name: 'Ana', species: '', className: '', level: 1, hp: 5, hpMax: 5, temp: 0, ac: 12, speed: 30, passive: 10, conditions: [] };
+    s.run(s.p1, { t: 'summary', summary: { ...base, face: 'data:image/jpeg;base64,AAAA' } });
+    expect(s.room.members.find((m) => m.id === s.p1)!.summary!.face).toBe('data:image/jpeg;base64,AAAA');
+    s.run(s.p1, { t: 'summary', summary: { ...base, face: 'javascript:alert(1)' } });
+    expect(s.room.members.find((m) => m.id === s.p1)!.summary!.face).toBeUndefined();
+  });
+});
+
+describe('categorías de las imágenes (0.30)', () => {
+  it('el DM pone la categoría al subirla y la cambia; un jugador no puede', () => {
+    const s = setup();
+    s.run(s.dm, { t: 'imageAdd', title: 'Cripta', id: 'abc123', category: 'map' });
+    expect(s.room.images[0].category).toBe('map');
+    s.run(s.dm, { t: 'imageCategory', id: 'abc123', category: 'clue' });
+    expect(s.room.images[0].category).toBe('clue');
+    expect(apply(s.room, s.p1, { t: 'imageCategory', id: 'abc123', category: 'map' }).error).toBeTruthy();
+    expect(apply(s.room, s.dm, { t: 'imageCategory', id: 'abc123', category: 'raro' as never }).error).toBeTruthy();
+    s.run(s.dm, { t: 'imageAdd', title: 'Sin categoría', id: 'def456', category: 'nada' as never });
+    expect(s.room.images[1].category).toBeUndefined();
   });
 });

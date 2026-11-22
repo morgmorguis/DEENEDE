@@ -77,7 +77,7 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 
 ## Estado y notas que no se ven en el código
 
-- Versión **0.29.0** (18 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
+- Versión **0.30.0** (23 nov 2026). Lo que hace cada versión está en `CHANGELOG.md` (lee solo la entrada que necesites).
 - Turnos: el servidor solo acepta `act` en tu turno o como reacción (una por ronda); `nextTurn`, solo el DM o el dueño del turno.
 - Fases del combate compartido (`Encounter.phase`): `prep` (el DM prepara a solas; `viewFor` se lo oculta a los demás y no se anotan
   las entradas en el registro), `setup` (lanzado con `launch`: aviso que el jugador acepta con `accept` y antesala con «Listo»; empieza
@@ -129,4 +129,23 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
   con la URL real y un `index.html` que redirige; Hosting no pasa WebSocket, por eso la app lo resuelve (`resolveServer` en `client.ts`).
 - Sincronizar fichas: el DM manda `syncSheets`; cada jugador sube su ficha completa (`sheetUpload`, archivo de copia) y el servidor
   la guarda en `di-en-di-fichas/<id>.json` junto a la partida. `/api/sheet?token=` (la tuya) y `/api/sheets?dm=` (todas).
+- Lo que se recibe (`receiveGift` en client.ts, reglas en `src/rules/stash.ts`): munición y consumibles (por nombre, tipo `potion`
+  o `ItemData.consumable` si viene de la lista de un compañero) van a `consumables`; armas, armaduras y escudos escritos a mano se
+  reconocen por el nombre (gana el nombre más largo; «+1» suma) y el aviso trae «Equipar» (`setEquipped` en gear.ts, acciones del toast).
+  Cobro del DM: `Gift.charge` en po (solo el DM; se paga con `payCoins`, que da cambio y avisa si no llega).
+- Sacar a un jugador: comando `kick` (solo DM); el servidor le manda `kicked`. Cara en la lista de la party: `PcSummary.face`
+  (miniatura 64 px que hace el cliente; el servidor descarta lo que no sea un data URL de imagen pequeño).
+- El personaje de ejemplo de una app recién instalada es «Brakka Pielpétrea»: quien se une sin crear el suyo entra como Brakka.
+- Varias partidas en la nube (`server/index.ts`, `MULTI` = nube o `--multi`): la principal (DATA_FILE) y las que se crean con
+  `POST /api/new` desde la app (`DmStart.tsx`, «Mis partidas» en `src/party/myGames.ts`), cada una en `di-en-di-partidas/<id>/`.
+  Se borran tras `DI_EN_DI_DIAS` (5) días sin uso (sin nadie dentro ni un PC enlazado con su clave). El DM guarda una copia
+  (`/api/export`) en IndexedDB cada 5 min como mucho y al salir; si ya no está, `/api/new` con `{dmKey, campaign}` la restaura con
+  la misma clave. Límite: 10 nuevas por IP y día, 300 en total. En el PC sin clave de la nube, «Crear partida» pide una a la nube
+  y se enlaza sola (`autoLink`, `--no-cloud` lo desactiva, `--nube URL` para probar con otra nube).
+- En una partida, el jugador no crea ni edita objetos de su ficha compartida (`useItemsByDm` en Treasure.tsx): los da el DM.
+- Imágenes: categoría (`SharedImage.category`, comando `imageCategory`; nombres en `src/imageCategories.ts`), también en la nota
+  del diario (`Note.category`). Garabatos propios con la pluma (`DoodleViewer.tsx`): negro, verde y azul, en IndexedDB
+  (`garabato/<ref>`), solo los ve quien dibuja.
+- Emojis propios (en pruebas): `scripts/arte/emojis.py` genera candidatos y `--procesar` deja `public/emoji/<código>.png` y una hoja
+  de muestra. Las imágenes claras (pergamino, plumas blancas) pierden relleno al quitar el fondo blanco: mejor tonos medios.
 - Ideas o tareas pendientes: apúntalas aquí.

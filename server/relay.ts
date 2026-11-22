@@ -33,6 +33,8 @@ const sendJson = (ws: WebSocket, msg: HostFrame | HubFrame) => { if (ws.readySta
 
 interface Host {
   ws: WebSocket;
+  /** Clave del DM de la nube con la que se enlazó (la de una partida de la nube) */
+  key: string;
   state: HostState;
   peers: Map<string, WebSocket>;
   pending: Map<string, (r: { status: number; type: string; body: Buffer }) => void>;
@@ -53,7 +55,7 @@ export class RelayHub {
       try { f = JSON.parse(String(raw)); } catch { return; }
       if (!host) {
         if (f.t !== 'host' || !checkKey(f.key)) { sendJson(ws, { t: 'denied' }); ws.close(); return; }
-        host = { ws, state: f.state, peers: new Map(), pending: new Map() };
+        host = { ws, key: f.key, state: f.state, peers: new Map(), pending: new Map() };
         this.hosts.add(host);
         sendJson(ws, { t: 'hosted' });
         console.log(`→ 🌐 Partida de un PC enlazada (código ${f.state.code}${f.state.open ? '' : ', cerrada'}).`);
@@ -89,6 +91,11 @@ export class RelayHub {
     const c = code.trim().toUpperCase();
     for (const h of this.hosts) if (c && h.state.code === c) return h.state.open ? 'open' : 'closed';
     return null;
+  }
+
+  /** Hay un PC enlazado ahora mismo con esta clave de la nube */
+  hasKey(key: string): boolean {
+    return [...this.hosts].some((h) => h.key === key);
   }
 
   hostByToken(token: string): Host | undefined {

@@ -125,6 +125,8 @@ export interface Note {
   ref?: string;
   /** Lo compartido por el DM: solo para ti ('me') o para todo el grupo ('all') */
   sharedTo?: 'me' | 'all';
+  /** Imagen compartida: categoría que le puso el DM (mapas, personajes, lugares…) */
+  category?: 'map' | 'character' | 'place' | 'clue' | 'item' | 'other';
 }
 
 /** Participante en el orden de iniciativa: tu personaje, compañeros o enemigos */
@@ -308,6 +310,8 @@ export interface Consumable {
   kind: 'ammo' | 'thrown' | 'item';
   /** Gastados en el combate actual */
   used: number;
+  /** Qué hace (si llegó como objeto con descripción: «Recuperas 2d4 + 2 PG…») */
+  description?: string;
 }
 
 export interface Kill {

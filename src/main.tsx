@@ -5,6 +5,7 @@ import '@fontsource/press-start-2p/latin-ext-400.css';
 import '@fontsource/cinzel/latin-400.css';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
+import './emoji.css';
 import './index.css';
 import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';

@@ -43,3 +43,23 @@ Las semillas de cada imagen quedan en `scripts/arte/salida/semillas.json`. Para 
 `PALETAS` (escenas.py), sus colores en `src/index.css` (`:root[data-theme="…"]`), su id en `Theme` (`src/store.ts`) y
 en `THEMES` (`src/components/Settings.tsx`). Para más escenas de combate: añádelas a `COMBATE` y sube
 `COMBAT_SCENES` en `src/party/protocol.ts`.
+
+## Emojis propios (estilo «grimorio iluminado»)
+
+Los emojis de la interfaz (⚔️ 🎁 🛡️ 💰…) se dibujan con una fuente de color propia, **Di Emoji**, hecha de píxeles de
+32×32: pixel art medieval con tonos de tinta y pan de oro, y objetos de época (💾 es un cofre con candado, 🚀 un cuerno de
+guerra, 💡 una vela, 🗑️ un cubo de madera con una piel de plátano). Va la primera en todas las `font-family` de
+`src/index.css`, pero su `unicode-range` solo cubre esos caracteres: el resto del texto no cambia y un emoji que no esté en
+la fuente sale con el del sistema. Los símbolos tipográficos (→ ✓ ✕ ★ ◇…) se quedan como texto.
+
+```
+python scripts/arte/emojis.py --n=2                 # candidatos de los que falten → scripts/arte/salida/emojis
+python scripts/arte/emojis.py --procesar pluma=2    # elige candidatos (se guardan en scripts/arte/emojis-elegidos.json)
+                                                    # → design/emoji/<código>.png y hojas salida/emojis/muestra-*.png
+python scripts/arte/emojis.py --simbolos            # ✅ ❌ ➕ flechas y puntos de color, dibujados a mano
+python scripts/arte/emojis_fuente.py                # design/emoji → src/assets/di-emoji.woff2 y src/emoji.css
+```
+
+`emojis_fuente.py` necesita `fonttools` y `brotli` (`pip install fonttools brotli pillow numpy`). Para un emoji nuevo:
+añádelo a `EMOJIS` (o a `SIMBOLOS`) en `emojis.py`, genera, procesa y vuelve a hacer la fuente. Las cosas muy claras
+(pergamino, plumas blancas, nubes) pierden relleno al quitar el fondo blanco: pídelas en tonos medios.

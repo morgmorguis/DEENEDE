@@ -46,7 +46,7 @@ export function Consumables({ mode }: { mode: 'sheet' | 'combat' }) {
         <div className="p-title"><span>{T('Munición y consumibles', 'Ammo & consumables')}</span><button className="p-add" onClick={() => setEditing(true)}>✏️ {T('Editar', 'Edit')}</button></div>
         {list.map((x) => (
           <div key={x.id} className={`cons-row ${x.qty === 0 ? 'empty' : ''}`}>
-            <span className="grow">{KIND_ICON[x.kind]} {x.name}</span>
+            <span className="grow" title={x.description}>{KIND_ICON[x.kind]} {x.name}{x.description && <small className="muted cons-desc">{x.description}</small>}</span>
             <b className="cons-count">× {x.qty}</b>
           </div>
         ))}

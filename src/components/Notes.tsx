@@ -1,4 +1,3 @@
-import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { speechLangFor, useChar, useStore } from '../store';
 import { startRecording, type Recorder } from '../speech';
@@ -8,6 +7,8 @@ import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
 import { exportEverything, saveBackupFile } from '../backup';
 import { create } from 'zustand';
+import { IMAGE_CATEGORIES, categoryLabel } from '../imageCategories';
+import { DoodleViewer } from './DoodleViewer';
 import { loadSharedImage, removeSharedImage, sharedImageBase64, stripDataUrl } from '../sharedImages';
 
 /** Abrir el diario desde otra pantalla, ya en una carpeta (p. ej. «Compartido conmigo» desde Partida) */
@@ -22,11 +23,10 @@ async function withFullImages(notes: Note[]): Promise<Note[]> {
   }));
 }
 
-/** Imagen a pantalla completa: la original si está guardada en el dispositivo, con zoom para leer los mapas y botón para guardarla */
+/** Imagen a pantalla completa: la original si está guardada en el dispositivo, con zoom, pluma para garabatear y botón para guardarla */
 function ImageViewer({ note, onClose }: { note: Note; onClose: () => void }) {
   const [src, setSrc] = useState(note.image ?? '');
   const [blob, setBlob] = useState<Blob | null>(null);
-  const [zoom, setZoom] = useState(false);
   useEffect(() => {
     if (!note.imageKey) return;
     let url: string | null = null;
@@ -39,16 +39,7 @@ function ImageViewer({ note, onClose }: { note: Note; onClose: () => void }) {
     const where = await saveBackupFile(data, name, 'image/jpeg');
     useStore.getState().showToast(T('🖼️ Imagen guardada', '🖼️ Image saved'), [where ?? name]);
   };
-  return createPortal(
-    <div className={`img-viewer ${zoom ? 'zoom' : ''}`} role="dialog" aria-label={note.title}>
-      <div className="img-viewer-pane" onClick={() => setZoom(!zoom)}><img src={src} alt={note.title} /></div>
-      <div className="img-viewer-bar">
-        <b className="grow">{note.title}</b>
-        <button className="btn small" onClick={() => setZoom(!zoom)}>{zoom ? '🔎 −' : '🔍 +'}</button>
-        <button className="btn small" onClick={() => void save()}>⬇️ {T('Guardar', 'Save')}</button>
-        <button className="btn small" onClick={onClose}>✕ {T('Cerrar', 'Close')}</button>
-      </div>
-    </div>, document.body);
+  return <DoodleViewer src={src} title={note.title} doodleRef={note.ref ?? `note:${note.id}`} onClose={onClose} extra={<button className="btn small" onClick={() => void save()}>⬇️ {T('Guardar', 'Save')}</button>} />;
 }
 
 const folderLabel = (f: NoteFolder) => {
@@ -97,6 +88,8 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
   const [focus, setFocus] = useState<{ id: string; tick: number } | null>(null);
   const [big, setBigState] = useState(() => { try { return localStorage.getItem(BIG_KEY) === '1'; } catch { return false; } });
   const setBig = (v: boolean) => { setBigState(v); try { localStorage.setItem(BIG_KEY, v ? '1' : '0'); } catch { /* sin almacenamiento */ } };
+  /** «Compartido conmigo»: solo las imágenes de una categoría (mapas, personajes…) */
+  const [sharedCat, setSharedCat] = useState<NonNullable<Note['category']> | ''>('');
   // Libro abierto a dos páginas (índice a la izquierda) cuando está grande y la pantalla da para ello
   const spread = useWide() && big;
   // El borrador se guarda en el dispositivo: no se pierde si Android cierra la app o cambias de pestaña
@@ -341,8 +334,11 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
 
   const chapterPage = (ch: Chapter) => {
     const shared = ch.folder?.key === 'shared';
+    const cats = shared ? IMAGE_CATEGORIES.filter((k) => ch.notes.some((n) => n.category === k)) : [];
+    const cat = cats.includes(sharedCat as never) ? sharedCat : '';
+    const shown = cat ? ch.notes.filter((n) => n.category === cat) : ch.notes;
     const groups: [string, Note[]][] = shared
-      ? [[T('🔒 Solo para ti', '🔒 Only for you'), ch.notes.filter((n) => sharedScope(n) === 'me')], [T('👥 Para todo el grupo', '👥 For the whole party'), ch.notes.filter((n) => sharedScope(n) === 'all')]]
+      ? [[T('🔒 Solo para ti', '🔒 Only for you'), shown.filter((n) => sharedScope(n) === 'me')], [T('👥 Para todo el grupo', '👥 For the whole party'), shown.filter((n) => sharedScope(n) === 'all')]]
       : [['', ch.notes]];
     return (
       <section key={ch.id} className="grim-page grim-chapter" aria-label={ch.name}>
@@ -358,6 +354,12 @@ export function NotesDrawer({ open, onToggle }: { open: boolean; onToggle: () =>
         </header>
         {shared && <p className="hint grim-ch-hint">{T('Lo que el DM te manda a ti o a todo el grupo: cartas, mapas, crónicas, informes de combate y entregas. Se guarda en este dispositivo aunque la partida termine.', 'What the DM sends to you or to the whole party: letters, maps, chronicles, combat reports and gifts. It’s kept on this device even after the game ends.')}</p>}
         {!shared && composer(ch)}
+        {cats.length > 0 && (
+          <div className="chips grim-cats">
+            <button className={`chip ${cat ? '' : 'on'}`} onClick={() => setSharedCat('')}>{T('Todo', 'All')}</button>
+            {cats.map((k) => <button key={k} className={`chip ${cat === k ? 'on' : ''}`} onClick={() => setSharedCat(k)}>{categoryLabel(k)} <small>{ch.notes.filter((n) => n.category === k).length}</small></button>)}
+          </div>
+        )}
         {ch.notes.length === 0 && <p className="muted grim-empty">{shared ? T('Aún no te han compartido nada.', 'Nothing has been shared with you yet.') : T('Página en blanco. Escribe la primera nota de este capítulo.', 'A blank page. Write the first note of this chapter.')}</p>}
         {groups.filter(([label, list]) => list.length || !label).map(([label, list]) => (
           <div key={label || 'all'} className="grim-group">

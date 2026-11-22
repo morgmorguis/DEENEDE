@@ -49,13 +49,16 @@ export interface LootBundle {
   note: string;
 }
 
+export interface ToastAction { label: string; run: () => void }
+
 interface State {
   characters: Character[];
   activeId: string;
   log: Record<string, LogEntry[]>;
   settings: Settings;
-  toast: { title: string; lines: string[] } | null;
-  showToast: (title: string, lines: string[]) => void;
+  toast: { title: string; lines: string[]; actions?: ToastAction[] } | null;
+  /** `actions`: botones del aviso (p. ej. «Equipar») */
+  showToast: (title: string, lines: string[], actions?: ToastAction[]) => void;
   hideToast: () => void;
   // acciones
   active: () => Character;
@@ -114,7 +117,7 @@ export const useStore = create<State>()(
       log: {},
       settings: defaultSettings,
       toast: null,
-      showToast: (title, lines) => set({ toast: { title, lines } }),
+      showToast: (title, lines, actions) => set({ toast: { title, lines, ...(actions?.length ? { actions } : {}) } }),
       hideToast: () => set({ toast: null }),
 
       active: () => get().characters.find((c) => c.id === get().activeId) ?? get().characters[0],

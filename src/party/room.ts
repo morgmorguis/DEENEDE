@@ -5,7 +5,7 @@ import type { ItemMods } from '../rules/itemTypes';
 import type {
   CarriedLoot, Combatant, CombatantView, Command, Encounter, EncounterEntry, Chronicle, Gift, HpState, LootDrop, PreparedEncounter, RoomSettings, SharedImage, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
-import { COMBAT_SCENES, pickCombatScene } from './protocol';
+import { COMBAT_SCENES, isImageCategory, pickCombatScene } from './protocol';
 
 export interface StoredMember extends Member { token: string }
 
@@ -80,11 +80,13 @@ export function cleanMods(m: unknown): ItemMods | undefined {
 }
 
 /** Limpia lo que manda el DM: monedas enteras y positivas, objetos con nombre y campos acotados */
-export function cleanGift(cmd: Extract<Command, { t: 'give' }>): Pick<Gift, 'coins' | 'items' | 'note'> | null {
+export function cleanGift(cmd: Extract<Command, { t: 'give' }>, dm = true): Pick<Gift, 'coins' | 'items' | 'note' | 'charge'> | null {
   const clean = cleanLoot(cmd);
-  if (!clean) return null;
+  // Cobro: solo el DM (lo que vale lo que da, o lo que el jugador le paga); en po, con céntimos de cobre
+  const charge = dm ? Math.round(Math.max(0, Math.min(10_000_000, Number(cmd.charge) || 0)) * 100) / 100 : 0;
+  if (!clean && !charge) return null;
   const note = String(cmd.note ?? '').trim().slice(0, 500);
-  return { ...clean, ...(note ? { note } : {}) };
+  return { ...(clean ?? {}), ...(charge ? { charge } : {}), ...(note ? { note } : {}) };
 }
 
 /** Monedas y objetos limpios (null si no hay nada) */
@@ -103,6 +105,7 @@ export function cleanLoot(x: CarriedLoot | undefined | null): CarriedLoot | null
     qty: Math.max(1, num(i.qty, 9999)),
     ...(i.ref ? { ref: String(i.ref).slice(0, 60) } : {}),
     ...(cleanMods(i.mods) ? { mods: cleanMods(i.mods) } : {}),
+    ...(i.consumable === 'ammo' || i.consumable === 'thrown' || i.consumable === 'item' ? { consumable: i.consumable } : {}),
   })).filter((i) => i.name);
   if (!Object.keys(coins).length && !items.length) return null;
   return { ...(Object.keys(coins).length ? { coins } : {}), ...(items.length ? { items } : {}) };
@@ -111,7 +114,7 @@ export function cleanLoot(x: CarriedLoot | undefined | null): CarriedLoot | null
 export const rid = (n = 8) => Array.from({ length: n }, () => 'abcdefghijkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 32)]).join('');
 const code6 = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 /** Código distinto del anterior */
-const newCode = (prev: string) => { let c = code6(); while (c === prev) c = code6(); return c; };
+export const newCode = (prev: string) => { let c = code6(); while (c === prev) c = code6(); return c; };
 
 /** Por qué no puede entrar con ese código: la partida está cerrada o el código no es el suyo */
 export const enterError = (room: Pick<Room, 'code' | 'open'>, code: string): 'game-closed' | 'bad-code' =>
@@ -336,6 +339,9 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
   switch (cmd.t) {
     case 'summary': {
       me.summary = cmd.summary;
+      // La cara: solo una miniatura JPEG pequeña (no una foto entera en cada vista)
+      const f = me.summary?.face;
+      if (f !== undefined && (typeof f !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(f) || f.length > 24_000)) delete me.summary.face;
       if (!me.name || me.name === 'Jugador') me.name = cmd.summary.name;
       const i = e.order.findIndex((c) => c.kind === 'pc' && c.ownerId === me.id);
       if (i >= 0) e.order[i] = pcFrom(me, e.order[i]);
@@ -454,7 +460,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       if (me.role !== 'dm' && me.role !== 'player') return deny();
       const to = r.members.find((m) => m.id === cmd.toId && m.role === 'player');
       if (!to || to.id === me.id) return { room, effects: [], error: 'no-target' };
-      const clean = cleanGift(cmd);
+      const clean = cleanGift(cmd, dm);
       if (!clean) return { room, effects: [], error: 'empty-gift' };
       const from = dm ? {} : { fromId: me.id, fromName: me.summary?.name || me.name };
       r.gifts.push({ id: rid(10), at: Date.now(), toId: to.id, toName: to.summary?.name || to.name, ...from, ...clean, delivered: false });
@@ -566,6 +572,19 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       if (cmd.removePlayers) r.members = r.members.filter((m) => m.role === 'dm');
       return { room: r, effects };
     }
+    case 'kick': {
+      // Saca a un jugador (o una pantalla) de la partida: su personaje sale del combate. Si la partida sigue abierta,
+      // puede volver a entrar con el código, como alguien nuevo
+      const who = r.members.find((m) => m.id === cmd.id);
+      if (!who || who.role === 'dm') return { room, effects: [], error: 'no-target' };
+      r.members = r.members.filter((m) => m.id !== who.id);
+      const cur = current(e)?.id;
+      e.order = e.order.filter((c) => !(c.kind === 'pc' && c.ownerId === who.id));
+      e.turn = Math.max(0, e.order.findIndex((x) => x.id === cur));
+      e.ready = (e.ready ?? []).filter((x) => x !== who.id);
+      e.accepted = (e.accepted ?? []).filter((x) => x !== who.id);
+      return { room: r, effects };
+    }
     // Lo atiende el servidor del PC (server/index.ts), no la partida
     case 'cloudLink':
       return { room, effects: [], error: 'not-allowed' };
@@ -587,7 +606,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
     }
     case 'imageAdd': {
       if (!cmd.id || !/^[a-z0-9]{6,20}$/.test(cmd.id)) return { room, effects: [], error: 'bad-image' };
-      r.images.push({ id: cmd.id, title: String(cmd.title ?? '').trim().slice(0, 80) || 'Imagen', at: Date.now(), shared: false, to: 'all', w: cmd.w, h: cmd.h });
+      r.images.push({ id: cmd.id, title: String(cmd.title ?? '').trim().slice(0, 80) || 'Imagen', at: Date.now(), shared: false, to: 'all', w: cmd.w, h: cmd.h, ...(isImageCategory(cmd.category) ? { category: cmd.category } : {}) });
       if (r.images.length > 300) r.images.splice(0, r.images.length - 300);
       return { room: r, effects };
     }
@@ -618,6 +637,12 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const img = r.images.find((x) => x.id === cmd.id);
       if (!img) return deny();
       img.shared = false;
+      return { room: r, effects };
+    }
+    case 'imageCategory': {
+      const img = r.images.find((x) => x.id === cmd.id);
+      if (!img || !isImageCategory(cmd.category)) return deny();
+      img.category = cmd.category;
       return { room: r, effects };
     }
     case 'imageRename': {
