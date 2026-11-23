@@ -85,8 +85,11 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
   Lo que llevan los enemigos (`Combatant.loot`, solo el DM) pasa a `room.loot` al terminar; el DM lo reparte con `give` y lo quita con `lootDone`.
   Los jugadores solo ven de un monstruo su nombre y si ha caído (`state` 'unknown' o 'down'), salvo `showHp`.
 - Crear la partida: `Room.open` (una partida nueva empieza cerrada; las guardadas antes se normalizan a abiertas). `openGame` = código nuevo
-  y abierta (conserva un combate en `prep`; opcionalmente saca jugadores y borra el registro), `closeGame` = nadie nuevo entra con el código
-  (opcionalmente saca a los jugadores). Con la partida cerrada `hello` con código da `game-closed` (`enterError`). Tras cualquier comando,
+  y abierta (conserva un combate en `prep`; opcionalmente saca jugadores y borra el registro), `closeGame` = nadie entra y salen TODOS los
+  jugadores (0.31.1; `removePlayers` se ignora). En el servidor (`closeGame()` en index.ts) es en dos pasos: primero `open:false` +
+  `syncSheets` (cada app manda su ficha y recoge entregas/crónicas/imágenes), espera a que contesten los conectados (máx. 8 s, mín.
+  1 s) y luego `finishClose` junta sus fichas en `di-en-di-fichas/partida cerrada AAAA-MM-DD HHhMM.json` (solo en el PC), borra las
+  sueltas y aplica `closeGame` (quita miembros y sus PJ del combate; los sockets reciben `game-closed`). Con la partida cerrada `hello` con código da `game-closed` (`enterError`). Tras cualquier comando,
   el servidor cierra (`session-reset`) los sockets de miembros que ya no están.
 - Dónde se juega (0.31): las partidas se crean SOLO en el servidor del PC del DM. `openGame` lleva `mode` (`Room.mode`):
   · `local` (🏠 en casa): el código es de 8 letras y lleva dentro la IP privada del PC y el puerto (`src/party/lanCode.ts`:

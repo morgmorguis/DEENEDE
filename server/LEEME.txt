@@ -24,6 +24,9 @@ SERVIDOR DE PARTIDA (DM)
    Ni direcciones, ni claves, ni configurar nada.
 4. No cierres la ventana negra mientras jugáis. La partida se guarda en
    «di-en-di-partida.json», junto al .exe.
+5. Al terminar, «🔒 Cerrar la partida»: salen todos los jugadores. Antes, cada uno guarda su
+   ficha en su dispositivo y te manda una copia: quedan juntas en la carpeta «di-en-di-fichas»
+   («partida cerrada <fecha>.json»; se carga en la app como cualquier copia).
 
 SI NO ENCUENTRAN LA PARTIDA
 ---------------------------

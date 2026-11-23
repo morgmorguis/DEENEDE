@@ -284,7 +284,7 @@ export const useParty = create<PartyState>((set, get) => {
     if ((me?.sheetAt ?? 0) >= view.syncRequest) return;
     if (!uploadSheet()) return;
     syncedFor = view.syncRequest;
-    useStore.getState().showToast(T('☁️ El DM ha guardado tu ficha en el servidor', '☁️ The DM saved your sheet on the server'), []);
+    if (view.open) useStore.getState().showToast(T('☁️ El DM ha guardado tu ficha en el servidor', '☁️ The DM saved your sheet on the server'), []);
   };
 
   /** Entregas del DM: se suman a la ficha compartida una sola vez y se confirma al servidor */
@@ -418,12 +418,12 @@ export const useParty = create<PartyState>((set, get) => {
       } else if (msg.t === 'error') {
         // Estaba dentro y el DM ha cerrado la partida (no es que intente entrar en una cerrada)
         const kicked = msg.message === 'game-closed' && get().status === 'online';
-        set({ error: kicked ? T('El DM ha cerrado la partida. Cuando vuelva a crearla, pídele el código nuevo.', 'The DM closed the game. When they create it again, ask for the new code.') : errorText(msg.message) });
+        set({ error: kicked ? T('El DM ha cerrado la partida. Tu ficha está guardada en este dispositivo. Cuando vuelva a crearla, pídele el código nuevo.', 'The DM closed the game. Your sheet is saved on this device. When they create it again, ask for the new code.') : errorText(msg.message) });
         if (msg.message === 'bad-code' || msg.message === 'game-closed' || msg.message === 'session-reset' || msg.message === 'kicked' || msg.message === 'unknown-game') { const e = get().error; get().leave(); set({ error: e }); }
         const keep = T('Lo que te han compartido sigue en tu diario → 🤝 Compartido conmigo. Tu ficha sigue igual.', 'What was shared with you stays in your journal → 🤝 Shared with me. Your sheet stays the same.');
         if (msg.message === 'session-reset') useStore.getState().showToast(T('🔁 Sesión nueva', '🔁 New session'), [errorText('session-reset'), keep]);
         if (msg.message === 'kicked') useStore.getState().showToast(T('👋 Fuera de la partida', '👋 Out of the game'), [errorText('kicked'), keep]);
-        if (kicked) useStore.getState().showToast(T('🔒 El DM ha cerrado la partida', '🔒 The DM closed the game'), [keep]);
+        if (kicked) useStore.getState().showToast(T('🔒 El DM ha cerrado la partida', '🔒 The DM closed the game'), [T('Tu ficha está guardada en este dispositivo y el DM tiene una copia.', 'Your sheet is saved on this device and the DM has a copy.'), keep]);
       }
     };
     sock.onclose = () => {

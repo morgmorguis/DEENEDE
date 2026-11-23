@@ -3,6 +3,12 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.31.1 · 23 nov 2026 — Cerrar la partida saca a todos
+
+**Partida**
+- **Al cerrar la partida salen todos los jugadores.** Antes de sacarlos, cada app guarda la ficha en su dispositivo (con las entregas, crónicas e imágenes pendientes) y se la manda al PC del DM. En el PC quedan todas juntas en `di-en-di-fichas/partida cerrada <fecha>.json`. Si un móvil no contesta en 8 s, sale igual.
+- Sus personajes dejan el combate. Ya no hay casilla «Sacar también a los jugadores».
+
 ## 0.31.0 · 23 nov 2026 — Partida en casa o en la nube, solo con el código
 
 **Partida**

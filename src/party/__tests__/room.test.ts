@@ -477,18 +477,18 @@ describe('crear la partida', () => {
     expect(s.room.members.map((m) => m.role)).toEqual(['dm']);
   });
 
-  it('solo el DM crea o cierra la partida; al cerrarla nadie nuevo entra y quien estaba puede seguir', () => {
+  it('solo el DM crea o cierra la partida; al cerrarla salen todos los jugadores y nadie entra', () => {
     const s = setup();
     expect(apply(s.room, s.p1, { t: 'openGame' }).error).toBe('not-allowed');
     expect(apply(s.room, s.p1, { t: 'closeGame' }).error).toBe('not-allowed');
     s.run(s.dm, { t: 'openGame' });
     const ana = s.room.members.find((m) => m.id === s.p1)!;
-    s.run(s.dm, { t: 'closeGame' });
+    s.run(s.dm, { t: 'syncSheets' });
+    s.run(s.dm, { t: 'closeGame', removePlayers: false });
     expect(canEnter(s.room, s.room.code)).toBe(false);
-    expect(canEnter(s.room, '', ana.token)).toBe(true);
-    s.run(s.dm, { t: 'closeGame', removePlayers: true });
     expect(canEnter(s.room, '', ana.token)).toBe(false);
     expect(s.room.members.map((m) => m.role)).toEqual(['dm']);
+    expect(s.room.syncRequest).toBeUndefined();
   });
 });
 

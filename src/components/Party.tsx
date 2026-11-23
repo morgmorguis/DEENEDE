@@ -1191,7 +1191,6 @@ function GamePanel({ view }: { view: RoomView }) {
   const [removePlayers, setRemovePlayers] = useState(true);
   const [clearLog, setClearLog] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [kick, setKick] = useState(false);
   const [copied, setCopied] = useState(false);
   const players = view.members.filter((m) => m.role === 'player').length;
   const toast = (title: string, line: string) => useStore.getState().showToast(title, [line]);
@@ -1245,9 +1244,8 @@ function GamePanel({ view }: { view: RoomView }) {
       </div>
       {closing && (
         <Modal title={T('🔒 Cerrar la partida', '🔒 Close the game')} onClose={() => setClosing(false)}>
-          <p className="small">{T('Nadie más podrá unirse con el código. Todo lo preparado (lugares, personajes, tesoro, imágenes, registro) se conserva; para la próxima sesión vuelves a pulsar «Crear partida» y tendrás un código nuevo. Antes, si quieres, guarda la copia de la campaña.', 'Nobody else can join with the code. Everything you prepared (places, characters, treasure, images, log) is kept; for the next session press “Create game” again to get a new code. First, if you like, save the campaign backup.')}</p>
-          <label className="check"><input type="checkbox" checked={kick} onChange={(e) => setKick(e.target.checked)} /> 👋 {T(`Sacar también a los jugadores conectados (${players})`, `Also remove the connected players (${players})`)}</label>
-          <button className="btn primary full" onClick={() => { send({ t: 'closeGame', removePlayers: kick }); setClosing(false); toast(T('🔒 Partida cerrada', '🔒 Game closed'), T('Pulsa «Crear partida» cuando quieras volver a jugar.', 'Press “Create game” whenever you want to play again.')); }}>🔒 {T('Cerrar la partida', 'Close the game')}</button>
+          <p className="small">{T('Todos los jugadores salen de la partida y nadie podrá unirse con el código. Antes, cada uno guarda su ficha en su dispositivo y te la manda: quedan juntas en este PC, en la carpeta «di-en-di-fichas». Todo lo preparado (lugares, personajes, tesoro, imágenes, registro) se conserva; para la próxima sesión vuelves a pulsar «Crear partida» y tendrás un código nuevo.', 'All players leave the game and nobody can join with the code. First, each one saves their sheet on their device and sends it to you: they’re kept together on this PC, in the «di-en-di-fichas» folder. Everything you prepared (places, characters, treasure, images, log) is kept; for the next session press “Create game” again to get a new code.')}</p>
+          <button className="btn primary full" onClick={() => { send({ t: 'closeGame' }); setClosing(false); toast(T('🔒 Partida cerrada', '🔒 Game closed'), players ? T('Guardando las fichas y sacando a los jugadores…', 'Saving the sheets and removing the players…') : T('Pulsa «Crear partida» cuando quieras volver a jugar.', 'Press “Create game” whenever you want to play again.')); }}>🔒 {T('Cerrar la partida', 'Close the game')}</button>
         </Modal>
       )}
     </Section>

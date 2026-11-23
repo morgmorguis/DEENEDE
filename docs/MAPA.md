@@ -31,7 +31,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 ## server/
 
 - `app.ts` 3 KB — «Di en Di» para Windows (jugadores): sirve la app solo para este PC y la abre en una ventana propia (Microsoft Edge en modo aplicación). Las fichas se…
-- `index.ts` 37 KB — Servidor de partida de «Di en Di»: se ejecuta en el PC del DM (una partida) o en la nube (la principal y las que piden los PC). Sirve la app web y mantiene…
+- `index.ts` 40 KB — Servidor de partida de «Di en Di»: se ejecuta en el PC del DM (una partida) o en la nube (la principal y las que piden los PC). Sirve la app web y mantiene…
 - `relay.ts` 12 KB — Puente con la nube: el servidor del PC del DM se conecta al de la nube (RelayHost) y la nube (RelayHub) le pasa los jugadores que entran con su código. · exporta: HostState, RelayStatus, RelayHub, CloudConfig, RelayPeer, resolveCloud, RelayHost
 
 ## server/nube/
@@ -111,7 +111,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 
 ## src/party/
 
-- `client.ts` 34 KB — Conexión de la app con el servidor de partida: estado en tiempo real, reconexión automática, envío del resumen de tu ficha y aplicación en tu ficha de lo… · exporta: PartyConn, wsUrl, httpBase, ERRORS, applyGift, receiveGift, giftLines, summaryOf, addSharedNotes, useParty, resolveServer, DEFAULT_SERVER… (+7)
+- `client.ts` 35 KB — Conexión de la app con el servidor de partida: estado en tiempo real, reconexión automática, envío del resumen de tu ficha y aplicación en tu ficha de lo… · exporta: PartyConn, wsUrl, httpBase, ERRORS, applyGift, receiveGift, giftLines, summaryOf, addSharedNotes, useParty, resolveServer, DEFAULT_SERVER… (+7)
 - `difficulty.ts` 2 KB — Dificultad del encuentro (Dungeon Master’s Guide 2024): presupuesto de PX por personaje según su nivel (baja, moderada, alta) frente a la suma de PX de los… · exporta: xpForCr, Difficulty, encounterDifficulty
 - `encounterImport.ts` 16 KB — Listas de enemigos del DM desde Excel (.xlsx), CSV o texto pegado de una hoja de cálculo, plantilla para rellenarlas y exportación a CSV. · exporta: parseDelimited, readXlsx, parseItems, rowsToEncounters, importEncounterFile, encountersRows, encountersToCsv, encounterTemplateCsv, splitLoot, mergeLoot
 - `lanCode.ts` 3 KB — Código de una partida «en casa»: 8 letras que llevan dentro la dirección del PC del DM en la Wi-Fi (IP privada y puerto) y una parte al azar. Así la app… · exporta: LAN_CODE_LENGTH, isLanIp, lanCode, lanAddress
@@ -120,7 +120,7 @@ Una línea por archivo: tamaño, para qué sirve (su primer comentario) y qué e
 - `narrative.ts` 8 KB — Resumen narrativo de un combate a partir de su registro: sin IA (frases generadas aquí) o con IA (se prepara el registro en texto para que Claude lo cuente… · exporta: lastCombat, combatTranscript, localNarrative
 - `phrases.ts` 5 KB — Frases para el aviso de «¡Comienza un encuentro!»: sale una al azar cada vez que el DM lanza un combate. · exporta: COMBAT_PHRASES, randomCombatPhrase
 - `protocol.ts` 17 KB — Protocolo de la partida compartida (modo party): tipos que comparten la app y el servidor. · exporta: Role, CombatantKind, PcSummary, IMAGE_CATEGORIES, ImageCategory, isImageCategory, SharedImage, Chronicle, RoomSettings, TimedCondition, Counter, Member… (+24)
-- `room.ts` 45 KB ⚠️ — Lógica de la partida compartida. Funciones puras: el servidor guarda una `Room`, le aplica los comandos de cada cliente y envía a cada uno solo lo que puede… · exporta: StoredMember, Room, Effect, Result, cleanMods, cleanGift, cleanLoot, rid, newCode, enterError, canEnter, createRoom… (+14)
+- `room.ts` 47 KB ⚠️ — Lógica de la partida compartida. Funciones puras: el servidor guarda una `Room`, le aplica los comandos de cada cliente y envía a cada uno solo lo que puede… · exporta: StoredMember, Room, Effect, Result, cleanMods, cleanGift, cleanLoot, rid, newCode, enterError, canEnter, createRoom… (+14)
 
 ## src/rules/
 

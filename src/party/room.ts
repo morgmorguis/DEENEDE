@@ -571,8 +571,16 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       return { room: r, effects };
     }
     case 'closeGame': {
+      // Al cerrar salen todos los jugadores (y las pantallas); sus personajes dejan el combate
       r.open = false;
-      if (cmd.removePlayers) r.members = r.members.filter((m) => m.role === 'dm');
+      const gone = new Set(r.members.filter((m) => m.role !== 'dm').map((m) => m.id));
+      r.members = r.members.filter((m) => m.role === 'dm');
+      const cur = current(e)?.id;
+      e.order = e.order.filter((c) => !(c.kind === 'pc' && c.ownerId && gone.has(c.ownerId)));
+      e.turn = Math.max(0, e.order.findIndex((x) => x.id === cur));
+      e.ready = (e.ready ?? []).filter((x) => !gone.has(x));
+      e.accepted = (e.accepted ?? []).filter((x) => !gone.has(x));
+      delete r.syncRequest;
       return { room: r, effects };
     }
     case 'kick': {

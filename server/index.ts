@@ -10,7 +10,7 @@ import os from 'node:os';
 import { exec } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import { apply, CAMPAIGN_KIND, canEnter, canSeeImage, createRoom, enterError, exportCampaign, importCampaign, join, newCode, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
-import { CLOUD_SERVER, type ClientMessage, type NetView, type ServerMessage } from '../src/party/protocol';
+import { CLOUD_SERVER, type ClientMessage, type Command as ClientCommand, type NetView, type ServerMessage } from '../src/party/protocol';
 import { isLanIp, lanAddress, lanCode } from '../src/party/lanCode';
 import { RelayHost, RelayHub, resolveCloud, type CloudConfig } from './relay';
 
@@ -599,8 +599,16 @@ function handleMessage(ws: Peer, data: string) {
   if (cmd.t === 'imageRemove' && room.members.find((m) => m.id === id)?.role === 'dm') {
     try { fs.rmSync(path.join(g.imgDir, `${cmd.id.replace(/[^a-z0-9]/g, '')}.jpg`), { force: true }); } catch { /* ya no está */ }
   }
+  // Cerrar la partida: antes de sacar a los jugadores se guardan sus fichas
+  if (cmd.t === 'closeGame' && room.members.find((m) => m.id === id)?.role === 'dm') { closeGame(g, id); return; }
+  commit(g, id, cmd, ws);
+}
+
+/** Aplica un comando a la partida, avisa y desconecta a quien ya no está, y guarda */
+function commit(g: Game, id: string, cmd: ClientCommand, ws?: Peer) {
+  const room = g.room;
   const r = apply(room, id, cmd);
-  if (r.error) { send(ws, { t: 'error', message: r.error }); return; }
+  if (r.error) { if (ws) send(ws, { t: 'error', message: r.error }); return; }
   g.room = r.room;
   if (g.room.code !== room.code) {
     // En casa, el código lleva la dirección del PC en la Wi-Fi
@@ -623,10 +631,61 @@ function handleMessage(ws: Peer, data: string) {
     console.log(`→ 🎲 Partida${g === main && !CLOUD ? (local ? ' 🏠 en casa' : ' 🌍 en la nube') : ''} creada. Código para los jugadores: ${g.room.code}${tag}`);
     if (local) console.log('   Los jugadores tienen que estar en la misma Wi-Fi que este PC. Si no la encuentran, permite «Di en Di - Servidor»\n   en las redes privadas del Firewall de Windows.');
   }
-  else if (cmd.t === 'closeGame') console.log(`→ Partida cerrada: nadie nuevo puede unirse con el código.${tag}`);
+  else if (cmd.t === 'closeGame') console.log(`→ 🔒 Partida cerrada: los jugadores han salido y nadie puede unirse con el código.${tag}`);
   else if (cmd.t === 'newCode') console.log(`→ Código nuevo de la partida: ${g.room.code}${tag}`);
   save(g);
   broadcast(g);
+}
+
+/**
+ * Cerrar la partida. Primero nadie nuevo entra y se pide la ficha a cada jugador conectado: la manda (se guarda en
+ * este servidor) y de paso recoge en su dispositivo lo pendiente (entregas, crónicas, imágenes). Cuando han
+ * contestado todos (o a los 8 s), salen todos de la partida y sus fichas quedan juntas en un archivo de copia.
+ */
+const closingGames = new Set<Game>();
+function closeGame(g: Game, dmId: string) {
+  if (closingGames.has(g)) return;
+  const online = () => g.room.members.filter((m) => m.role === 'player' && [...g.clients.values()].includes(m.id));
+  if (!online().length) { finishClose(g, dmId); return; }
+  g.room = { ...apply(g.room, dmId, { t: 'syncSheets' }).room, open: false };
+  const req = g.room.syncRequest ?? Date.now();
+  closingGames.add(g);
+  console.log(`→ Cerrando la partida: guardando las fichas de los jugadores…${g.extra ? ` (partida ${g.id})` : ''}`);
+  save(g);
+  broadcast(g);
+  const t0 = Date.now();
+  const tick = () => {
+    if (g.room.open !== false) { closingGames.delete(g); return; } // el DM la ha vuelto a abrir
+    const left = online().filter((m) => (m.sheetAt ?? 0) < req);
+    if ((left.length && Date.now() - t0 < 8000) || Date.now() - t0 < 1000) { setTimeout(tick, 250); return; }
+    closingGames.delete(g);
+    if (left.length) console.log(`   Sin ficha nueva de: ${left.map((m) => m.summary?.name ?? m.name).join(', ')}`);
+    finishClose(g, dmId);
+  };
+  setTimeout(tick, 250);
+}
+
+function finishClose(g: Game, dmId: string) {
+  const players = g.room.members.filter((m) => m.role === 'player');
+  if (!CLOUD && players.length) {
+    // Las fichas de los jugadores, juntas en un archivo de copia en di-en-di-fichas (se carga en la app como cualquier copia)
+    const sheets = players.map((m) => path.join(g.sheetDir, `${m.id}.json`)).filter((f) => fs.existsSync(f));
+    const characters = sheets.flatMap((f) => {
+      try { return (JSON.parse(fs.readFileSync(f, 'utf8')).characters ?? []) as unknown[]; } catch { return []; }
+    });
+    if (characters.length) {
+      const d = new Date();
+      const two = (n: number) => String(n).padStart(2, '0');
+      const file = path.join(g.sheetDir, `partida cerrada ${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}h${two(d.getMinutes())}.json`);
+      try {
+        fs.writeFileSync(file, JSON.stringify({ kind: BACKUP_KIND, version: 2, exportedAt: d.toISOString(), platform: 'servidor', characters }));
+        // Ya están en el archivo de la sesión: las copias sueltas de quien sale sobran
+        for (const f of sheets) fs.rmSync(f, { force: true });
+        console.log(`   💾 Fichas de los jugadores guardadas en ${file}`);
+      } catch (e) { console.error('No se pudieron guardar las fichas de los jugadores:', e); }
+    }
+  }
+  commit(g, dmId, { t: 'closeGame' });
 }
 
 // ---------- Arranque ----------

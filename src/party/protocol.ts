@@ -382,6 +382,7 @@ export type Command =
    */
   | { t: 'openGame'; removePlayers?: boolean; clearLog?: boolean; mode?: GameMode }
   /** Cerrar la partida: nadie nuevo puede unirse con el código (los de dentro siguen, salvo que se les saque) */
+  /** Cierra la partida y saca a todos los jugadores (antes, el servidor guarda sus fichas). `removePlayers` ya no se usa */
   | { t: 'closeGame'; removePlayers?: boolean }
   /** Echa a un jugador o una pantalla de la partida (puede volver con el código si la partida está abierta) */
   | { t: 'kick'; id: string }
