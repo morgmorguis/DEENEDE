@@ -3,7 +3,7 @@
 // monstruos ocultos, vida exacta de monstruos ni notas del DM).
 import type { ItemMods } from '../rules/itemTypes';
 import type {
-  CarriedLoot, Combatant, CombatantView, Command, Encounter, EncounterEntry, Chronicle, Gift, HpState, LootDrop, PreparedEncounter, RoomSettings, SharedImage, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
+  CarriedLoot, Combatant, CombatantView, Command, Encounter, EncounterEntry, Chronicle, GameMode, Gift, HpState, LootDrop, PreparedEncounter, RoomSettings, SharedImage, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
 import { COMBAT_SCENES, isImageCategory, pickCombatScene } from './protocol';
 
@@ -15,6 +15,8 @@ export interface Room {
   code: string;
   /** Se puede entrar con el código. Una partida nueva empieza cerrada: el DM la prepara y la abre con `openGame` */
   open?: boolean;
+  /** Dónde se juega: en casa (misma Wi-Fi que el PC del DM, código con su dirección) o en la nube (desde cualquier sitio) */
+  mode?: GameMode;
   dmKey: string;
   members: StoredMember[];
   encounter: Encounter;
@@ -552,6 +554,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const keepPrep = cmd.t === 'openGame' && e.active && phaseOf(e) === 'prep';
       r.code = newCode(r.code);
       r.open = true;
+      if (cmd.t === 'openGame' && (cmd.mode === 'local' || cmd.mode === 'cloud')) r.mode = cmd.mode;
       if (!keepPrep) {
         // Sin combate (sin pasar al botín: era una sesión anterior); los aliados preparados se quedan
         r.encounter = { active: false, phase: 'running', ready: [], accepted: [], round: 1, turn: 0, begun: false, scene: e.scene, order: e.order.filter((c) => c.kind === 'npc') };
@@ -585,9 +588,6 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       e.accepted = (e.accepted ?? []).filter((x) => x !== who.id);
       return { room: r, effects };
     }
-    // Lo atiende el servidor del PC (server/index.ts), no la partida
-    case 'cloudLink':
-      return { room, effects: [], error: 'not-allowed' };
     case 'lootDone': {
       const ids = new Set(cmd.ids);
       r.loot = r.loot.filter((x) => !ids.has(x.id));
@@ -863,6 +863,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
   return {
     code: room.code,
     open: room.open !== false,
+    ...(room.mode ? { mode: room.mode } : {}),
     you: { id: me.id, role: me.role, name: me.name },
     members: room.members.map(({ token: _t, ...m }) => {
       void _t;

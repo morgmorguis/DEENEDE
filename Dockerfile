@@ -57,7 +57,7 @@ RUN npx --yes @yao-pkg/pkg@6 server/build/server.cjs --targets node22-win-x64 --
  && V=$(node -p "require('./package.json').version") \
  && npx --yes resedit-cli@3 --in "out/Di en Di - Servidor.exe" --out "out/Di en Di - Servidor.exe" --icon 1,build/icons/server.ico --ignore-signed --product-name "Di en Di - Servidor" --file-description "Servidor de partida de Di en Di" --company-name "Di en Di" --product-version "$V.0" --file-version "$V.0" \
  && npx --yes resedit-cli@3 --in "out/Di en Di.exe" --out "out/Di en Di.exe" --icon 1,build/icons/app.ico --ignore-signed --product-name "Di en Di" --file-description "Di en Di - D&D 2024 companion" --company-name "Di en Di" --product-version "$V.0" --file-version "$V.0" \
- && cp server/LEEME.txt server/PUBLICAR.txt out/
+ && cp server/LEEME.txt out/
 
 FROM scratch AS windows
 COPY --from=windows-build /app/out/ /
@@ -79,7 +79,7 @@ VOLUME /datos
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/info').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
-# Sin publicar en Internet desde el contenedor (no hay Tailscale ni ngrok dentro): usa el puerto publicado por Docker
+# En Docker la partida en casa necesita DI_EN_DI_IP (la IP del PC en la Wi-Fi); la nube funciona igual
 CMD ["node", "server/build/server.cjs", "--no-open", "--no-publish", "--data", "/datos/partida.json"]
 
 # ---------- Servidor en Google Cloud Run (server/nube/desplegar.ps1) ----------

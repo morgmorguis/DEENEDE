@@ -54,7 +54,7 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 | `src/offline/` | Importar fichas sin conexión: PDF rellenable, texto, OCR con Tesseract. |
 | `src/i18n.ts` | `T('texto es', 'text en')` para la interfaz y `L({es, en})` para datos. |
 | `data/` + `scripts/build-spells.cjs` | Conjuros (SRD 5.2 + traducciones) que generan `src/rules/spellsGen.ts`. |
-| `server/` | Servidor de partida (`index.ts`, Node + ws), app de Windows (`app.ts`), publicación en Internet (`publish.ts`). La CI los empaqueta como `.exe`. |
+| `server/` | Servidor de partida (`index.ts`, Node + ws), app de Windows (`app.ts`), puente con la nube (`relay.ts`). La CI los empaqueta como `.exe`. |
 | `docs/guia/index.html` | Manual ilustrado del usuario (se copia a `public/guia`). |
 | `Dockerfile`, `docker-compose.yml` | Compilación en Docker y servidor del DM en contenedor. Si cambian los pasos de la CI, cámbialos también aquí. |
 | `.github/workflows/android.yml` | Con cada push a `main`: tests, build, APK, `.exe` de Windows y, si la versión es nueva, release `vX.Y.Z`. |
@@ -88,14 +88,22 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
   y abierta (conserva un combate en `prep`; opcionalmente saca jugadores y borra el registro), `closeGame` = nadie nuevo entra con el código
   (opcionalmente saca a los jugadores). Con la partida cerrada `hello` con código da `game-closed` (`enterError`). Tras cualquier comando,
   el servidor cierra (`session-reset`) los sockets de miembros que ya no están.
-- Partida del PC por la nube (`server/relay.ts`): con la clave del DM de la nube guardada en el PC (`di-en-di-nube.json` junto a la
-  partida, comando `cloudLink` que atiende `server/index.ts`, no `apply`), el servidor del PC abre un WebSocket a `/relay` de la nube
-  (`RelayHost`) mientras la partida está abierta (y 10 min después de cerrarla si queda alguien). La nube (`RelayHub`) manda a ese PC a
+- Dónde se juega (0.31): las partidas se crean SOLO en el servidor del PC del DM. `openGame` lleva `mode` (`Room.mode`):
+  · `local` (🏠 en casa): el código es de 8 letras y lleva dentro la IP privada del PC y el puerto (`src/party/lanCode.ts`:
+    192.168/16, 10/8, 172.16/12; puertos 3000-3031; el resto, al azar). El servidor lo pone tras `apply` (`localCode()`), elige la
+    IP con `lanIp()` (descarta interfaces virtuales/VPN/Tailscale; `DI_EN_DI_IP` la fija) y si al arrancar la IP ha cambiado
+    genera otro. Sin red de casa, `openGame` local da `no-lan`. La app (`findServer`) decodifica la dirección y prueba
+    `/api/info?check=` allí; desde una página https que no es la app nativa da `lan-web` (contenido mixto).
+  · `cloud` (🌍 en la nube, también partidas antiguas sin `mode`): código de 6 letras. El PC pide solo una entrada a la nube
+    (`POST /api/new {purpose:'pc'}`, `autoLink`, reintenta cada 20 s) y la guarda en `di-en-di-nube.json`; si la nube la rechaza
+    (`denied` → `bad-key`) la borra y pide otra. Ya no hay clave manual ni comando `cloudLink`.
+  · El DM del PC ve `RoomView.net` (`{lan, cloud: off|connecting|on|unreachable}`). Sin Tailscale/ngrok (`publish.ts` borrado).
+- Partida del PC por la nube (`server/relay.ts`): el servidor del PC abre un WebSocket a `/relay` de la nube (`RelayHost`) mientras
+  la partida en la nube está abierta (y 10 min después de cerrarla si queda alguien). La nube (`RelayHub`) manda a ese PC a
   quien dice «hola» con su código, su token o su clave de DM (le envía `{code, open, keys}`), contesta `/api/info?check=` por él y le pide
-  `/img/…` y `/api/sheet`. En el PC cada jugador de la nube es un `Peer` más (igual que un WebSocket). El DM ve `RoomView.cloud`.
-  Prueba de punta a punta: dos servidores (uno con `K_SERVICE`) y jugadores con `ws`; el túnel se reenlaza solo si la nube se reinicia.
-- Unirse solo con el código: `findServer` (client.ts) prueba la página actual, el último servidor (`di-en-di-last-server`) y
-  `DEFAULT_SERVER` (https://di-en-di.web.app) con `/api/info?check=CÓDIGO` → `{match, closed}`; los servidores antiguos no traen `match`.
+  `/img/…` y `/api/sheet`. En el PC cada jugador de la nube es un `Peer` más (igual que un WebSocket).
+  Prueba de punta a punta: PC en el 3010 contra la nube real (casa, nube y clave caducada que se renueva sola).
+- Unirse solo con el código: `findServer` (client.ts): 8 letras → la dirección del código; 6 letras → la página actual y la nube.
 - Compartido conmigo (jugador): `addSharedNotes` (client.ts) guarda en la carpeta `shared` del diario imágenes (`img:`), crónicas
   (`chr:`), entregas (`gift:`) e informes de combate (`cmb:`, `saveCombatReport` al terminar). La imagen completa va a IndexedDB
   (`src/sharedImages.ts`, `Note.imageKey`) y en la nota solo una miniatura: la ficha vive en localStorage (~5 MB) y no debe llenarse.
@@ -136,12 +144,11 @@ No uses `npx cap open android`: abre Android Studio y se queda esperando.
 - Sacar a un jugador: comando `kick` (solo DM); el servidor le manda `kicked`. Cara en la lista de la party: `PcSummary.face`
   (miniatura 64 px que hace el cliente; el servidor descarta lo que no sea un data URL de imagen pequeño).
 - El personaje de ejemplo de una app recién instalada es «Brakka Pielpétrea»: quien se une sin crear el suyo entra como Brakka.
-- Varias partidas en la nube (`server/index.ts`, `MULTI` = nube o `--multi`): la principal (DATA_FILE) y las que se crean con
-  `POST /api/new` desde la app (`DmStart.tsx`, «Mis partidas» en `src/party/myGames.ts`), cada una en `di-en-di-partidas/<id>/`.
-  Se borran tras `DI_EN_DI_DIAS` (5) días sin uso (sin nadie dentro ni un PC enlazado con su clave). El DM guarda una copia
-  (`/api/export`) en IndexedDB cada 5 min como mucho y al salir; si ya no está, `/api/new` con `{dmKey, campaign}` la restaura con
-  la misma clave. Límite: 10 nuevas por IP y día, 300 en total. En el PC sin clave de la nube, «Crear partida» pide una a la nube
-  y se enlaza sola (`autoLink`, `--no-cloud` lo desactiva, `--nube URL` para probar con otra nube).
+- Varias partidas en la nube (`server/index.ts`, `MULTI` = nube o `--multi`): la principal (DATA_FILE) y las que piden los PC con
+  `POST /api/new {purpose:'pc'}` (cualquier otra petición da `pc-only`: la app ya no crea partidas), cada una en
+  `di-en-di-partidas/<id>/`. Se borran tras `DI_EN_DI_DIAS` (5) días sin uso (sin nadie dentro ni un PC enlazado con su clave).
+  Límite: 10 nuevas por IP y día, 300 en total. `--nube URL` prueba el PC contra otra nube. `src/party/myGames.ts` (copias de las
+  partidas creadas desde la app en 0.30) sigue para no perder las de quien ya las tenía.
 - En una partida, el jugador no crea ni edita objetos de su ficha compartida (`useItemsByDm` en Treasure.tsx): los da el DM.
 - Imágenes: categoría (`SharedImage.category`, comando `imageCategory`; nombres en `src/imageCategories.ts`), también en la nota
   del diario (`Note.category`). Garabatos propios con la pluma (`DoodleViewer.tsx`): negro, verde y azul, en IndexedDB

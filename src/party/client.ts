@@ -5,6 +5,8 @@ import { useStore } from '../store';
 import type { Character, Note } from '../types';
 import { compressImage, squareThumb } from '../imageUtil';
 import { storeSharedImage } from '../sharedImages';
+import { Capacitor } from '@capacitor/core';
+import { lanAddress } from './lanCode';
 import { CLOUD_SERVER, type ClientMessage, type Command, type Gift, type PcSummary, type Role, type RoomView, type ServerMessage } from './protocol';
 import { COIN_KEYS, NO_COINS, coinsInGold, coinsText, itemLine, payCoins, valueText } from '../rules/items';
 import { placeReceived, wearable } from '../rules/stash';
@@ -80,13 +82,13 @@ export function httpBase(input?: string): string {
 
 export const ERRORS: Record<string, [string, string]> = {
   'bad-code': ['El código de la partida no es correcto (el DM puede haberlo cambiado: pídele el nuevo).', 'The game code is wrong (the DM may have changed it: ask for the new one).'],
-  'no-server': ['No encuentro ningún servidor de partida. Revisa la conexión a Internet o, si el DM usa su propio servidor, escribe su dirección en «Otro servidor».', 'Can’t find any game server. Check your Internet connection or, if the DM runs their own server, enter its address under “Other server”.'],
+  'no-server': ['No consigo llegar a la nube. Revisa tu conexión a Internet y vuelve a probar.', 'Can’t reach the cloud. Check your Internet connection and try again.'],
+  'lan-unreachable': ['No encuentro la partida. Es una partida «en casa»: conéctate a la misma Wi-Fi que el PC del DM y comprueba que su servidor sigue abierto.', 'Can’t find the game. It’s a “at home” game: join the same Wi-Fi as the DM’s PC and check their server is still open.'],
+  'lan-web': ['Es una partida «en casa»: únete desde la app de Di en Di (Android o Windows) conectado a la misma Wi-Fi que el PC del DM.', 'It’s an “at home” game: join from the Di en Di app (Android or Windows) on the same Wi-Fi as the DM’s PC.'],
+  'no-lan': ['Este PC no está conectado a ninguna Wi-Fi o red de casa. Conéctalo o crea la partida en la nube.', 'This PC isn’t connected to any Wi-Fi or home network. Connect it or create the game in the cloud.'],
   'game-closed': ['La partida aún no está abierta (o el DM la ha cerrado). Espera a que el DM pulse «Crear partida» y te dé el código.', 'The game isn’t open yet (or the DM closed it). Wait for the DM to press “Create game” and give you the code.'],
   kicked: ['El DM te ha sacado de la partida.', 'The DM removed you from the game.'],
-  'unknown-game': ['Esa partida ya no está en el servidor (las creadas desde la app se borran tras 5 días sin uso). Si la creaste en este dispositivo, restáurala desde «Mis partidas».', 'That game is no longer on the server (games created from the app are deleted after 5 days unused). If you created it on this device, restore it from “My games”.'],
-  'too-many': ['Has creado muchas partidas hoy. Prueba mañana o usa una de «Mis partidas».', 'You’ve created many games today. Try tomorrow or use one of “My games”.'],
-  full: ['El servidor no admite más partidas ahora mismo. Prueba más tarde.', 'The server can’t take more games right now. Try later.'],
-  'no-multi': ['Ese servidor no permite crear partidas desde la app (es el de un PC). Ábrelo como DM con su enlace.', 'That server doesn’t allow creating games from the app (it’s a PC’s). Open it as DM with its link.'],
+  'unknown-game': ['Esa partida ya no existe. Pide al DM el código de la partida.', 'That game no longer exists. Ask the DM for the game code.'],
   'session-reset': ['El DM ha empezado una sesión nueva. Pídele el código nuevo para volver a unirte.', 'The DM started a new session. Ask for the new code to join again.'],
   'not-allowed': ['No puedes hacer eso (no es tu turno o no es tu personaje).', 'You can’t do that (not your turn or not your character).'],
   'no-combat': ['No hay ningún combate en marcha.', 'There’s no combat running.'],
@@ -534,14 +536,25 @@ async function probeServer(input: string, code: string): Promise<Probe> {
   }
 }
 
+export type FindError = 'bad-code' | 'game-closed' | 'no-server' | 'lan-unreachable' | 'lan-web';
+
 /**
- * Busca el servidor de una partida a partir de solo su código: la dirección de esta página (si la sirve un
- * servidor), el último servidor usado y el de la nube. Devuelve la dirección o el motivo del fallo.
+ * Busca la partida a partir de solo su código. Partida en casa (8 letras): el código lleva la dirección del PC del DM
+ * en la Wi-Fi. Partida en la nube (6 letras): el servidor de la nube (y el de esta página, si la sirve uno).
  */
-export async function findServer(code: string, extra?: string): Promise<{ url: string } | { error: 'bad-code' | 'game-closed' | 'no-server' }> {
+export async function findServer(code: string): Promise<{ url: string } | { error: FindError }> {
+  const lan = lanAddress(code);
+  if (lan) {
+    // Una página https (la web de la nube) no puede abrir direcciones http de la Wi-Fi: hace falta la app
+    if (window.location.protocol === 'https:' && !Capacitor.isNativePlatform()) return { error: 'lan-web' };
+    const r = await probeServer(lan, code);
+    if (!r) return { error: 'lan-unreachable' };
+    if (r.match === false) return { error: r.closed ? 'game-closed' : 'bad-code' };
+    return { url: r.url };
+  }
   // La dirección de esta página solo si es web (en la app de Android no responde nadie y se descarta sola)
   const here = /^https?:$/.test(window.location.protocol) ? window.location.origin : null;
-  const list = [extra, here, lastServer(), DEFAULT_SERVER].filter((x): x is string => !!x?.trim());
+  const list = [here, DEFAULT_SERVER].filter((x): x is string => !!x?.trim());
   const seen = new Set<string>();
   const unique = list.filter((u) => { const k = (() => { try { return httpBase(u); } catch { return u; } })(); if (seen.has(k)) return false; seen.add(k); return true; });
   const results = await Promise.all(unique.map((u) => probeServer(u, code)));

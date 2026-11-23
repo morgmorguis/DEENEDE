@@ -104,7 +104,7 @@ $env:GCLOUD_TOKEN = (& gcloud auth print-access-token).Trim()
 if ($LASTEXITCODE -ne 0) {
   Write-Host '  No se ha podido publicar la dirección corta; la larga funciona igual.' -ForegroundColor Yellow
 } else {
-  # El servidor enseña la dirección corta al DM en «Invitar jugadores» (solo cambia la primera vez)
+  # La app averigua la dirección real con /servidor.json (solo cambia la primera vez)
   $corta = "https://$Proyecto.web.app"
   $actual = (& gcloud run services describe $Servicio --region $Region --format 'value(spec.template.spec.containers[0].env)')
   if ("$actual" -notmatch [regex]::Escape($corta)) {

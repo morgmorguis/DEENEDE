@@ -2,8 +2,8 @@
 // consultar el registro y (si eres el DM) organizarlo todo, incluidos monstruos ocultos.
 import { useEffect, useMemo, useState } from 'react';
 import { useChar, useStore } from '../store';
-import { DEFAULT_SERVER, ERRORS, addSharedNotes, downloadAllSheets, fetchSavedSheet, findServer, httpBase, lastServer, summaryOf, useParty } from '../party/client';
-import type { CarriedLoot, CloudLinkView, CombatantView, HpState, LogEvent, RoomView } from '../party/protocol';
+import { DEFAULT_SERVER, ERRORS, addSharedNotes, downloadAllSheets, fetchSavedSheet, findServer, httpBase, summaryOf, useParty } from '../party/client';
+import type { CarriedLoot, CombatantView, GameMode, HpState, LogEvent, RoomView } from '../party/protocol';
 import { mergeLoot, splitLoot } from '../party/encounterImport';
 import { NO_COINS, coinsText, hasCoins, itemLine } from '../rules/items';
 import { saveBackupFile } from '../backup';
@@ -21,7 +21,6 @@ import { DmImages, SharedGallery, useImageUrl } from './Images';
 import { DmNotes } from './DmNotes';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
-import { DmStart } from './DmStart';
 import { randomCombatPhrase } from '../party/phrases';
 import { uid } from '../rules/factory';
 import { openNotesAt } from './Notes';
@@ -76,7 +75,7 @@ export function DmLogin() {
     <div className="tab dm-login">
       <img className="dm-login-icon" src="icon-dm-192.png" alt="" />
       <Section title={T('🎲 Pantalla del DM', '🎲 DM screen')}>
-        <p className="small">{T('Este es el enlace del DM. Los jugadores usan el suyo (el de «Invitar jugadores»), que no da acceso a esta pantalla.', 'This is the DM link. Players use theirs (the one in “Invite players”), which gives no access to this screen.')}</p>
+        <p className="small">{T('Este es el enlace del DM. Los jugadores solo usan el código de la partida, que no da acceso a esta pantalla.', 'This is the DM link. Players only use the game code, which gives no access to this screen.')}</p>
         <label className="field">{T('Clave del DM (la muestra el servidor)', 'DM key (shown by the server)')}
           <input value={key} autoCapitalize="off" autoCorrect="off" autoFocus onChange={(e) => setKey(e.target.value.trim())} onKeyDown={(e) => e.key === 'Enter' && go()} />
         </label>
@@ -122,21 +121,15 @@ function JoinForm() {
   const c = useChar();
   const connect = useParty((s) => s.connect);
   const error = useParty((s) => s.error);
-  const prev = lastServer();
-  const [url, setUrl] = useState(prev && prev !== DEFAULT_SERVER ? prev : '');
   const [code, setCode] = useState('');
   const [name, setName] = useState(c.name);
-  const [dmKey, setDmKey] = useState('');
-  const [asDm, setAsDm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const clean = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   const go = async () => {
     setErr(null);
-    // El DM entra con su clave en el servidor que diga (o en el de la nube)
-    if (asDm) { connect({ url: url.trim() || DEFAULT_SERVER, code: '', name: 'DM', dmKey }); return; }
     setBusy(true);
-    const found = await findServer(clean, url.trim() || undefined);
+    const found = await findServer(clean);
     setBusy(false);
     if ('error' in found) { setErr(T(...ERRORS[found.error])); return; }
     connect({ url: found.url, code: clean, name: name.trim() || c.name, characterId: c.id });
@@ -144,41 +137,21 @@ function JoinForm() {
   return (
     <div className="tab">
       <Section title={T('🎲 Unirse a una partida', '🎲 Join a game')}>
-        <p className="small">{T('Pide al DM el código de la partida y escríbelo aquí. No hace falta ninguna dirección: la app busca la partida y te quedas en ella (no se abre el navegador). Tu ficha sigue en tu dispositivo; a la partida solo va un resumen (vida, CA, condiciones…).', 'Ask the DM for the game code and type it here. No address needed: the app finds the game and you stay in it (no browser opens). Your sheet stays on your device; only a summary (HP, AC, conditions…) is shared.')}</p>
-        {!asDm && (
-          <div className="grid2">
-            <label className="field">{T('Código de la partida', 'Game code')}
-              <input className="join-code" value={code} autoCapitalize="characters" autoCorrect="off" autoComplete="off" maxLength={8} placeholder="ABC123" onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === 'Enter' && clean.length >= 4 && void go()} />
-            </label>
-            <label className="field">{T('Tu nombre', 'Your name')}
-              <input value={name} onChange={(e) => setName(e.target.value)} />
-            </label>
-          </div>
-        )}
-        <details className="dm-option" open={!!url}>
-          <summary className="small muted">{T('Otro servidor (solo si el DM usa el suyo en casa)', 'Other server (only if the DM runs their own at home)')}</summary>
-          <p className="small muted">{T('Si el DM abre «Di en Di - Servidor» en su PC, escribe una vez la dirección que te diga (p. ej. 192.168.1.20:3000). La app la recuerda.', 'If the DM runs «Di en Di - Server» on their PC, type once the address they give you (e.g. 192.168.1.20:3000). The app remembers it.')}</p>
-          <label className="field">{T('Dirección del servidor', 'Server address')}
-            <input value={url} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="192.168.1.20:3000 · https://mi-pc.tail1234.ts.net" onChange={(e) => setUrl(e.target.value)} />
+        <p className="small">{T('Escribe el código que te dé el DM y pulsa Unirse. Si la partida es en casa, conéctate antes a la misma Wi-Fi que el PC del DM; si es en la nube, basta con tener Internet. Tu ficha sigue en tu dispositivo; a la partida solo va un resumen (vida, CA, condiciones…).', 'Type the code the DM gives you and press Join. If it’s an at-home game, first join the same Wi-Fi as the DM’s PC; if it’s in the cloud, any Internet connection works. Your sheet stays on your device; only a summary (HP, AC, conditions…) is shared.')}</p>
+        <div className="grid2">
+          <label className="field">{T('Código de la partida', 'Game code')}
+            <input className="join-code" value={code} autoCapitalize="characters" autoCorrect="off" autoComplete="off" maxLength={9} placeholder="ABC123" onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === 'Enter' && clean.length >= 6 && void go()} />
           </label>
-        </details>
-        <details className="dm-option" open={asDm}>
-          <summary className="small muted">{T('¿Eres el DM y tienes una clave?', 'Are you the DM with a key?')}</summary>
-          <p className="small muted">{T('Lo más cómodo es tu enlace de DM (termina en /dm). Desde aquí también puedes entrar con la clave:', 'The easiest way is your DM link (it ends in /dm). You can also enter with the key here:')}</p>
-          <label className="check"><input type="checkbox" checked={asDm} onChange={(e) => setAsDm(e.target.checked)} /> {T('Soy el DM', 'I’m the DM')}</label>
-        </details>
-        {asDm && (
-          <label className="field">{T('Clave del DM (la muestra el servidor)', 'DM key (shown by the server)')}
-            <input value={dmKey} autoCapitalize="off" onChange={(e) => setDmKey(e.target.value.trim())} />
+          <label className="field">{T('Tu nombre', 'Your name')}
+            <input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-        )}
-        {!asDm && <p className="hint">{T(`Compartirás la ficha de ${c.name}. Cambia de personaje en Ajustes antes de unirte si quieres usar otro.`, `You’ll share ${c.name}’s sheet. Switch characters in Settings before joining to use another one.`)}</p>}
+        </div>
+        <p className="hint">{T(`Compartirás la ficha de ${c.name}. Cambia de personaje en Ajustes antes de unirte si quieres usar otro.`, `You’ll share ${c.name}’s sheet. Switch characters in Settings before joining to use another one.`)}</p>
         {(err || error) && <p className="error">⚠️ {err ?? error}</p>}
-        <button className="btn primary full big" disabled={busy || (!asDm && clean.length < 4) || (asDm && !dmKey)} onClick={() => void go()}>
+        <button className="btn primary full big" disabled={busy || clean.length < 6} onClick={() => void go()}>
           {busy ? `⏳ ${T('Buscando la partida…', 'Looking for the game…')}` : `🎲 ${T('Unirse', 'Join')}`}
         </button>
       </Section>
-      <DmStart server={url} />
       <SharedWithMe />
     </div>
   );
@@ -1047,8 +1020,7 @@ export function PartyTab() {
       </div>
       {error && <p className="error">⚠️ {error}</p>}
       {view && dm && <GamePanel view={view} />}
-      {view && dm && view.open && <InvitePanel code={view.code} cloud={view.cloud} />}
-      {view && dm && view.open && <TvLink code={view.code} />}
+      {view && dm && view.open && <TvLink view={view} />}
       {/* Jugador en combate: el combate (antesala o turnos) va lo primero */}
       {view && !dm && view.encounter.active && <SharedCombat view={view} />}
       {view && (
@@ -1209,54 +1181,6 @@ export function TvView() {
   );
 }
 
-/** Enlace para abrir la vista de la tele en cualquier navegador de la red */
-interface ServerInfo { code: string; lan: string[]; publish?: { mode: string; url: string | null; status: string; message: string; direct?: string } }
-
-/** DM: cómo se unen los jugadores — dirección pública (Internet) y de la red local, con el código */
-function InvitePanel({ code, cloud }: { code: string; cloud?: CloudLinkView }) {
-  const conn = useParty((s) => s.conn);
-  const [info, setInfo] = useState<ServerInfo | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    if (!conn?.dmKey) return;
-    let stop = false;
-    const load = () => fetch(`${httpBase(conn.url)}/api/info?dm=${encodeURIComponent(conn.dmKey!)}`).then((r) => r.json()).then((j: ServerInfo) => { if (!stop && j.code) setInfo(j); }).catch(() => { if (!stop) setFailed(true); });
-    void load();
-    const t = window.setInterval(load, 15000);
-    return () => { stop = true; clearInterval(t); };
-  }, [conn?.url, conn?.dmKey]);
-  const pub = info?.publish;
-  const copy = (t: string) => void navigator.clipboard?.writeText(t);
-  const Row = ({ label, url }: { label: string; url: string }) => (
-    <div className="invite-row">
-      <span className="small muted">{label}</span>
-      <div className="row"><code className="grow">{url}</code><button className="btn small" onClick={() => copy(url)}>{T('Copiar', 'Copy')}</button></div>
-    </div>
-  );
-  return (
-    <details className="tv-link invite" open={!!pub && pub.status === 'on'}>
-      <summary>📨 {T('Invitar jugadores', 'Invite players')} · <b>{code}</b> {pub?.status === 'on' || cloud?.status === 'on' ? '🌍' : '🏠'}</summary>
-      {cloud?.status === 'on' && <Row label={T('🌐 Desde cualquier sitio (por la nube)', '🌐 From anywhere (through the cloud)')} url={`${cloud.url}/?join=${code}`} />}
-      {pub?.status === 'on' && pub.url && (
-        <>
-          <Row label={T('🌍 Desde cualquier sitio (Internet)', '🌍 From anywhere (Internet)')} url={`${pub.url}/?join=${code}`} />
-          <p className="hint">{T(`En la app basta el código ${code} (Partida → código). El enlace es para quien juega desde el navegador: entra solo, en esa misma pestaña.`, `In the app the code ${code} is enough (Game → code). The link is for browser players: it joins directly, in that same tab.`)}</p>
-          {pub.direct && <Row label={T('🔗 Dirección directa (apps de Android 0.24 o anteriores)', '🔗 Direct address (Android app 0.24 or older)')} url={pub.direct} />}
-        </>
-      )}
-      {pub && pub.status !== 'on' && <p className="hint">{pub.status === 'starting' ? '⏳ ' : pub.status === 'error' ? '⚠️ ' : 'ℹ️ '}{pub.message}</p>}
-      {(info?.lan ?? []).map((u) => <Row key={u} label={T('🏠 Misma Wi-Fi', '🏠 Same Wi-Fi')} url={`${u}/?join=${code}`} />)}
-      {failed && !info && <p className="hint">{T('No puedo leer las direcciones del servidor. Mira la ventana negra del servidor.', 'Can’t read the server addresses. Check the server’s black window.')}</p>}
-      {conn?.dmKey && (
-        <details className="dm-link">
-          <summary className="small">🔑 {T('Tu enlace de DM (no lo compartas)', 'Your DM link (don’t share it)')}</summary>
-          <Row label={T('Ábrelo en otro dispositivo para llevar la partida desde allí', 'Open it on another device to run the game from there')} url={`${pub?.status === 'on' && pub.url ? pub.url : httpBase(conn.url)}/dm?dm=${conn.dmKey}`} />
-        </details>
-      )}
-    </details>
-  );
-}
-
 /**
  * DM: la partida empieza cerrada mientras la preparas (lugares, personajes, tesoro, imágenes…). Al pulsar
  * «Crear partida» se genera el código que das a los jugadores; con él se unen desde su app. Luego puedes
@@ -1271,6 +1195,11 @@ function GamePanel({ view }: { view: RoomView }) {
   const [copied, setCopied] = useState(false);
   const players = view.members.filter((m) => m.role === 'player').length;
   const toast = (title: string, line: string) => useStore.getState().showToast(title, [line]);
+  const create = (mode?: GameMode) => {
+    send({ t: 'openGame', removePlayers: players > 0 && removePlayers, clearLog, ...(mode ? { mode } : {}) });
+    toast(mode === 'local' ? T('🏠 Partida en casa creada', '🏠 At-home game created') : mode === 'cloud' ? T('🌍 Partida en la nube creada', '🌍 Cloud game created') : T('🎲 Partida creada', '🎲 Game created'),
+      T('Da el código a los jugadores: lo escriben en su app y se unen.', 'Give the code to the players: they type it in their app and join.'));
+  };
   if (!view.open) {
     return (
       <Section title={`🛠️ ${T('Preparando la sesión', 'Preparing the session')}`} className="game-panel closed">
@@ -1278,8 +1207,23 @@ function GamePanel({ view }: { view: RoomView }) {
         {players > 0 && <label className="check"><input type="checkbox" checked={removePlayers} onChange={(e) => setRemovePlayers(e.target.checked)} /> 👋 {T(`Empezar sin los jugadores de la sesión anterior (${players}): se unen con el código nuevo`, `Start without the previous session’s players (${players}): they join with the new code`)}</label>}
         {view.log.length > 0 && <label className="check"><input type="checkbox" checked={clearLog} onChange={(e) => setClearLog(e.target.checked)} /> 🗑️ {T('Borrar el registro de los combates anteriores', 'Clear the log of previous combats')}</label>}
         {clearLog && <p className="hint">💾 {T('Si quieres conservarlo, antes haz una copia en Personajes → Copia de la campaña.', 'To keep it, first make a copy in Characters → Campaign backup.')}</p>}
-        {view.cloud && <CloudLink cloud={view.cloud} open={false} />}
-        <button className="btn primary full big" onClick={() => { send({ t: 'openGame', removePlayers: players > 0 && removePlayers, clearLog }); toast(T('🎲 Partida creada', '🎲 Game created'), T('Da el código a los jugadores: en su app, Partida → código.', 'Give the code to the players: in their app, Game → code.')); }}>🎲 {T('Crear partida', 'Create game')}</button>
+        {view.net ? (
+          <>
+            <span className="p-mini">🎲 {T('Crear partida: ¿dónde jugáis?', 'Create game: where are you playing?')}</span>
+            <div className="game-modes">
+              <button className="btn game-mode" disabled={!view.net.lan} onClick={() => create('local')}>
+                <b>🏠 {T('En casa', 'At home')}</b>
+                <span className="small">{view.net.lan ? T('Todos en la misma Wi-Fi que este PC. No hace falta Internet.', 'Everyone on the same Wi-Fi as this PC. No Internet needed.') : T('Este PC no está conectado a ninguna Wi-Fi o red de casa.', 'This PC isn’t connected to any Wi-Fi or home network.')}</span>
+              </button>
+              <button className="btn game-mode" onClick={() => create('cloud')}>
+                <b>🌍 {T('En la nube', 'In the cloud')}</b>
+                <span className="small">{T('Cada uno desde donde quiera, con Internet.', 'Everyone from wherever they are, with Internet.')}</span>
+              </button>
+            </div>
+          </>
+        ) : (
+          <button className="btn primary full big" onClick={() => create()}>🎲 {T('Crear partida', 'Create game')}</button>
+        )}
       </Section>
     );
   }
@@ -1291,8 +1235,8 @@ function GamePanel({ view }: { view: RoomView }) {
         <button className="game-code" title={T('Copiar', 'Copy')} onClick={copy}>{view.code}</button>
         <span className="tiny muted">{copied ? T('✅ Copiado', '✅ Copied') : T('Toca para copiar', 'Tap to copy')}</span>
       </div>
-      <p className="small">{T('En su app: pestaña Partida → escriben el código → Unirse. Se quedan en la app (o en su pestaña del navegador) y desde ese momento estáis enlazados.', 'In their app: Game tab → type the code → Join. They stay in the app (or in their browser tab) and from then on you’re linked.')}</p>
-      {view.cloud && <CloudLink cloud={view.cloud} open />}
+      {view.net && <NetStatus view={view} />}
+      <p className="small">{T('En su app: pestaña Partida → escriben el código → Unirse. Nada más: ni direcciones ni claves.', 'In their app: Game tab → type the code → Join. That’s all: no addresses or keys.')}</p>
       <div className="row wrap">
         <button className="btn small" onClick={async () => {
           if (await askOk(T('¿Cambiar el código de la partida?', 'Change the game code?'), { text: T('Quien ya está dentro sigue conectado; para entrar de nuevo hará falta el código nuevo.', 'Anyone already in stays connected; joining again will need the new code.') })) { send({ t: 'newCode' }); toast(T('🔁 Código nuevo', '🔁 New code'), T('Pasa el código nuevo a los jugadores.', 'Give the new code to the players.')); }
@@ -1310,54 +1254,27 @@ function GamePanel({ view }: { view: RoomView }) {
   );
 }
 
-/**
- * DM en el servidor de su PC: la clave del DM de la nube. Con ella, al crear la partida el PC se enlaza con la nube
- * y los jugadores entran con el código desde cualquier sitio (la partida sigue en el PC; la nube solo hace de puente).
- */
-function CloudLink({ cloud, open }: { cloud: CloudLinkView; open: boolean }) {
-  const send = useParty((s) => s.send);
-  const [editing, setEditing] = useState(false);
-  const [key, setKey] = useState('');
-  const [url, setUrl] = useState(cloud.url === DEFAULT_SERVER ? '' : cloud.url);
-  const save = () => { send({ t: 'cloudLink', url: url.trim(), key: key.trim() }); setEditing(false); setKey(''); };
-  if (!cloud.linked || editing) {
-    return (
-      <div className="cloud-link off">
-        <p className="small"><b>🌐 {T('Partida en la nube', 'Game in the cloud')}</b> · {T('Para que el código sirva desde cualquier sitio (no solo en tu Wi-Fi), pon una vez la clave del DM de tu servidor de la nube. La partida sigue en este PC: la nube solo les hace de puerta.', 'So the code works from anywhere (not just your Wi-Fi), enter your cloud server’s DM key once. The game stays on this PC: the cloud is just their way in.')}</p>
-        <div className="row">
-          <input className="grow" type="password" autoComplete="off" placeholder={T('Clave del DM de la nube', 'Cloud DM key')} value={key} onChange={(e) => setKey(e.target.value)} />
-          <button className="btn small primary" disabled={!key.trim()} onClick={save}>{T('Enlazar', 'Link')}</button>
-          {editing && <button className="btn small" onClick={() => setEditing(false)}>{T('Cancelar', 'Cancel')}</button>}
-        </div>
-        <details className="small">
-          <summary className="muted">{T('Otra dirección de la nube', 'Another cloud address')}</summary>
-          <input placeholder={DEFAULT_SERVER} value={url} onChange={(e) => setUrl(e.target.value)} />
-        </details>
-      </div>
-    );
+/** DM en el servidor de su PC: dónde se juega y si los jugadores ya pueden entrar */
+function NetStatus({ view }: { view: RoomView }) {
+  const net = view.net!;
+  if (view.mode === 'local') {
+    return <p className="net-status on small">🏠 <b>{T('Partida en casa', 'At-home game')}</b> · {T('los jugadores tienen que estar en la misma Wi-Fi que este PC.', 'players must be on the same Wi-Fi as this PC.')}{!net.lan && <> ⚠️ {T('Ahora mismo este PC no está en ninguna red de casa.', 'Right now this PC isn’t on any home network.')}</>}</p>;
   }
-  const text: Record<CloudLinkView['status'], string> = {
-    on: T('🌐 Enlazada con la nube: el código sirve desde cualquier sitio.', '🌐 Linked to the cloud: the code works from anywhere.'),
-    connecting: T('⏳ Enlazando con la nube…', '⏳ Linking to the cloud…'),
-    off: open ? T('⏳ Enlazando con la nube…', '⏳ Linking to the cloud…') : T('🌐 Al crear la partida se enlaza con la nube y el código servirá desde cualquier sitio.', '🌐 When you create the game it links to the cloud and the code will work from anywhere.'),
-    'bad-key': T('⚠️ La nube no acepta esta clave del DM. Cámbiala (es la que te dio el despliegue de la nube).', '⚠️ The cloud doesn’t accept this DM key. Change it (it’s the one the cloud deployment gave you).'),
-    unreachable: T('⚠️ No consigo conectar con la nube; lo sigo intentando. Mientras, el código solo sirve en tu Wi-Fi.', '⚠️ Can’t reach the cloud; still trying. Meanwhile the code only works on your Wi-Fi.'),
+  const text: Record<typeof net.cloud, string> = {
+    on: T('lista: cualquiera con Internet entra con el código.', 'ready: anyone with Internet joins with the code.'),
+    connecting: T('⏳ conectando con la nube…', '⏳ connecting to the cloud…'),
+    off: T('⏳ conectando con la nube…', '⏳ connecting to the cloud…'),
+    unreachable: T('⚠️ no consigo conectar con la nube. Comprueba la conexión a Internet de este PC; lo sigo intentando solo.', '⚠️ can’t reach the cloud. Check this PC’s Internet connection; I keep trying on my own.'),
   };
-  return (
-    <div className={`cloud-link ${cloud.status}`}>
-      <p className="small">{text[cloud.status]} <span className="tiny muted">({cloud.url.replace(/^https?:\/\//, '')})</span></p>
-      <div className="row wrap">
-        <button className="btn small" onClick={() => setEditing(true)}>🔑 {T('Cambiar la clave', 'Change the key')}</button>
-        <button className="btn small" onClick={async () => { if (await askOk(T('¿Quitar el enlace con la nube?', 'Remove the cloud link?'), { text: T('El código solo servirá en tu red (o con la dirección de este servidor).', 'The code will only work on your network (or with this server’s address).') })) send({ t: 'cloudLink', url: '', key: '' }); }}>{T('Quitar el enlace', 'Remove the link')}</button>
-      </div>
-    </div>
-  );
+  return <p className={`net-status ${net.cloud} small`}>🌍 <b>{T('Partida en la nube', 'Cloud game')}</b> · {text[net.cloud]}</p>;
 }
 
-function TvLink({ code }: { code: string }) {
+/** Enlace para abrir la vista de la tele en un navegador (en casa, de la misma Wi-Fi) */
+function TvLink({ view }: { view: RoomView }) {
   const conn = useParty((s) => s.conn);
-  const base = httpBase(conn?.url);
-  const url = `${base}/?view=${code}`;
+  const base = view.net ? (view.mode === 'local' ? view.net.lan : DEFAULT_SERVER) : httpBase(conn?.url);
+  if (!base) return null;
+  const url = `${base}/?view=${view.code}`;
   return (
     <details className="tv-link">
       <summary>📺 {T('Vista para la tele / pantalla de la mesa', 'TV / table screen view')}</summary>

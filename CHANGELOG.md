@@ -3,6 +3,16 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.31.0 · 23 nov 2026 — Partida en casa o en la nube, solo con el código
+
+**Partida**
+- **Las partidas se crean solo en «Di en Di - Servidor» (el PC del DM).** Al pulsar **🎲 Crear partida** eliges:
+  - **🏠 En casa**: todos en la misma Wi-Fi que el PC, sin Internet. El código (8 letras) lleva dentro la dirección del PC y la app la encuentra sola.
+  - **🌍 En la nube**: cada uno desde donde quiera. El PC se conecta solo con la nube; si su entrada caduca, pide otra sin decir nada.
+- **Los jugadores solo escriben el código.** Fuera «Otro servidor», «Soy el DM», las direcciones de «Invitar jugadores», la clave de la nube y «Mis partidas».
+- **Sin Tailscale ni ngrok**: el servidor ya no publica nada en Internet por su cuenta, y la ventana negra solo enseña lo necesario.
+- Si una partida en casa no aparece, la app explica por qué (otra Wi-Fi o abierta desde la web en lugar de la app).
+
 ## 0.30.0 · 23 nov 2026 — Partidas desde la app, cobrar, garabatos en los mapas y emojis medievales
 
 **Partida**

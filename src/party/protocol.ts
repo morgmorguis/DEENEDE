@@ -270,6 +270,8 @@ export interface RoomView {
   code: string;
   /** La partida está abierta: se puede entrar con el código (cerrada mientras el DM prepara la sesión) */
   open: boolean;
+  /** Dónde se juega (las partidas antiguas no lo dicen) */
+  mode?: GameMode;
   you: { id: string; role: Role; name: string };
   members: Member[];
   encounter: {
@@ -303,19 +305,21 @@ export interface RoomView {
   canUndo: boolean;
   /** Puedes pasar turno (DM o el dueño del turno actual) */
   canEndTurn: boolean;
-  /** Solo el DM en un servidor de PC: el enlace con la nube para que el código sirva desde cualquier sitio */
-  cloud?: CloudLinkView;
+  /** Solo el DM en el servidor de su PC: cómo llegan los jugadores a la partida */
+  net?: NetView;
 }
 
 /** Servidor de partida de la nube: con él basta el código para unirse */
 export const CLOUD_SERVER = 'https://di-en-di.web.app';
 
-export interface CloudLinkView {
-  /** Hay clave de la nube guardada en el PC */
-  linked: boolean;
-  url: string;
-  /** off: sin enlazar ahora (partida cerrada) · on: los jugadores entran con el código desde la nube */
-  status: 'off' | 'connecting' | 'on' | 'bad-key' | 'unreachable';
+/** En casa: misma Wi-Fi que el PC del DM · en la nube: desde cualquier sitio con Internet */
+export type GameMode = 'local' | 'cloud';
+
+export interface NetView {
+  /** Dirección del PC en la Wi-Fi (http://IP:PUERTO), si está conectado a una red de casa */
+  lan: string | null;
+  /** Partida en la nube: off (no hace falta) · connecting · on (el código ya sirve desde cualquier sitio) · unreachable */
+  cloud: 'off' | 'connecting' | 'on' | 'unreachable';
 }
 
 // ---------- Mensajes ----------
@@ -376,13 +380,11 @@ export type Command =
    * Crear (abrir) la partida: el DM ha preparado la sesión a solas y ahora genera un código nuevo con el que se unen
    * los jugadores. Como en `newSession`, puede sacar a los jugadores anteriores y borrar el registro.
    */
-  | { t: 'openGame'; removePlayers?: boolean; clearLog?: boolean }
+  | { t: 'openGame'; removePlayers?: boolean; clearLog?: boolean; mode?: GameMode }
   /** Cerrar la partida: nadie nuevo puede unirse con el código (los de dentro siguen, salvo que se les saque) */
   | { t: 'closeGame'; removePlayers?: boolean }
   /** Echa a un jugador o una pantalla de la partida (puede volver con el código si la partida está abierta) */
   | { t: 'kick'; id: string }
-  /** Servidor del PC: guarda la clave del DM de la nube (url vacía = la de siempre) o la quita (key vacía) */
-  | { t: 'cloudLink'; url: string; key: string }
   | { t: 'add'; combatants: Partial<Combatant>[] }
   | { t: 'update'; id: string; patch: Partial<Combatant> }
   | { t: 'remove'; id: string }

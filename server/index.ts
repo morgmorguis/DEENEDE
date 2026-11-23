@@ -1,6 +1,8 @@
-// Servidor de partida de «Di en Di»: se ejecuta en el PC del DM (una partida) o en la nube (varias: la principal y las que
-// crea cualquiera desde la app con «Crear partida»). Sirve la app web y mantiene cada partida compartida (party, combate por
-// turnos, log) por WebSocket. Guarda todo en archivos JSON junto al ejecutable (o en /datos en la nube).
+// Servidor de partida de «Di en Di»: se ejecuta en el PC del DM (una partida) o en la nube (la principal y las que
+// piden los PC). Sirve la app web y mantiene cada partida compartida (party, combate por turnos, log) por WebSocket.
+// Guarda todo en archivos JSON junto al ejecutable (o en /datos en la nube).
+// En el PC el DM elige al crear la partida: «en casa» (el código lleva la dirección del PC en la Wi-Fi) o «en la nube»
+// (el PC se enlaza solo con la nube y los jugadores entran con el código desde cualquier sitio).
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,8 +10,8 @@ import os from 'node:os';
 import { exec } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import { apply, CAMPAIGN_KIND, canEnter, canSeeImage, createRoom, enterError, exportCampaign, importCampaign, join, newCode, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
-import { CLOUD_SERVER, type ClientMessage, type CloudLinkView, type ServerMessage } from '../src/party/protocol';
-import { startPublishing, stopPublishing, type PublishState } from './publish';
+import { CLOUD_SERVER, type ClientMessage, type NetView, type ServerMessage } from '../src/party/protocol';
+import { isLanIp, lanAddress, lanCode } from '../src/party/lanCode';
 import { RelayHost, RelayHub, resolveCloud, type CloudConfig } from './relay';
 
 const args = process.argv.slice(2);
@@ -32,8 +34,24 @@ const BACKUP_KIND = 'di-en-di-backup';
 // En Cloud Run (lo dice K_SERVICE) la dirección pública es la de la petición (https://….run.app) o la de DI_EN_DI_URL
 const CLOUD = !!process.env.K_SERVICE;
 const PUBLIC_URL = (process.env.DI_EN_DI_URL ?? '').replace(/\/+$/, '');
-const publicUrl = (req: http.IncomingMessage) => PUBLIC_URL || (CLOUD && req.headers.host ? `https://${req.headers.host}` : '');
 const DIST = [path.join(__dirname, '..', '..', 'dist'), path.join(__dirname, '..', 'dist'), path.join(process.cwd(), 'dist')].find((p) => fs.existsSync(path.join(p, 'index.html')));
+
+// ---------- Red de casa ----------
+// Interfaces de red de mentira (máquinas virtuales, WSL, VPN…): su dirección no le sirve a nadie de la Wi-Fi
+const VIRTUAL = /vethernet|virtualbox|vmware|vmnet|hyper-v|wsl|docker|tailscale|zerotier|hamachi|vpn|loopback|bluetooth/i;
+// En Docker las IP de dentro del contenedor no le sirven a nadie: DI_EN_DI_IP dice la IP del PC
+const FIXED_IP = (process.env.DI_EN_DI_IP ?? '').split(',').map((x) => x.trim()).find(isLanIp);
+/** La IP de este PC en la red de casa (192.168.x.x antes que 10.x.x.x y que 172.16-31.x.x), o null */
+function lanIp(): string | null {
+  if (FIXED_IP) return FIXED_IP;
+  if (CLOUD) return null;
+  const all = Object.entries(os.networkInterfaces()).flatMap(([name, list]) => (list ?? []).map((i) => ({ name, address: i.address, family: i.family, internal: i.internal })))
+    .filter((i) => i.family === 'IPv4' && !i.internal && isLanIp(i.address) && !VIRTUAL.test(i.name));
+  const rank = (ip: string) => (ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') ? 1 : 2);
+  return all.sort((x, y) => rank(x.address) - rank(y.address))[0]?.address ?? null;
+}
+/** Código de 8 letras de una partida en casa (con la dirección del PC dentro) */
+const localCode = () => { const ip = lanIp(); return ip ? lanCode(ip, PORT) : null; };
 
 // ---------- Partidas ----------
 // La principal es la de siempre (DATA_FILE). En la nube, además, las que se crean desde la app («Crear partida»):
@@ -114,20 +132,18 @@ const touch = (g: Game) => { g.usedAt = Date.now(); };
 // ---------- Enlace con la nube ----------
 // En la nube: hace de puente hacia las partidas de los PC enlazados (quien entra con su código va a ese PC).
 const hub = new RelayHub();
-// En el PC: con la clave del DM de la nube guardada, al crear la partida se enlaza con ella y el código sirve desde cualquier sitio.
-// Si no hay clave, al crear la partida el PC pide una partida a la nube y usa su clave (sin que el DM tenga que copiar nada).
+// En el PC, partida «en la nube»: el PC pide a la nube una entrada (una clave) y la guarda en di-en-di-nube.json. Todo
+// automático: si la nube ya no la acepta (caducó tras días sin usarse) pide otra. El DM y los jugadores no ven nada de esto.
 const CLOUD_FILE = path.join(DATA_DIR, 'di-en-di-nube.json');
-const AUTO_CLOUD = !CLOUD && !args.includes('--no-cloud');
 const CLOUD_URL = argValue('--nube') ?? process.env.DI_EN_DI_NUBE ?? CLOUD_SERVER;
-type SavedCloud = CloudConfig & { auto?: boolean };
-function loadCloud(): SavedCloud | null {
+function loadCloud(): CloudConfig | null {
   try {
-    const j = JSON.parse(fs.readFileSync(CLOUD_FILE, 'utf8')) as Partial<SavedCloud>;
-    return typeof j.key === 'string' && j.key ? { url: String(j.url || CLOUD_URL), key: j.key, ...(j.auto ? { auto: true } : {}) } : null;
+    const j = JSON.parse(fs.readFileSync(CLOUD_FILE, 'utf8')) as Partial<CloudConfig>;
+    return typeof j.key === 'string' && j.key ? { url: CLOUD_URL, key: j.key } : null;
   } catch { return null; }
 }
-let cloudCfg: SavedCloud | null = CLOUD ? null : loadCloud();
-function saveCloud(cfg: SavedCloud | null) {
+let cloudCfg: CloudConfig | null = CLOUD ? null : loadCloud();
+function saveCloud(cfg: CloudConfig | null) {
   cloudCfg = cfg;
   try {
     if (cfg) fs.writeFileSync(CLOUD_FILE, JSON.stringify(cfg));
@@ -135,23 +151,33 @@ function saveCloud(cfg: SavedCloud | null) {
   } catch (e) { console.error('No se pudo guardar el enlace con la nube:', e); }
   relay.setConfig(cfg);
 }
-/** Pide a la nube una partida para este PC y guarda su clave: desde entonces el código sirve desde cualquier sitio */
+/** La partida del PC se juega en la nube ahora mismo (abierta y no «en casa») */
+const cloudMode = () => !CLOUD && main.room.open !== false && main.room.mode !== 'local';
+/** Pide a la nube una entrada para este PC; si falla, lo reintenta mientras la partida siga en la nube */
 let autoLinking = false;
+let linkFailed = false;
+let linkRetry: NodeJS.Timeout | null = null;
 async function autoLink() {
-  if (!AUTO_CLOUD || autoLinking || (cloudCfg && !cloudCfg.auto)) return;
+  if (CLOUD || autoLinking || cloudCfg || !cloudMode()) return;
   autoLinking = true;
+  if (linkRetry) { clearTimeout(linkRetry); linkRetry = null; }
+  broadcast(main);
   try {
     const base = await resolveCloud(CLOUD_URL);
     const r = await fetch(`${base}/api/new`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ purpose: 'pc' }), signal: AbortSignal.timeout(15000) });
     const j = await r.json() as { dmKey?: string; error?: string };
     if (!r.ok || !j.dmKey) throw new Error(j.error ?? String(r.status));
-    saveCloud({ url: CLOUD_URL, key: j.dmKey, auto: true });
-    console.log(`→ 🌐 Enlazada con la nube (${CLOUD_URL}): el código sirve desde cualquier sitio.`);
+    linkFailed = false;
+    autoLinking = false;
+    saveCloud({ url: CLOUD_URL, key: j.dmKey });
     syncRelay();
-    broadcast(main);
   } catch (e) {
-    console.log(`\n  ⚠️  No he podido enlazar la partida con la nube (${String(e)}). El código solo sirve en tu red; lo vuelvo a intentar al crear la partida.`);
-  } finally { autoLinking = false; }
+    autoLinking = false;
+    if (!linkFailed) console.log(`\n  ⚠️  No consigo conectar con la nube (${String(e)}). Lo sigo intentando: comprueba la conexión a Internet de este PC.`);
+    linkFailed = true;
+    linkRetry = setTimeout(() => { linkRetry = null; void autoLink(); }, 20000);
+  }
+  broadcast(main);
 }
 
 /** Una petición GET a este mismo servidor (la nube la reenvía: imágenes y fichas guardadas de los jugadores) */
@@ -173,28 +199,37 @@ const relay = new RelayHost({
   },
   get: localGet,
   onStatus: (st) => {
-    if (st === 'on') console.log(`\n  🌐 Enlazada con la nube: los jugadores entran con el código ${main.room.code} desde cualquier sitio (${cloudCfg?.url}).`);
-    else if (st === 'bad-key') {
-      // La partida de la nube que pidió el PC ha caducado: se pide otra
-      if (cloudCfg?.auto) { saveCloud(null); void autoLink(); } else console.log('\n  ⚠️  La nube no acepta la clave del DM guardada: revísala en la pantalla del DM (Partida).');
-    } else if (st === 'unreachable') console.log('\n  ⚠️  No puedo conectar con la nube; lo sigo intentando. La red local sigue funcionando.');
+    if (st === 'on' && cloudMode()) console.log(`→ 🌍 Partida en la nube lista: los jugadores entran con el código ${main.room.code} desde cualquier sitio.`);
+    // La entrada que pidió el PC ha caducado (o la nube se ha reinstalado): se pide otra, sin molestar al DM
+    else if (st === 'bad-key') { saveCloud(null); void autoLink(); }
     // Después: al arrancar (partida abierta y clave guardada) el enlace empieza antes de que exista la lista de conexiones
     setImmediate(() => broadcast(main));
   },
 });
-const cloudView = (): CloudLinkView => ({ linked: !!cloudCfg, url: cloudCfg?.url ?? CLOUD_SERVER, status: relay.status });
-// El enlace se mantiene con la partida abierta, mientras haya jugadores conectados por la nube y 10 minutos más
+/** Cómo llegan los jugadores a la partida del PC (solo lo ve el DM) */
+const netView = (): NetView => {
+  const ip = lanIp();
+  let cloud: NetView['cloud'] = 'off';
+  if (cloudMode()) {
+    if (relay.status === 'on') cloud = 'on';
+    else if (relay.status === 'unreachable' || (linkFailed && !autoLinking)) cloud = 'unreachable';
+    else cloud = 'connecting';
+  }
+  return { lan: ip ? `http://${ip}:${PORT}` : null, cloud };
+};
+// El enlace se mantiene con la partida en la nube abierta, mientras haya jugadores conectados por la nube y 10 minutos más
 let lingerUntil = 0;
 let lingerTimer: NodeJS.Timeout | null = null;
 function syncRelay() {
   if (CLOUD) return;
   const room = main.room;
-  const open = room.open !== false;
+  const open = cloudMode();
   if (open || relay.peerCount > 0) lingerUntil = Date.now() + 10 * 60000;
   const wanted = open || Date.now() < lingerUntil;
   relay.update({ code: room.code, open, keys: [room.dmKey, ...room.members.map((m) => m.token)] }, wanted);
   if (lingerTimer) { clearTimeout(lingerTimer); lingerTimer = null; }
   if (!open && wanted) lingerTimer = setTimeout(syncRelay, lingerUntil - Date.now() + 1000);
+  if (open && !cloudCfg) void autoLink();
 }
 relay.setConfig(cloudCfg);
 
@@ -295,7 +330,9 @@ const server = http.createServer((req, res) => {
     if (!MULTI) { res.statusCode = 404; res.end('{"error":"no-multi"}'); return; }
     if (req.method !== 'POST') { res.statusCode = 405; res.end('{"error":"post"}'); return; }
     void readJson(req, 300 * 1024 * 1024).then((body) => {
-      const b = (body ?? {}) as { dmKey?: unknown; campaign?: unknown; title?: unknown };
+      const b = (body ?? {}) as { dmKey?: unknown; campaign?: unknown; title?: unknown; purpose?: unknown };
+      // Las partidas se crean solo desde el servidor del PC del DM (no desde la app)
+      if (b.purpose !== 'pc') { res.statusCode = 403; res.end('{"error":"pc-only"}'); return; }
       const ip = clientIp(req);
       const today = (created.get(ip) ?? []).filter((t) => t > Date.now() - DAY);
       const extras = allGames().filter((g) => g.extra).length;
@@ -335,11 +372,8 @@ const server = http.createServer((req, res) => {
     const probe = url.searchParams.get('probe') === PROBE ? { probe: PROBE } : {};
     // «check»: la app pregunta si un código es de esta partida (para unirse solo con el código)
     const check = (url.searchParams.get('check') ?? '').trim().toUpperCase().slice(0, 12);
-    const pub = publicUrl(req);
-    // La dirección real del servicio, para las apps antiguas que no entienden la corta (PROYECTO.web.app)
-    const direct = CLOUD && req.headers.host ? `https://${req.headers.host}` : '';
     res.end(JSON.stringify(dmGame
-      ? { app: 'di-en-di', code: dmGame.room.code, port: PORT, multi: MULTI, lan: dmGame === main ? lanIps().map((ip) => `http://${ip}:${PORT}`) : [], publish: pub ? { mode: 'cloud', url: pub, status: 'on', message: '', ...(direct && direct !== pub ? { direct } : {}) } : publish, ...probe }
+      ? { app: 'di-en-di', code: dmGame.room.code, port: PORT, multi: MULTI, ...probe }
       : { app: 'di-en-di', multi: MULTI, ...probe, ...(check ? checkCode(check) : {}), ...(url.searchParams.has('dm') ? { known: false } : {}) }));
     return;
   }
@@ -444,7 +478,7 @@ const send = (p: Peer, msg: ServerMessage) => p.send(JSON.stringify(msg));
 function broadcast(g: Game) {
   for (const [p, id] of g.clients) {
     const view = viewFor(g.room, id);
-    if (view) send(p, { t: 'state', view: view.you.role === 'dm' && !CLOUD && g === main ? { ...view, cloud: cloudView() } : view });
+    if (view) send(p, { t: 'state', view: view.you.role === 'dm' && !CLOUD && g === main ? { ...view, net: netView() } : view });
   }
 }
 
@@ -533,16 +567,8 @@ function handleMessage(ws: Peer, data: string) {
   const room = g.room;
   const cmd = msg.cmd;
   touch(g);
-  // Enlace con la nube (solo el DM, en un servidor de PC): se guarda junto a la partida
-  if (cmd.t === 'cloudLink') {
-    if (CLOUD || g !== main || room.members.find((m) => m.id === id)?.role !== 'dm') { send(ws, { t: 'error', message: 'not-allowed' }); return; }
-    const key = String(cmd.key ?? '').trim();
-    saveCloud(key ? { url: String(cmd.url ?? '').trim() || CLOUD_SERVER, key } : null);
-    console.log(cloudCfg ? `→ 🌐 Clave de la nube guardada (${cloudCfg.url}).` : '→ Enlace con la nube quitado.');
-    save(g);
-    broadcast(g);
-    return;
-  }
+  // Partida en casa: hace falta que el PC esté en una red de casa (su dirección va dentro del código)
+  if (cmd.t === 'openGame' && cmd.mode === 'local' && (CLOUD || g !== main || !lanIp())) { send(ws, { t: 'error', message: 'no-lan' }); return; }
   // Imagen nueva del DM: se guarda en disco y a la partida solo van sus datos
   if (cmd.t === 'imageAdd') {
     const me = room.members.find((m) => m.id === id);
@@ -576,7 +602,11 @@ function handleMessage(ws: Peer, data: string) {
   const r = apply(room, id, cmd);
   if (r.error) { send(ws, { t: 'error', message: r.error }); return; }
   g.room = r.room;
-  if (g.room.code !== room.code) uniqueCode(g);
+  if (g.room.code !== room.code) {
+    // En casa, el código lleva la dirección del PC en la Wi-Fi
+    if (g === main && g.room.mode === 'local') g.room.code = localCode() ?? g.room.code;
+    else uniqueCode(g);
+  }
   for (const eff of r.effects) for (const [w, mid] of g.clients) if (mid === eff.to) send(w, { t: 'sheet', ops: eff.ops });
   // Sesión nueva o partida cerrada: a quien ya no está en la partida se le avisa y se le desconecta
   for (const [w, mid] of g.clients) {
@@ -588,27 +618,21 @@ function handleMessage(ws: Peer, data: string) {
   }
   const tag = g.extra ? ` (partida ${g.id})` : '';
   if (cmd.t === 'newSession') console.log(`→ Sesión nueva. Código de la partida: ${g.room.code}${tag}`);
-  else if (cmd.t === 'openGame') console.log(`→ 🎲 Partida creada. Código para los jugadores: ${g.room.code}${tag}`);
+  else if (cmd.t === 'openGame') {
+    const local = g === main && g.room.mode === 'local';
+    console.log(`→ 🎲 Partida${g === main && !CLOUD ? (local ? ' 🏠 en casa' : ' 🌍 en la nube') : ''} creada. Código para los jugadores: ${g.room.code}${tag}`);
+    if (local) console.log('   Los jugadores tienen que estar en la misma Wi-Fi que este PC. Si no la encuentran, permite «Di en Di - Servidor»\n   en las redes privadas del Firewall de Windows.');
+  }
   else if (cmd.t === 'closeGame') console.log(`→ Partida cerrada: nadie nuevo puede unirse con el código.${tag}`);
   else if (cmd.t === 'newCode') console.log(`→ Código nuevo de la partida: ${g.room.code}${tag}`);
-  // En el PC sin enlace con la nube: al crear la partida se enlaza sola, para que el código sirva desde cualquier sitio
-  if (g === main && (cmd.t === 'openGame' || cmd.t === 'newSession') && !cloudCfg) void autoLink();
   save(g);
   broadcast(g);
 }
 
 // ---------- Arranque ----------
 
-let publish: PublishState = { mode: 'no', url: null, status: 'off', message: '' };
-
-function lanIpsList() { return Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i!.address); }
-// En Docker las IP de dentro del contenedor no le sirven a nadie: DI_EN_DI_IP dice la IP del PC (o varias, separadas por comas)
-const IN_DOCKER = fs.existsSync('/.dockerenv');
-const FIXED_IPS = (process.env.DI_EN_DI_IP ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-const lanIps = () => (FIXED_IPS.length ? FIXED_IPS : IN_DOCKER || CLOUD ? [] : lanIpsList());
-
 // En Windows otro programa puede escuchar solo en 127.0.0.1 en el mismo puerto y «tapar» a este servidor
-// (el túnel de Tailscale va a 127.0.0.1). Antes de publicar comprobamos que quien responde somos nosotros.
+// Al arrancar comprobamos que quien responde en 127.0.0.1 somos nosotros.
 const PROBE = rid(16);
 function answersHere(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -621,7 +645,6 @@ function answersHere(port: number): Promise<boolean> {
     req.on('error', () => resolve(false));
   });
 }
-let shadowed = false;
 
 // Si el puerto está ocupado: con --port avisamos; si no, probamos los siguientes (3001, 3002…)
 let tries = 0;
@@ -640,7 +663,7 @@ server.on('error', (e: NodeJS.ErrnoException) => {
 });
 
 server.on('listening', async () => {
-  // ¿Otro programa responde en 127.0.0.1 con este mismo puerto? Entonces buscamos otro (o no publicamos)
+  // ¿Otro programa responde en 127.0.0.1 con este mismo puerto? Entonces buscamos otro
   if (!(await answersHere(PORT))) {
     if (!FIXED_PORT && tries < 30) {
       console.log(`  En 127.0.0.1:${PORT} responde otro programa; pruebo con el ${PORT + 1}…`);
@@ -648,40 +671,35 @@ server.on('listening', async () => {
       server.close(() => { PORT += 1; server.listen(PORT); });
       return;
     }
-    shadowed = true;
-    console.log(`\n  ⚠️  En 127.0.0.1:${PORT} responde otro programa: no publico en Internet para no exponerlo. Abre el servidor con otro puerto (--port ${PORT + 100}).`);
+    console.log(`\n  ⚠️  En 127.0.0.1:${PORT} responde otro programa. Abre el servidor con otro puerto (--port ${PORT + 10}).`);
   }
   const room = main.room;
+  // Partida en casa abierta pero el PC ha cambiado de dirección (o de puerto): necesita un código nuevo
+  if (!CLOUD && room.open !== false && room.mode === 'local') {
+    const ip = lanIp();
+    if (lanAddress(room.code) !== (ip ? `http://${ip}:${PORT}` : null)) {
+      const c = localCode();
+      if (c) room.code = c; else room.open = false;
+      save(main);
+    }
+  }
+  syncRelay();
   const dmUrl = CLOUD ? `${PUBLIC_URL || 'https://<dirección del servicio>'}/dm?dm=${room.dmKey}` : `http://localhost:${PORT}/dm?dm=${room.dmKey}`;
   const line = '─'.repeat(64);
-  console.log(`\n${line}\n  🎲  Servidor de partida de «Di en Di»  (puerto ${PORT})\n${line}`);
-  console.log(room.open === false
-    ? '  Partida sin abrir: prepárala en la pantalla del DM y pulsa «🎲 Crear partida» para tener el código.'
-    : `  Código de la partida:  ${room.code}`);
-  if (MULTI) console.log(`  Partidas creadas desde la app: ${games.size - 1} (se borran tras ${EXPIRE_DAYS} días sin uso).`);
-  if (!CLOUD) console.log(cloudCfg
-    ? `  🌐 Enlazada con la nube (${cloudCfg.url}): al crear la partida, el código sirve desde cualquier sitio.`
-    : AUTO_CLOUD
-      ? '  🌐 Al pulsar «Crear partida» se enlaza sola con la nube y el código sirve desde cualquier sitio.'
-      : '  🌐 Sin enlace con la nube: el código solo sirve en tu red. Pon la clave de la nube en la pantalla del DM (Partida).');
-  console.log(`  Pantalla del DM (${CLOUD ? 'no la compartas' : 'solo en este PC, no la compartas'}):\n    ${dmUrl}`);
-  console.log(`  Clave del DM (para entrar como DM desde el móvil o la tablet): ${room.dmKey}`);
-  console.log('\n  Jugadores en tu misma Wi-Fi: en la app, «Partida» → dirección:');
-  for (const ip of lanIps()) console.log(`    http://${ip}:${PORT}`);
-  if (CLOUD) console.log('    (en la nube no hay red local: usa la dirección pública del servicio)');
-  else if (!lanIps().length && IN_DOCKER) console.log(`    http://<IP de este PC>:${PORT}   (en Docker: ponla en DI_EN_DI_IP para verla aquí)`);
+  console.log(`\n${line}\n  🎲  Servidor de partida de «Di en Di»\n${line}`);
+  if (CLOUD) {
+    console.log(`  Código de la partida principal: ${room.code}`);
+    console.log(`  Pantalla del DM (no la compartas):\n    ${dmUrl}`);
+    if (MULTI) console.log(`  Partidas de los PC: ${games.size - 1} (se borran tras ${EXPIRE_DAYS} días sin uso).`);
+  } else {
+    console.log(room.open === false
+      ? '  En la pantalla del DM pulsa «🎲 Crear partida» y elige 🏠 En casa o 🌍 En la nube.\n  Luego da el código a los jugadores: lo escriben en su app y ya está.'
+      : `  Partida ${room.mode === 'local' ? '🏠 en casa' : '🌍 en la nube'} abierta. Código para los jugadores: ${room.code}`);
+    console.log(`\n  La pantalla del DM se abre sola en el navegador. Si no, entra en:\n    ${dmUrl}`);
+  }
   console.log(`\n  Partida guardada en: ${DATA_FILE}`);
   console.log(`${line}\n  Deja esta ventana abierta mientras jugáis. Ctrl+C para cerrar.\n`);
   if (process.platform === 'win32' && !args.includes('--no-open')) exec(`start "" "${dmUrl}"`);
-  // Publicar en Internet (Tailscale Funnel / ngrok) sin tocar la red local
-  if (args.includes('--no-publish') || shadowed) return;
-  void startPublishing(PORT, HOME, (st) => {
-    publish = st;
-    if (st.status === 'on' && st.url) console.log(`\n  🌍 Jugadores a distancia: ${st.url}\n     (o directamente ${st.url}/?join=${main.room.code})\n     ${st.message}`);
-    else if (st.status === 'error') console.log(`\n  ⚠️  ${st.message}\n     La red local sigue funcionando.`);
-    else if (st.status === 'off') console.log(`\n  ℹ️  ${st.message}`);
-    broadcast(main);
-  });
 });
 server.listen(PORT);
 
@@ -700,7 +718,7 @@ const shutdown = () => {
       } catch { /* sin acceso al disco */ }
     }
   };
-  void flush().then(() => stopPublishing()).finally(() => process.exit(0));
+  void flush().finally(() => process.exit(0));
   setTimeout(() => process.exit(0), 9000);
 };
 process.on('SIGINT', shutdown);

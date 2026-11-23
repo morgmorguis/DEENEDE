@@ -95,7 +95,6 @@ jobs:
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item "server/build/Di en Di - Servidor.exe" out/
           Copy-Item "server/build/Di en Di.exe" out/
-          Copy-Item "server/PUBLICAR.txt" out/
           Copy-Item server/LEEME.txt out/
 
       - uses: actions/upload-artifact@v5
@@ -146,15 +145,15 @@ jobs:
           ---
           **Descargas**
           - **Android**: \`Di-en-Di-$V.apk\` (instálalo encima de la versión anterior sin perder datos).
-          - **Windows**: \`Di-en-Di-$V.exe\` (la app) y \`Di-en-Di-Servidor-$V.exe\` (servidor de partida del DM). Lee \`LEEME.txt\` y \`PUBLICAR.txt\`.
+          - **Windows**: \`Di-en-Di-$V.exe\` (la app) y \`Di-en-Di-Servidor-$V.exe\` (servidor de partida del DM). Lee \`LEEME.txt\`.
           NOTAS
           mkdir sube
           cp "artefactos/di-en-di-apk/Di en Di.apk" "sube/Di-en-Di-$V.apk"
           cp "artefactos/di-en-di-windows/Di en Di.exe" "sube/Di-en-Di-$V.exe"
           cp "artefactos/di-en-di-windows/Di en Di - Servidor.exe" "sube/Di-en-Di-Servidor-$V.exe"
-          cp artefactos/di-en-di-windows/LEEME.txt artefactos/di-en-di-windows/PUBLICAR.txt sube/
+          cp artefactos/di-en-di-windows/LEEME.txt sube/
           gh release create "v$V" --target "$GITHUB_SHA" --title "${TITLE:-$V}" --notes-file notas.md \
             "sube/Di-en-Di-$V.apk#Android (APK)" \
             "sube/Di-en-Di-$V.exe#Windows: app" \
             "sube/Di-en-Di-Servidor-$V.exe#Windows: servidor del DM" \
-            sube/LEEME.txt sube/PUBLICAR.txt
+            sube/LEEME.txt

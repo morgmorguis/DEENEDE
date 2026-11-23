@@ -35,7 +35,7 @@ Hoja de personaje interactiva para Android con las reglas de D&D 2024 (SRD 5.2),
 - **Kill count** en el diario: los enemigos a los que tu personaje ha dado el golpe final se apuntan solos (en el combate de la app y en la partida compartida; si el DM deshace el turno, se quitan). Solo cuentan tus bajas; también se pueden añadir a mano.
 - **Bloc de notas abatible** (botón 📜, disponible en todas las pantallas) con **carpetas** (Nombres, Lugares, Misiones, Objetos, Crónicas y las que crees): notas rápidas y un botón para **grabar la sesión**. La transcripción se convierte en una crónica escrita como un relato (con Claude) y se guarda en «Crónicas».
 - **Reglas consultables**: condiciones, habilidades (con tu bonificador), acciones, reglas clave (ventaja, crítico, concentración, descansos, cobertura, agarre…), maestrías de armas y efectos, con buscador.
-- **Servidor publicado en Internet** al arrancar (Tailscale Funnel o ngrok, dirección fija, sin Cloudflare) además de la red local; pestaña **Grupo** del DM; **imágenes** que el DM arrastra y comparte; estilos visuales seleccionables (desde la 0.24.0: Pixel, Retro 16-bit y Pintado, ver `docs/arte/LEEME.md`).
+- **Partida en casa o en la nube**, elegida al crearla en el servidor del PC: los jugadores entran solo con el código; pestaña **Grupo** del DM; **imágenes** que el DM arrastra y comparte; estilos visuales seleccionables (desde la 0.24.0: Pixel, Retro 16-bit y Pintado, ver `docs/arte/LEEME.md`).
 - **Vida máxima temporal** (Ayuda, drenajes necróticos) y **cada número explicado al tocarlo** con todos sus sumandos.
 - **Reglas ampliadas**: las 38 armas de 2024 (ataques no letales, límites, competencia) y una sección de qué puedes y qué no puedes hacer.
 - **Equipar objetos**: armaduras, escudos, objetos mágicos y armas cambian solos CA, características, salvaciones, velocidad, PG y ataques, marcados con un + azul que dice qué objeto lo da. Dotes como Duro o Veloz se suman con un + dorado.
@@ -72,12 +72,11 @@ El DM ejecuta un pequeño servidor en su PC con Windows y todos jugáis el mismo
 - **Encuentros preparados** con enemigos ocultos y colores, bestiario de casi 100 criaturas con ataques, personajes del DM con potencia, ataques y equipo, y **copia de la campaña** exportable (todo lo del DM, imágenes incluidas).
 - **Intercambio entre jugadores** y **vida de los compañeros oculta** salvo que el DM la muestre.
 - **Tesoro** (pestaña del DM), con **botines preparados** sin conexión: dar oro y objetos a un jugador concreto, con un catálogo de los objetos más comunes y una plantilla para crear objetos propios (nombre, rareza, tipo, valor, descripción, sintonización). Las monedas se suman a la hoja del jugador y los objetos aparecen en su lista **Objetos**, aunque estuviera desconectado. El DM tiene un **registro de entregas** por jugador guardado en el servidor.
-- **DM desde el móvil o la tablet**: en **Partida** marca «Soy el DM» y pon la clave del DM. La app pasa a modo DM, sin ficha: **Partida**, **Personajes** (aliados y enemigos con nivel/VD, vida, CA, iniciativa y notas, para meterlos en el combate con un toque, visibles u ocultos) y **Tesoro**. Todo se guarda en el servidor.
 
 **Montarlo** (instrucciones completas en `server/LEEME.txt`):
-1. Descarga el artefacto `di-en-di-windows` de GitHub Actions y abre `Di en Di - Servidor.exe`. Se abre la pantalla del DM en el navegador y la ventana muestra el código de la partida.
-2. En la misma Wi-Fi, los jugadores ponen en la pestaña **Partida** la dirección `http://192.168.x.x:3000` y el código.
-3. A distancia, sin Cloudflare: instala [Tailscale](https://tailscale.com/download/windows) en el PC y ejecuta `tailscale funnel 3000`; comparte la dirección `https://….ts.net`. Los jugadores no instalan nada.
+1. Descarga el artefacto `di-en-di-windows` de GitHub Actions y abre `Di en Di - Servidor.exe`. Se abre la pantalla del DM en el navegador.
+2. Pulsa **🎲 Crear partida** y elige **🏠 En casa** (misma Wi-Fi, código de 8 letras con la dirección del PC dentro) o **🌍 En la nube** (desde cualquier sitio, código de 6 letras; el PC se enlaza solo con la nube).
+3. Los jugadores escriben el código en la pestaña **Partida** de su app. Nada más.
 
 Para desarrollo: `npm run server` arranca el servidor con la app compilada.
 
@@ -124,7 +123,7 @@ Solo necesitas [Docker](https://www.docker.com/products/docker-desktop/) (en Win
 docker build --target apps --output salida-docker .
 ```
 
-En `salida-docker/` quedan `Di en Di.apk` (Android), `Di en Di.exe` (app de Windows) y `Di en Di - Servidor.exe` (servidor del DM), con sus `LEEME.txt` y `PUBLICAR.txt`. Para una sola plataforma usa `--target apk` o `--target windows`, y para saltar los tests, `--build-arg TESTS=0`. La primera vez tarda (descarga el SDK de Android); después Docker reutiliza lo que ya tiene.
+En `salida-docker/` quedan `Di en Di.apk` (Android), `Di en Di.exe` (app de Windows) y `Di en Di - Servidor.exe` (servidor del DM), con su `LEEME.txt`. Para una sola plataforma usa `--target apk` o `--target windows`, y para saltar los tests, `--build-arg TESTS=0`. La primera vez tarda (descarga el SDK de Android); después Docker reutiliza lo que ya tiene.
 
 El servidor de partida también funciona como contenedor (en Windows, Linux, un NAS o un servidor en la nube):
 
