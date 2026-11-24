@@ -19,6 +19,10 @@ import { combatTranscript, lastCombat, localNarrative } from '../party/narrative
 import { describeError, narrateCombatWithClaude } from '../ai';
 import { DmImages, SharedGallery, useImageUrl } from './Images';
 import { DmNotes } from './DmNotes';
+import { InspireButton } from './DmGroup';
+import { DmRollsSection, PendingRolls, RollLog } from './Rolls';
+import { CampaignBoard } from './Campaign';
+import { PlayerShop } from './Shop';
 import { L, T, locale } from '../i18n';
 import { askOk, askText } from './Confirm';
 import { randomCombatPhrase } from '../party/phrases';
@@ -993,7 +997,7 @@ export function DmCombatTab() {
   return (
     <div className="tab dm-combat">
       <div className="dm-combat-main"><SharedCombat view={view} /></div>
-      <div className="dm-combat-side"><CombatLog view={view} /></div>
+      <div className="dm-combat-side"><DmRollsSection view={view} /><CombatLog view={view} /></div>
     </div>
   );
 }
@@ -1021,6 +1025,7 @@ export function PartyTab() {
       {error && <p className="error">⚠️ {error}</p>}
       {view && dm && <GamePanel view={view} />}
       {view && dm && view.open && <TvLink view={view} />}
+      {view && !dm && <PendingRolls view={view} />}
       {/* Jugador en combate: el combate (antesala o turnos) va lo primero */}
       {view && !dm && view.encounter.active && <SharedCombat view={view} />}
       {view && (
@@ -1041,6 +1046,8 @@ export function PartyTab() {
                       {m.summary?.face ? <img src={m.summary.face} alt="" /> : (m.summary?.name ?? m.name).trim().charAt(0).toUpperCase() || '?'}
                     </span>
                     <span className="grow">{m.summary?.name ?? m.name}</span>
+                    {m.summary?.inspiration && !dm && <span title={T('Inspiración heroica', 'Heroic Inspiration')}>✨</span>}
+                    {dm && <InspireButton m={m} />}
                     {dm && (
                       <button className="btn small member-kick" title={T('Sacar de la partida', 'Remove from the game')} onClick={async () => {
                         const who = m.summary?.name ?? m.name;
@@ -1063,11 +1070,15 @@ export function PartyTab() {
           {view.you.role !== 'viewer' && !(!dm && view.encounter.active) && <SheetSync view={view} />}
           {dm ? <DmCombatCard view={view} /> : !view.encounter.active && <SharedCombat view={view} />}
           {dm && !view.encounter.active && <LootPanel view={view} />}
+          {dm && <DmRollsSection view={view} />}
+          <CampaignBoard view={view} />
+          <PlayerShop view={view} />
           {dm && <DmImages view={view} />}
           {dm && <DmNotes view={view} />}
           <SharedGallery view={view} />
           <MyGifts view={view} />
           {view.you.role === 'player' && <SharedWithMe />}
+          <RollLog view={view} />
           {!dm && <CombatLog view={view} />}
         </>
       )}

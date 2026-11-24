@@ -1,5 +1,5 @@
 // Protocolo de la partida compartida (modo party): tipos que comparten la app y el servidor.
-import type { Coins5, ItemData } from '../rules/itemTypes';
+import type { AbilityKey, Coins5, ItemData } from '../rules/itemTypes';
 
 /** viewer: pantalla para la tele (solo mira, sin secretos) */
 export type Role = 'dm' | 'player' | 'viewer';
@@ -65,7 +65,11 @@ export interface SharedImage {
 
 /** Crónica o nota escrita que el DM comparte (p. ej. el resumen narrativo de un combate o una carta para un jugador).
  *  `to`: 'all' (o sin `to`, partidas antiguas) para todo el grupo, o los ids de los jugadores que la reciben */
-export interface Chronicle { id: string; title: string; text: string; at: number; to?: 'all' | string[] }
+export interface Chronicle {
+  id: string; title: string; text: string; at: number; to?: 'all' | string[];
+  /** Resumen de la sesión anterior: al jugador le sale en grande al entrar */
+  recap?: boolean;
+}
 
 /** Ajustes de la mesa que decide el DM */
 export interface RoomSettings {
@@ -252,11 +256,104 @@ export interface Gift {
   items?: ItemData[];
   /** El DM cobra al jugador (en po): se le resta de sus monedas al llegar */
   charge?: number;
+  /** El DM le da Inspiración heroica */
+  inspiration?: boolean;
+  /** Compra en la tienda del DM (para el registro) */
+  shop?: boolean;
   note?: string;
   /** Ya ha llegado a la ficha del jugador */
   delivered: boolean;
   deliveredAt?: number;
 }
+
+// ---------- Tiradas, misiones, PNJ y tienda ----------
+
+/** Lo que el DM pide tirar: salvación, prueba de característica o de habilidad */
+export type RollAsk =
+  | { kind: 'save'; ability: AbilityKey }
+  | { kind: 'check'; ability: AbilityKey }
+  | { kind: 'skill'; skill: string };
+
+/** Respuesta de un jugador a una tirada pedida */
+export interface RollAnswer {
+  memberId: string;
+  /** Nombre del personaje al responder */
+  name: string;
+  total: number;
+  /** Lo que salió en el d20 (con ventaja/desventaja, el que cuenta) */
+  natural?: number | null;
+  /** La escribió el jugador (dado físico); si no, la tiró la app */
+  manual?: boolean;
+  /** Desglose de la tirada (ventaja, bonificadores…) */
+  detail?: string;
+  at: number;
+}
+
+/** Tirada que pide el DM a uno o varios jugadores */
+export interface RollRequest {
+  id: string;
+  at: number;
+  ask: RollAsk;
+  /** Clase de dificultad (los jugadores la ven; vacía si el DM no la dice) */
+  dc?: number;
+  /** Secreta: la app la tira sola sin enseñar nada al jugador, y solo el DM ve el resultado */
+  secret?: boolean;
+  /** Ids de los jugadores a los que se pide */
+  to: string[];
+  /** Texto que acompaña («El suelo cede bajo vuestros pies…») */
+  note?: string;
+  answers: RollAnswer[];
+  /** El DM la ha cerrado: ya no se espera a quien falte */
+  closed?: boolean;
+}
+
+/** Tirada del DM (detrás de la pantalla si está oculta) */
+export interface DmRoll { id: string; at: number; label: string; total: number; detail: string; hidden: boolean }
+
+export type QuestStatus = 'active' | 'done' | 'failed';
+
+/** Misión del tablón de la campaña */
+export interface Quest {
+  id: string;
+  title: string;
+  /** Lo que saben los jugadores */
+  text: string;
+  status: QuestStatus;
+  /** Quién la encarga */
+  giver?: string;
+  /** Visible para los jugadores */
+  shared: boolean;
+  /** Notas que solo ve el DM */
+  secret?: string;
+  at: number;
+  updatedAt: number;
+}
+
+export type NpcAttitude = 'friendly' | 'neutral' | 'hostile' | 'unknown';
+
+/** Personaje no jugador que conoce (o conocerá) el grupo */
+export interface Npc {
+  id: string;
+  name: string;
+  /** Lo que saben los jugadores de él */
+  text: string;
+  /** Dónde se le encuentra */
+  place?: string;
+  attitude: NpcAttitude;
+  /** Retrato: una de las imágenes del DM */
+  imageId?: string;
+  /** Los jugadores ya lo conocen */
+  shared: boolean;
+  secret?: string;
+  at: number;
+  updatedAt: number;
+}
+
+/** Artículo de la tienda: precio por unidad en po; stock null = sin límite */
+export interface ShopItem { id: string; item: ItemData; price: number; stock: number | null }
+
+/** Tienda que abre el DM: los jugadores compran ellos mismos y se les cobra al llegar a la ficha */
+export interface Shop { open: boolean; name: string; items: ShopItem[] }
 
 /** Estado visible de la vida: lo que ven los jugadores de los monstruos */
 export type HpState = 'unhurt' | 'hurt' | 'bloodied' | 'down' | 'unknown';
@@ -300,6 +397,17 @@ export interface RoomView {
   images: SharedImage[];
   /** Crónicas compartidas por el DM (todos las ven) */
   chronicles: Chronicle[];
+  /** Tiradas pedidas por el DM: los jugadores ven las que no son secretas (y las secretas suyas por responder, sin resultados) */
+  rollRequests: RollRequest[];
+  /** Tiradas del DM (los jugadores, solo las que no oculta) */
+  dmRolls: DmRoll[];
+  /** Tablón de la campaña: el DM ve todo; los jugadores, lo compartido y sin las notas secretas */
+  quests: Quest[];
+  npcs: Npc[];
+  /** Tienda del DM (los jugadores solo la reciben abierta) */
+  shop: Shop | null;
+  /** Cuándo empezó cada sesión (al crear la partida); solo el DM */
+  sessions: number[];
   /** Cuándo pidió el DM sincronizar las fichas (cada jugador sube la suya si aún no lo ha hecho desde entonces) */
   syncRequest: number | null;
   canUndo: boolean;
@@ -349,7 +457,11 @@ export type Command =
   /** El jugador confirma que las entregas ya están en su ficha */
   | { t: 'giftAck'; ids: string[] }
   /** El DM da a un jugador; un jugador da de lo suyo a un compañero */
-  | { t: 'give'; toId: string; coins?: Partial<Coins5>; items?: ItemData[]; note?: string; charge?: number }
+  | { t: 'give'; toId: string; coins?: Partial<Coins5>; items?: ItemData[]; note?: string; charge?: number; inspiration?: boolean }
+  /** El jugador responde a una tirada que ha pedido el DM */
+  | { t: 'rollAnswer'; id: string; total: number; natural?: number | null; manual?: boolean; detail?: string }
+  /** El jugador compra en la tienda del DM */
+  | { t: 'buy'; itemId: string; qty: number }
   /** El jugador sube su ficha completa (copia de seguridad en JSON); el servidor la guarda en disco y quita `data` */
   | { t: 'sheetUpload'; data?: string }
   // Solo el DM
@@ -407,7 +519,17 @@ export type Command =
   | { t: 'imageUnshare'; id: string }
   | { t: 'imageRemove'; id: string }
   | { t: 'imageRename'; id: string; title: string }
-  | { t: 'chronicleShare'; title: string; text: string; to?: 'all' | string[] }
+  | { t: 'chronicleShare'; title: string; text: string; to?: 'all' | string[]; recap?: boolean }
+  /** Pide una tirada a todos los jugadores o a algunos */
+  | { t: 'rollAsk'; ask: RollAsk; dc?: number | null; secret?: boolean; to: 'all' | string[]; note?: string }
+  | { t: 'rollClose'; id: string }
+  | { t: 'dmRoll'; label: string; total: number; detail: string; hidden: boolean }
+  | { t: 'questSave'; quest: Quest }
+  | { t: 'questRemove'; id: string }
+  | { t: 'npcSave'; npc: Npc }
+  | { t: 'npcRemove'; id: string }
+  /** Guarda la tienda (nombre y artículos) y la abre o la cierra */
+  | { t: 'shopSave'; shop: Shop }
   | { t: 'chronicleRemove'; id: string }
   /** Anula una entrega que aún no ha llegado */
   | { t: 'giftCancel'; id: string };

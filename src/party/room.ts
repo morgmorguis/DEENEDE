@@ -3,9 +3,10 @@
 // monstruos ocultos, vida exacta de monstruos ni notas del DM).
 import type { ItemMods } from '../rules/itemTypes';
 import type {
-  CarriedLoot, Combatant, CombatantView, Command, Encounter, EncounterEntry, Chronicle, GameMode, Gift, HpState, LootDrop, PreparedEncounter, RoomSettings, SharedImage, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
+  CarriedLoot, Combatant, CombatantView, Command, Encounter, EncounterEntry, Chronicle, DmRoll, GameMode, Gift, HpState, LootDrop, Npc, PreparedEncounter, Quest, RollRequest, RoomSettings, SharedImage, Shop, LogEvent, Member, Phase, Role, RosterEntry, RoomView, SheetOp,
 } from './protocol';
 import { COMBAT_SCENES, isImageCategory, pickCombatScene } from './protocol';
+import { applyTable, isKnownNpcPortrait, markSession, normalizeTable, tableView } from './table';
 
 export interface StoredMember extends Member { token: string }
 
@@ -39,6 +40,16 @@ export interface Room {
   syncRequest?: number;
   /** Botín de los combates terminados que el DM aún no ha repartido */
   loot: LootDrop[];
+  /** Tiradas que pide el DM y sus respuestas (ver table.ts) */
+  rollRequests?: RollRequest[];
+  /** Tiradas del propio DM */
+  dmRolls?: DmRoll[];
+  /** Tablón de la campaña */
+  quests?: Quest[];
+  npcs?: Npc[];
+  shop?: Shop;
+  /** Cuándo empezó cada sesión (al crear la partida o empezar una sesión nueva) */
+  sessions?: number[];
 }
 
 export interface Effect { to: string; ops: SheetOp[] }
@@ -82,13 +93,15 @@ export function cleanMods(m: unknown): ItemMods | undefined {
 }
 
 /** Limpia lo que manda el DM: monedas enteras y positivas, objetos con nombre y campos acotados */
-export function cleanGift(cmd: Extract<Command, { t: 'give' }>, dm = true): Pick<Gift, 'coins' | 'items' | 'note' | 'charge'> | null {
+export function cleanGift(cmd: Extract<Command, { t: 'give' }>, dm = true): Pick<Gift, 'coins' | 'items' | 'note' | 'charge' | 'inspiration'> | null {
   const clean = cleanLoot(cmd);
   // Cobro: solo el DM (lo que vale lo que da, o lo que el jugador le paga); en po, con céntimos de cobre
   const charge = dm ? Math.round(Math.max(0, Math.min(10_000_000, Number(cmd.charge) || 0)) * 100) / 100 : 0;
-  if (!clean && !charge) return null;
+  // Inspiración heroica: solo la da el DM
+  const inspiration = dm && cmd.inspiration === true;
+  if (!clean && !charge && !inspiration) return null;
   const note = String(cmd.note ?? '').trim().slice(0, 500);
-  return { ...(clean ?? {}), ...(charge ? { charge } : {}), ...(note ? { note } : {}) };
+  return { ...(clean ?? {}), ...(charge ? { charge } : {}), ...(inspiration ? { inspiration: true } : {}), ...(note ? { note } : {}) };
 }
 
 /** Monedas y objetos limpios (null si no hay nada) */
@@ -143,6 +156,7 @@ export function normalizeRoom(room: Room): Room {
   r.chronicles ??= [];
   r.encounters ??= [];
   r.loot ??= [];
+  normalizeTable(r);
   // Partidas guardadas antes de «Crear partida»: siguen abiertas como estaban
   r.open ??= true;
   r.settings = { ...{ showPartyHp: false }, ...(r.settings ?? {}) };
@@ -337,6 +351,10 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
   const deny = (): Result => ({ room, effects: [], error: 'not-allowed' });
   const ownsPc = (id: string) => e.order.some((c) => c.id === id && c.kind === 'pc' && c.ownerId === me.id);
   const running = e.active && phaseOf(e) === 'running';
+
+  // Tiradas pedidas, tablón, tienda… (table.ts)
+  const tbl = applyTable(r, room, me, cmd);
+  if (tbl) return tbl.error ? { room, effects: [], error: tbl.error } : { room: tbl.room, effects };
 
   switch (cmd.t) {
     case 'summary': {
@@ -554,6 +572,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       const keepPrep = cmd.t === 'openGame' && e.active && phaseOf(e) === 'prep';
       r.code = newCode(r.code);
       r.open = true;
+      markSession(r);
       if (cmd.t === 'openGame' && (cmd.mode === 'local' || cmd.mode === 'cloud')) r.mode = cmd.mode;
       if (!keepPrep) {
         // Sin combate (sin pasar al botín: era una sesión anterior); los aliados preparados se quedan
@@ -624,7 +643,7 @@ export function apply(room: Room, memberId: string, cmd: Command): Result {
       // Para todo el grupo o solo para algunos jugadores (lo privado no sale en el registro, que lo ven todos)
       const to = Array.isArray(cmd.to) ? cmd.to.filter((id) => r.members.some((m) => m.id === id && m.role === 'player')) : 'all';
       if (Array.isArray(to) && !to.length) return { room, effects: [], error: 'no-target' };
-      r.chronicles.push({ id: rid(10), title: String(cmd.title ?? '').trim().slice(0, 120) || 'Crónica', text, at: Date.now(), to });
+      r.chronicles.push({ id: rid(10), title: String(cmd.title ?? '').trim().slice(0, 120) || 'Crónica', text, at: Date.now(), to, ...(cmd.recap ? { recap: true } : {}) });
       if (r.chronicles.length > 200) r.chronicles.splice(0, r.chronicles.length - 200);
       if (to === 'all') pushLog(r, { kind: 'narrative', text: String(cmd.title ?? '').slice(0, 120) });
       return { room: r, effects };
@@ -822,6 +841,11 @@ export function canSeeImage(_room: Room, me: Pick<Member, 'id' | 'role'>, im: Sh
   return me.role === 'player' && im.to.includes(me.id);
 }
 
+/** ¿Puede descargar el archivo? Lo que puede ver y, además, el retrato de un PNJ que el grupo ya conoce */
+export function canFetchImage(room: Room, me: Pick<Member, 'id' | 'role'>, im: SharedImage): boolean {
+  return canSeeImage(room, me, im) || (me.role === 'player' && isKnownNpcPortrait(room, im.id));
+}
+
 /**
  * Criaturas que los jugadores no deben conocer: las ocultas ahora y las que entraron ocultas y nunca se
  * revelaron (aunque el combate ya haya terminado y no estén en el orden).
@@ -885,6 +909,7 @@ export function viewFor(raw: Room, memberId: string): RoomView | null {
     settings: room.settings,
     images: room.images.filter((im) => canSeeImage(room, me, im)),
     chronicles: room.chronicles.filter((ch) => canSeeChronicle(me, ch)),
+    ...tableView(room, me),
     roster: dm ? room.roster : [],
     encounters: dm ? room.encounters : [],
     encounter: {
@@ -925,11 +950,14 @@ export interface CampaignData {
   settings: RoomSettings;
   /** Datos de las imágenes; `data` es el JPEG en base64 (lo añade el servidor al exportar) */
   images: (SharedImage & { data?: string })[];
+  quests?: Quest[];
+  npcs?: Npc[];
+  shop?: Shop;
 }
 
 export function exportCampaign(room: Room): CampaignData {
   const r = normalizeRoom(clone(room));
-  return { roster: r.roster, encounters: r.encounters, gifts: r.gifts, log: r.log, chronicles: r.chronicles, settings: r.settings, images: r.images };
+  return { roster: r.roster, encounters: r.encounters, gifts: r.gifts, log: r.log, chronicles: r.chronicles, settings: r.settings, images: r.images, quests: r.quests, npcs: r.npcs, ...(r.shop ? { shop: r.shop } : {}) };
 }
 
 const arr = <X,>(x: unknown): X[] => (Array.isArray(x) ? (x as X[]) : []);
@@ -959,5 +987,8 @@ export function importCampaign(room: Room, data: Partial<CampaignData>): Room {
     r.snapshots = [snap(r)];
   }
   if (data.settings && typeof data.settings === 'object') r.settings = { ...r.settings, ...data.settings };
+  r.quests = mergeById(r.quests ?? [], ok<Quest>(data.quests));
+  r.npcs = mergeById(r.npcs ?? [], ok<Npc>(data.npcs));
+  if (data.shop && typeof data.shop === 'object' && Array.isArray(data.shop.items)) r.shop = { open: false, name: String(data.shop.name ?? '').slice(0, 80), items: data.shop.items };
   return r;
 }

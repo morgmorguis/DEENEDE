@@ -7,6 +7,7 @@ import { compressImage, squareThumb } from '../imageUtil';
 import { storeSharedImage } from '../sharedImages';
 import { Capacitor } from '@capacitor/core';
 import { lanAddress } from './lanCode';
+import { rollAsk } from './rolls';
 import { CLOUD_SERVER, type ClientMessage, type Command, type Gift, type PcSummary, type Role, type RoomView, type ServerMessage } from './protocol';
 import { COIN_KEYS, NO_COINS, coinsInGold, coinsText, itemLine, payCoins, valueText } from '../rules/items';
 import { placeReceived, wearable } from '../rules/stash';
@@ -102,6 +103,13 @@ export const ERRORS: Record<string, [string, string]> = {
   'reaction-used': ['Ya has usado tu reacción en esta ronda.', 'You’ve already used your reaction this round.'],
   'bad-sheet': ['No se ha podido guardar tu ficha en el servidor.', 'Your sheet couldn’t be saved on the server.'],
   'bad-image': ['No se ha podido subir la imagen (¿es demasiado grande?).', 'The image couldn’t be uploaded (is it too large?).'],
+  'roll-closed': ['El DM ya ha cerrado esa tirada.', 'The DM already closed that roll.'],
+  'roll-answered': ['Ya has respondido a esa tirada.', 'You already answered that roll.'],
+  'bad-roll': ['Elige qué tirada pides.', 'Choose which roll to ask for.'],
+  'shop-closed': ['La tienda está cerrada.', 'The shop is closed.'],
+  'out-of-stock': ['No quedan tantos en la tienda.', 'The shop doesn’t have that many left.'],
+  'no-money': ['No te llega el dinero (cuentan también las compras que aún no te han cobrado).', 'You can’t afford it (purchases not yet charged also count).'],
+  'empty': ['Escribe al menos el nombre.', 'Write at least the name.'],
   'empty-gift': ['Añade monedas u objetos antes de dar.', 'Add coins or items before giving.'],
   'gift-delivered': ['Esa entrega ya ha llegado a la ficha del jugador.', 'That gift has already reached the player’s sheet.'],
 };
@@ -127,6 +135,12 @@ export function receiveGift(c: Character, g: Gift, from = g.fromName ?? 'DM'): {
       ? T(`💸 Pagas ${valueText(g.charge - paid.short)} de ${valueText(g.charge)}: no te llega (faltan ${valueText(paid.short)})`, `💸 You pay ${valueText(g.charge - paid.short)} of ${valueText(g.charge)}: not enough (${valueText(paid.short)} short)`)
       : T(`💸 Pagas ${valueText(g.charge)}`, `💸 You pay ${valueText(g.charge)}`));
   }
+  if (g.inspiration) {
+    lines.push(next.heroicInspiration
+      ? T('✨ Ya tenías Inspiración heroica: según las reglas puedes dársela a otro personaje del grupo.', '✨ You already had Heroic Inspiration: by the rules you can give it to another character in the party.')
+      : T('✨ Ganas Inspiración heroica: puedes repetir una tirada de dado.', '✨ You gain Heroic Inspiration: you can reroll a die.'));
+    next.heroicInspiration = true;
+  }
   next.consumables = next.consumables ?? [];
   for (const raw of g.items ?? []) {
     const p = placeReceived(raw);
@@ -149,7 +163,8 @@ export function receiveGift(c: Character, g: Gift, from = g.fromName ?? 'DM'): {
 }
 
 /** Líneas para el aviso: «50 po», «2 × Poción de curación» */
-export const giftLines = (g: Pick<Gift, 'coins' | 'items' | 'note' | 'charge'>) => [
+export const giftLines = (g: Pick<Gift, 'coins' | 'items' | 'note' | 'charge' | 'inspiration'>) => [
+  ...(g.inspiration ? [T('✨ Inspiración heroica', '✨ Heroic Inspiration')] : []),
   ...(g.coins && coinsText(g.coins) ? [`💰 ${coinsText(g.coins)}`] : []),
   ...(g.charge ? [T(`💸 Cobra ${valueText(g.charge)}`, `💸 Charges ${valueText(g.charge)}`)] : []),
   ...(g.items ?? []).map((i) => `🎁 ${itemLine(i)}`),
@@ -197,6 +212,8 @@ let lastSummary = '';
 let syncedFor = 0;
 /** La conexión en curso la ha pedido el usuario (no es una reconexión automática) */
 let freshJoin = false;
+/** Tiradas secretas ya respondidas desde este dispositivo */
+const secretAnswered = new Set<string>();
 /** Entregas ya sumadas en esta sesión (por si llega otro estado antes de confirmar) */
 const applying = new Set<string>();
 /** Imágenes y crónicas del DM que se están guardando en el diario */
@@ -287,6 +304,19 @@ export const useParty = create<PartyState>((set, get) => {
     if (view.open) useStore.getState().showToast(T('☁️ El DM ha guardado tu ficha en el servidor', '☁️ The DM saved your sheet on the server'), []);
   };
 
+  /** Tiradas secretas que pide el DM: las tira la app sola, sin enseñar nada, y manda el resultado */
+  const reconcileSecretRolls = (view: RoomView) => {
+    if (view.you.role !== 'player') return;
+    const c = sharedChar();
+    if (!c) return;
+    for (const q of view.rollRequests ?? []) {
+      if (!q.secret || q.closed || !q.to.includes(view.you.id) || secretAnswered.has(q.id)) continue;
+      secretAnswered.add(q.id);
+      const r = rollAsk(c, q.ask);
+      out({ t: 'cmd', cmd: { t: 'rollAnswer', id: q.id, total: r.total, natural: r.natural, detail: r.lines.join('\n') } });
+    }
+  };
+
   /** Entregas del DM: se suman a la ficha compartida una sola vez y se confirma al servidor */
   const reconcileGifts = (view: RoomView) => {
     if (view.you.role !== 'player') return;
@@ -303,7 +333,7 @@ export const useParty = create<PartyState>((set, get) => {
       for (const g of fresh) { applying.add(g.id); const r = receiveGift(next, g); next = r.char; placed.push(...r.lines); wear.push(...r.wear); }
       st.replace(next);
       // Lo que te dan queda apuntado en «Compartido conmigo»
-      addSharedNotes(c.id, fresh.map((g) => ({ id: uid(), createdAt: g.at, title: `🎁 ${g.fromName ? T(`De ${g.fromName}`, `From ${g.fromName}`) : T('Del DM', 'From the DM')}: ${[g.coins ? coinsText(g.coins) : '', ...(g.items ?? []).map(itemLine), g.charge ? `💸 −${valueText(g.charge)}` : ''].filter(Boolean).join(', ').slice(0, 90)}`, body: giftLines(g).join('\n'), kind: 'note' as const, ref: `gift:${g.id}`, sharedTo: 'me' as const })));
+      addSharedNotes(c.id, fresh.map((g) => ({ id: uid(), createdAt: g.at, title: `${g.shop ? '🏪' : g.inspiration && !g.items?.length && !g.coins ? '✨' : '🎁'} ${g.shop ? T(`Compra en ${g.note ?? 'la tienda'}`, `Bought at ${g.note ?? 'the shop'}`) : g.fromName ? T(`De ${g.fromName}`, `From ${g.fromName}`) : T('Del DM', 'From the DM')}: ${[g.inspiration ? T('Inspiración heroica', 'Heroic Inspiration') : '', g.coins ? coinsText(g.coins) : '', ...(g.items ?? []).map(itemLine), g.charge ? `💸 −${valueText(g.charge)}` : ''].filter(Boolean).join(', ').slice(0, 90)}`, body: giftLines(g).join('\n'), kind: 'note' as const, ref: `gift:${g.id}`, sharedTo: 'me' as const })));
       const who = [...new Set(fresh.map((g) => g.fromName ?? 'DM'))].join(', ');
       const dmOnly = fresh.every((g) => !g.fromName);
       if (st.activeId === c.id) st.pushLog({ role: 'app', text: dmOnly ? T('🎁 Entrega del DM', '🎁 Gift from the DM') : T(`🎁 Te dan: ${who}`, `🎁 Given by: ${who}`), details: fresh.flatMap((g) => giftLines(g)) });
@@ -312,7 +342,9 @@ export const useParty = create<PartyState>((set, get) => {
         const it = next.items.find((x) => x.id === id)!;
         return { label: `🛡️ ${T('Equipar', 'Equip')} ${it.name}`, run: () => { const s2 = useStore.getState(); const cur = s2.characters.find((x) => x.id === c.id); if (!cur) return; const ch = structuredClone(cur); setEquipped(ch, id, true); s2.replace(ch); } };
       });
-      st.showToast(dmOnly ? (fresh.every((g) => !g.items?.length && !g.coins) ? T('💸 El DM te cobra', '💸 The DM charges you') : T(`🎁 El DM te da algo${c.id !== st.activeId ? ` (${c.name})` : ''}`, `🎁 The DM gives you something${c.id !== st.activeId ? ` (${c.name})` : ''}`)) : T(`🎁 ${who} te da algo`, `🎁 ${who} gives you something`), [...fresh.flatMap((g) => giftLines({ ...g, charge: undefined })), ...placed], actions);
+      const onlyInsp = fresh.every((g) => g.inspiration && !g.items?.length && !g.coins && !g.charge);
+      const shopping = fresh.every((g) => g.shop);
+      st.showToast(onlyInsp ? T('✨ El DM te da Inspiración heroica', '✨ The DM gives you Heroic Inspiration') : shopping ? T('🏪 Tu compra ha llegado', '🏪 Your purchase arrived') : dmOnly ? (fresh.every((g) => !g.items?.length && !g.coins) ? T('💸 El DM te cobra', '💸 The DM charges you') : T(`🎁 El DM te da algo${c.id !== st.activeId ? ` (${c.name})` : ''}`, `🎁 The DM gives you something${c.id !== st.activeId ? ` (${c.name})` : ''}`)) : T(`🎁 ${who} te da algo`, `🎁 ${who} gives you something`), [...fresh.flatMap((g) => giftLines({ ...g, charge: undefined })), ...placed], actions);
     }
     const ack = pending.filter((g) => seen.has(g.id) || applying.has(g.id)).map((g) => g.id);
     if (ack.length) out({ t: 'cmd', cmd: { t: 'giftAck', ids: ack } });
@@ -342,7 +374,8 @@ export const useParty = create<PartyState>((set, get) => {
     if (chron.length) {
       chron.forEach((x) => pendingShared.add(`chr:${x.id}`));
       save(chron.map((x) => ({ id: uid(), createdAt: x.at, title: `${Array.isArray(x.to) ? '✉️' : '📖'} ${x.title}`, body: x.text, kind: 'story', ref: `chr:${x.id}`, sharedTo: Array.isArray(x.to) ? 'me' : 'all' })));
-      useStore.getState().showToast(chron.some((x) => Array.isArray(x.to)) ? T('✉️ El DM te ha escrito', '✉️ The DM wrote to you') : T('📖 El DM comparte una crónica', '📖 The DM shares a chronicle'), [...chron.map((x) => x.title), T('Guardada en tu diario → 🤝 Compartido conmigo.', 'Saved in your journal → 🤝 Shared with me.')]);
+      // El resumen de la sesión anterior sale en grande (RecapNotifier): sin aviso pequeño
+      if (!chron.every((x) => x.recap)) useStore.getState().showToast(chron.some((x) => Array.isArray(x.to)) ? T('✉️ El DM te ha escrito', '✉️ The DM wrote to you') : T('📖 El DM comparte una crónica', '📖 The DM shares a chronicle'), [...chron.map((x) => x.title), T('Guardada en tu diario → 🤝 Compartido conmigo.', 'Saved in your journal → 🤝 Shared with me.')]);
     }
     const conn = get().conn;
     for (const im of imgs) {
@@ -413,6 +446,7 @@ export const useParty = create<PartyState>((set, get) => {
         reconcileGifts(msg.view);
         reconcileShared(msg.view);
         reconcileSync(msg.view);
+        reconcileSecretRolls(msg.view);
       } else if (msg.t === 'sheet') {
         applySheet(msg);
       } else if (msg.t === 'error') {

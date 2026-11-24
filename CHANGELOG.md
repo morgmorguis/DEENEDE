@@ -3,6 +3,26 @@
 Todos los cambios de la app, del más reciente al más antiguo. Las versiones siguen el orden en que se
 publicaron los APK en GitHub Actions.
 
+## 0.32.0 · 24 nov 2026 — Tiradas del DM, inspiración, tablón de la campaña y tienda
+
+**Tiradas**
+- **El DM pide una tirada** (Partida o Combate → 🎲 Tiradas): salvación, habilidad o característica, con CD si quiere, una frase de lo que pasa y a todos o solo a algunos. Atajos para Percepción, Perspicacia, Sigilo, Investigación y las salvaciones más habituales.
+- Al jugador le sale un aviso con su bonificador y si tiene ventaja o desventaja (p. ej. Sentido del peligro del bárbaro). Elige **🎲 Tira la app** o escribe lo que ha sacado en **su dado**; se le suma su bonificador. Puede dejarla para más tarde.
+- El DM ve quién supera la CD (✅/❌), quién falta y el desglose de cada tirada. Se cierra sola cuando han respondido todos.
+- **Tiradas secretas** 🤫: la app del jugador la tira sola sin enseñarle nada y solo el DM ve el resultado.
+- **Tus dados** (DM): d4…d100 o cualquier expresión («2d6+3»), a la vista o **detrás de la pantalla**.
+- **📜 Registro de tiradas** en Partida: las que pide el DM, las suyas a la vista y las del combate compartido.
+
+**Inspiración heroica**
+- El DM la da con el botón **✨** de cada jugador (Partida y Grupo). Llega a la ficha aunque el jugador esté desconectado; si ya la tiene, el botón lo dice.
+
+**Campaña** (pestaña nueva del DM)
+- **🗺️ Misiones** (en curso, cumplida o fallida, quién la encarga) y **👥 Personajes no jugadores** (actitud, dónde se les encuentra y un retrato de tus imágenes), cada uno con **notas secretas** que solo ve el DM. Los jugadores ven en Partida el **tablón de la campaña** con lo que marques como visible.
+- **📖 En la sesión anterior…**: el DM prepara un resumen de la última sesión (combates y bajas, botín, crónicas, PNJ y misiones), como lista sin IA o como relato con Claude, lo revisa y lo comparte. A cada jugador le sale en grande al entrar y se guarda en su grimorio. Nunca cuenta lo oculto.
+
+**Tienda**
+- En **💰 Tesoro → 🏪 Tienda** el DM pone objetos del catálogo o propios con precio y existencias y la abre o la cierra. Los jugadores compran en Partida: se comprueba que les llega el dinero, el objeto va a su ficha y se les cobra al llegar. Las compras quedan en el registro de entregas.
+
 ## 0.31.1 · 23 nov 2026 — Cerrar la partida saca a todos
 
 **Partida**

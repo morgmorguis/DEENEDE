@@ -18,6 +18,7 @@ import type { LootBundle } from '../store';
 import { GearPlus, Modal, NumberInput, Section } from './common';
 import { confirmDelete } from './Confirm';
 import { L, T, locale } from '../i18n';
+import { DmShop } from './Shop';
 
 export function RarityTag({ rarity }: { rarity: Rarity }) {
   return <span className="rarity-tag" style={{ color: RARITY[rarity].color, borderColor: RARITY[rarity].color }}>{L(RARITY[rarity].name)}</span>;
@@ -410,10 +411,11 @@ function GiftRow({ g, dm, me }: { g: Gift; dm: boolean; me?: string }) {
         {dm && !g.delivered && <button className="btn small" onClick={async () => { if (await confirmDelete(T('esta entrega', 'this gift'))) send({ t: 'giftCancel', id: g.id }); }}>✕</button>}
       </div>
       <ul className="gift-lines">
+        {g.inspiration && <li>✨ {T('Inspiración heroica', 'Heroic Inspiration')}</li>}
         {g.coins && hasCoins(g.coins) && <li>💰 {coinsText(g.coins)}</li>}
         {!!g.charge && <li>💸 {T(`Cobra ${valueText(g.charge)}`, `Charges ${valueText(g.charge)}`)}</li>}
         {(g.items ?? []).map((i, k) => <li key={k}><span className="item-dot" style={{ background: RARITY[i.rarity].color }} aria-hidden /> {itemLine(i)} <small className="muted">· {L(RARITY[i.rarity].name)} · {valueText(i.value)}</small></li>)}
-        {g.note && <li className="muted">✉️ {g.note}</li>}
+        {g.note && <li className="muted">{g.shop ? T(`🏪 Compra en ${g.note}`, `🏪 Bought at ${g.note}`) : `✉️ ${g.note}`}</li>}
       </ul>
     </li>
   );
@@ -623,6 +625,7 @@ export function TreasureTab() {
       <Section title={T('Dar oro y objetos', 'Give gold and items')}>
         <GiveForm view={view} />
       </Section>
+      <DmShop view={view} />
       <Section title={T('Registro de entregas', 'Gift log')}>
         {players.length > 0 && (
           <div className="gift-summary">

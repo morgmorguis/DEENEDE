@@ -5,6 +5,20 @@ import type { Member } from '../party/protocol';
 import { Section } from './common';
 import { T, locale } from '../i18n';
 import { setGiveFocus } from './Treasure';
+import { useStore } from '../store';
+
+/** DM: dar Inspiración heroica a un jugador (le llega a la ficha como una entrega) */
+export function InspireButton({ m }: { m: Member }) {
+  const send = useParty((s) => s.send);
+  const pending = useParty((s) => s.view?.gifts.some((g) => g.toId === m.id && g.inspiration && !g.delivered) ?? false);
+  const has = !!m.summary?.inspiration;
+  const who = m.summary?.name ?? m.name;
+  return (
+    <button className={`btn small ${has ? 'insp-on' : ''}`} disabled={has || pending}
+      title={has ? T(`${who} ya tiene Inspiración heroica`, `${who} already has Heroic Inspiration`) : pending ? T('De camino a su ficha', 'On its way to their sheet') : T(`Dar Inspiración heroica a ${who}`, `Give Heroic Inspiration to ${who}`)}
+      onClick={() => { send({ t: 'give', toId: m.id, inspiration: true }); useStore.getState().showToast(T('✨ Inspiración heroica', '✨ Heroic Inspiration'), [T(`Para ${who}. Le llega a la ficha (aunque esté desconectado).`, `For ${who}. It reaches their sheet (even if offline).`)]); }}>✨</button>
+  );
+}
 
 const gp = (n: number) => `${n.toLocaleString(locale(), { maximumFractionDigits: 1 })} ${T('po', 'gp')}`;
 
@@ -30,6 +44,7 @@ function PlayerCard({ m }: { m: Member }) {
       <div className="row">
         <b className="grow">{m.online ? '🟢' : '⚪'} {s.name}</b>
         <span className="small muted">{s.species} {s.className} {s.level}</span>
+        <InspireButton m={m} />
         <button className="btn small" title={T('Dar monedas u objetos', 'Give coins or items')} onClick={() => { setGiveFocus(m.id); window.dispatchEvent(new CustomEvent('dnd-tab', { detail: 'treasure' })); }}>🎁</button>
       </div>
       {s.name !== m.name && <span className="tiny muted">{m.name}</span>}

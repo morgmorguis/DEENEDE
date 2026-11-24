@@ -15,6 +15,8 @@ import { CombatReportModal, saveCombatReport, DmCombatTab, DmLogin, EncounterInv
 import { DmRosterTab } from './components/DmRoster';
 import { TreasureTab } from './components/Treasure';
 import { DmGroupTab } from './components/DmGroup';
+import { DmCampaignTab, RecapNotifier } from './components/Campaign';
+import { RollPrompt } from './components/Rolls';
 import { ImageNotifier } from './components/Images';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TransitionFx, useFx } from './components/Transition';
@@ -25,7 +27,7 @@ import { resumeParty, useParty } from './party/client';
 import { L, T, setLang } from './i18n';
 import { applyScene, setDmIcon } from './scenes';
 
-type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'dmcombat' | 'group' | 'roster' | 'treasure' | 'assistant' | 'rules' | 'settings';
+type Tab = 'sheet' | 'avatar' | 'combat' | 'party' | 'dmcombat' | 'group' | 'campaign' | 'roster' | 'treasure' | 'assistant' | 'rules' | 'settings';
 
 export default function App() {
   const c = useChar();
@@ -108,7 +110,7 @@ export default function App() {
   useEffect(() => {
     if (!avatarOn && tab === 'avatar') setTab('sheet');
     if (dmMode && (tab === 'sheet' || tab === 'avatar' || tab === 'combat' || tab === 'assistant')) setTab('party');
-    if (!dmMode && (tab === 'roster' || tab === 'treasure' || tab === 'group' || tab === 'dmcombat')) setTab('party');
+    if (!dmMode && (tab === 'roster' || tab === 'treasure' || tab === 'group' || tab === 'dmcombat' || tab === 'campaign')) setTab('party');
   }, [dmMode, tab, avatarOn]);
   // En combate, fondo de batalla: el de la partida compartida (el mismo para todos) o el del combate en solitario
   const sharedScene = useParty((s) => s.view?.encounter.scene ?? null);
@@ -130,6 +132,7 @@ export default function App() {
     { id: 'party', icon: 'party', label: T('Partida', 'Game') },
     { id: 'dmcombat', icon: 'combat', label: T('Combate', 'Combat'), dot: sharedCombat ? 'combat' : preparing ? 'online' : undefined },
     { id: 'group', icon: 'group', label: T('Grupo', 'Party') },
+    { id: 'campaign', icon: 'sheet', label: T('Campaña', 'Campaign') },
     { id: 'roster', icon: 'roster', label: T('Personajes', 'Characters') },
     { id: 'treasure', icon: 'treasure', label: T('Tesoro', 'Treasure') },
     { id: 'rules', icon: 'rules', label: T('Reglas', 'Rules') },
@@ -191,6 +194,7 @@ export default function App() {
         {tab === 'roster' && <DmRosterTab />}
         {tab === 'treasure' && <TreasureTab />}
         {tab === 'group' && <DmGroupTab />}
+        {tab === 'campaign' && <DmCampaignTab />}
         {tab === 'dmcombat' && <DmCombatTab />}
         {tab === 'assistant' && <AssistantTab />}
         {tab === 'rules' && <RulesTab />}
@@ -204,6 +208,8 @@ export default function App() {
       <TransitionFx />
       <ImageNotifier />
       <TurnBanner />
+      {!dmMode && <RecapNotifier />}
+      {!dmMode && !needAccept && <RollPrompt />}
       {needAccept && view && (
         <div className="modal-backdrop invite-backdrop">
           <div className="modal invite-modal" role="dialog" aria-label={T('¡Comienza un encuentro!', 'An encounter begins!')}>

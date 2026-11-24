@@ -9,7 +9,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { WebSocketServer } from 'ws';
-import { apply, CAMPAIGN_KIND, canEnter, canSeeImage, createRoom, enterError, exportCampaign, importCampaign, join, newCode, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
+import { apply, CAMPAIGN_KIND, canEnter, canFetchImage, createRoom, enterError, exportCampaign, importCampaign, join, newCode, normalizeRoom, rid, setOnline, viewFor, type Room } from '../src/party/room';
 import { CLOUD_SERVER, type ClientMessage, type Command as ClientCommand, type NetView, type ServerMessage } from '../src/party/protocol';
 import { isLanIp, lanAddress, lanCode } from '../src/party/lanCode';
 import { RelayHost, RelayHub, resolveCloud, type CloudConfig } from './relay';
@@ -431,7 +431,7 @@ const server = http.createServer((req, res) => {
     const member = g?.room.members.find((m) => m.token === url.searchParams.get('t'));
     const meta = g?.room.images.find((x) => x.id === im[1]);
     const file = g ? path.join(g.imgDir, `${im[1]}.jpg`) : '';
-    if (!g || !member || !meta || !canSeeImage(g.room, member, meta) || !fs.existsSync(file)) { res.statusCode = 404; res.end(); return; }
+    if (!g || !member || !meta || !canFetchImage(g.room, member, meta) || !fs.existsSync(file)) { res.statusCode = 404; res.end(); return; }
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Cache-Control', 'private, max-age=86400');
     fs.createReadStream(file).pipe(res);

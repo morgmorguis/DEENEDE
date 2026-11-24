@@ -196,6 +196,27 @@ Return only the text, starting with a short title on the first line.`;
   return textOf(await stream.finalMessage());
 }
 
+/** «En la sesión anterior…»: lo que pasó en la última sesión, contado para leerlo en voz alta al empezar la siguiente */
+export async function recapWithClaude(apiKey: string, model: string, material: string): Promise<string> {
+  const system = getLang() === 'es'
+    ? `Eres el narrador de una campaña de Dungeons & Dragons. Recibes lo que pasó en la última sesión (crónicas, combates, botín, personajes que conocieron y misiones).
+Escribe en español un «En la sesión anterior…» para que el DM lo lea al empezar la siguiente: 1-3 párrafos cortos, en pasado y en segunda persona del plural («llegasteis a…»), con tono de novela de fantasía y un final que deje con ganas de seguir. Después, una lista breve titulada «Misiones pendientes:» si las hay.
+No inventes hechos que no estén en el material ni hables de reglas ni de tiradas. Devuelve solo el texto.`
+    : `You are the narrator of a Dungeons & Dragons campaign. You receive what happened in the last session (chronicles, fights, loot, people met and quests).
+Write a "Previously on…" in English for the DM to read aloud at the start of the next one: 1-3 short paragraphs, past tense, second person plural ("you reached…"), in the tone of a fantasy novel, ending on a hook. Then a short list titled "Open quests:" if there are any.
+Don’t invent events not in the material and don’t talk about rules or dice. Return only the text.`;
+  const stream = client(apiKey).beta.messages.stream({
+    model,
+    max_tokens: 4000,
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    output_config: { effort: 'low' },
+    system,
+    messages: [{ role: 'user', content: `Last session:\n"""\n${material.slice(-20000)}\n"""` }],
+  });
+  return textOf(await stream.finalMessage());
+}
+
 /** Versión sin IA: limpia la transcripción y la agrupa en párrafos. */
 export function narrateOffline(transcript: string): string {
   const sentences = transcript
